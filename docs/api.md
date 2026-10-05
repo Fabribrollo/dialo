@@ -541,8 +541,8 @@ Se crean como stubs en el Sprint 0 (T-05) para que nadie espere a nadie. Cada du
 
 | Función | Ubicación | Dueño | Devuelve | La usan |
 | --- | --- | --- | --- | --- |
-| `areFriends(idA, idB)` | `services/friends.service.js` | B | `Promise<boolean>` | C (crear conversación, enviar mensaje) |
-| `getFriendIds(idUsuario)` | `services/friends.service.js` | B | `Promise<number[]>` | A (`user:updated`) |
+| `areFriends(idA, idB)` | `services/friendsService.js` | B | `Promise<boolean>` | C (crear conversación, enviar mensaje) |
+| `getFriendIds(idUsuario)` | `services/friendsService.js` | B | `Promise<number[]>` | A (`user:updated`) |
 | `emitToUser(idUsuario, evento, payload)` | `sockets/emitter.js` | C | `void` | A, B, C |
 | `emitToConversation(idConversacion, evento, payload)` | `sockets/emitter.js` | C | `void` | C |
 | `joinConversation(idConversacion, idsUsuarios)` | `sockets/emitter.js` | C | `void` | C |

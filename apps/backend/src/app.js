@@ -3,11 +3,11 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { env } from './config/env.js';
 import { errorHandler, notFound } from './middlewares/errorHandler.js';
-import authRoutes from './routes/auth.routes.js';
-import usersRoutes from './routes/users.routes.js';
-import searchRoutes from './routes/search.routes.js';
-import friendsRoutes from './routes/friends.routes.js';
-import conversationsRoutes from './routes/conversations.routes.js';
+import authRoutes from './routes/authRoutes.js';
+import usersRoutes from './routes/usersRoutes.js';
+import searchRoutes from './routes/searchRoutes.js';
+import friendsRoutes from './routes/friendsRoutes.js';
+import conversationsRoutes from './routes/conversationsRoutes.js';
 
 export const app = express();
 

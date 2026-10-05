@@ -1,6 +1,6 @@
 import { env } from '../config/env.js';
 import { SESSION_COOKIE } from '../config/cookies.js';
-import { findAuthUserById, findAuthUserBySessionToken } from '../services/auth.service.js';
+import { findAuthUserById, findAuthUserBySessionToken } from '../services/authService.js';
 
 function readCookie(header, name) {
   if (!header) return null;
