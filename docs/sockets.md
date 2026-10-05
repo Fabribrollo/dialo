@@ -50,18 +50,18 @@ Todo evento **cliente → servidor** recibe un callback de confirmación con una
 
 | Evento | Dirección | Room destino | Lo emite | Lo escucha |
 | --- | --- | --- | --- | --- |
-| `message:send` | cliente → servidor | — | vista de chat | `conversations.socket.js` |
-| `message:edit` | cliente → servidor | — | vista de chat | `conversations.socket.js` |
-| `message:delete` | cliente → servidor | — | vista de chat | `conversations.socket.js` |
-| `message:new` | servidor → cliente | `conversation:<id>` | `conversations.socket.js` | `useMessages`, lista de conversaciones |
-| `message:updated` | servidor → cliente | `conversation:<id>` | `conversations.socket.js` | `useMessages`, lista de conversaciones |
-| `message:deleted` | servidor → cliente | `conversation:<id>` | `conversations.socket.js` | `useMessages`, lista de conversaciones |
-| `conversation:new` | servidor → cliente | `user:<id>` de los dos | `conversations.service` | lista de conversaciones |
-| `friend:request` | servidor → cliente | `user:<id>` de emisor y receptor | `friends.service` | bandeja de solicitudes, solicitudes enviadas, buscador |
-| `friend:accepted` | servidor → cliente | `user:<id>` de emisor y receptor | `friends.service` | `useFriends`, bandeja, buscador |
-| `friend:rejected` | servidor → cliente | `user:<id>` de emisor y receptor | `friends.service` | bandeja, solicitudes enviadas, buscador |
-| `friend:removed` | servidor → cliente | `user:<id>` de los dos | `friends.service` | `useFriends`, lista de conversaciones |
-| `user:updated` | servidor → cliente | `user:<id>` de cada amigo y del propio usuario | `users.service` | store de usuarios |
+| `message:send` | cliente → servidor | — | vista de chat | `conversationsSocket.js` |
+| `message:edit` | cliente → servidor | — | vista de chat | `conversationsSocket.js` |
+| `message:delete` | cliente → servidor | — | vista de chat | `conversationsSocket.js` |
+| `message:new` | servidor → cliente | `conversation:<id>` | `conversationsSocket.js` | `useMessages`, lista de conversaciones |
+| `message:updated` | servidor → cliente | `conversation:<id>` | `conversationsSocket.js` | `useMessages`, lista de conversaciones |
+| `message:deleted` | servidor → cliente | `conversation:<id>` | `conversationsSocket.js` | `useMessages`, lista de conversaciones |
+| `conversation:new` | servidor → cliente | `user:<id>` de los dos | `conversationsService` | lista de conversaciones |
+| `friend:request` | servidor → cliente | `user:<id>` de emisor y receptor | `friendsService` | bandeja de solicitudes, solicitudes enviadas, buscador |
+| `friend:accepted` | servidor → cliente | `user:<id>` de emisor y receptor | `friendsService` | `useFriends`, bandeja, buscador |
+| `friend:rejected` | servidor → cliente | `user:<id>` de emisor y receptor | `friendsService` | bandeja, solicitudes enviadas, buscador |
+| `friend:removed` | servidor → cliente | `user:<id>` de los dos | `friendsService` | `useFriends`, lista de conversaciones |
+| `user:updated` | servidor → cliente | `user:<id>` de cada amigo y del propio usuario | `usersService` | store de usuarios |
 
 ---
 
