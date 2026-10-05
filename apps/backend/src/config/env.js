@@ -6,4 +6,5 @@ export const env = {
   isProduction: process.env.NODE_ENV === 'production',
   resendApiKey: process.env.RESEND_API_KEY || '',
   mailFrom: process.env.MAIL_FROM || '',
+  cloudinaryUrl: process.env.CLOUDINARY_URL || '',
 };
