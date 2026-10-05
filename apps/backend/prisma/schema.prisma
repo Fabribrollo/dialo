@@ -7,3 +7,137 @@ datasource db {
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
+
+enum Disponibilidad {
+  EN_LINEA
+  AUSENTE
+  NO_MOLESTAR
+  INVISIBLE
+
+  @@map("disponibilidad")
+}
+
+enum EstadoSolicitud {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+
+  @@map("estado_solicitud")
+}
+
+model Usuario {
+  id                  Int            @id @default(autoincrement()) @map("id_usuario")
+  nombreUsuario       String         @unique @map("nombre_usuario") @db.VarChar(32)
+  correo              String         @unique @db.VarChar(254)
+  hashContrasena      String         @map("hash_contrasena")
+  nombreVisible       String         @map("nombre_visible") @db.VarChar(64)
+  fotoUrl             String?        @map("foto_url")
+  informacionPersonal String?        @map("informacion_personal") @db.VarChar(500)
+  disponibilidad      Disponibilidad @default(EN_LINEA)
+  fechaCreacion       DateTime       @default(now()) @map("fecha_creacion")
+
+  sesiones             Sesion[]
+  recuperaciones       RecuperacionCuenta[]
+  solicitudesEnviadas  SolicitudAmistad[]    @relation("SolicitudEmisor")
+  solicitudesRecibidas SolicitudAmistad[]    @relation("SolicitudReceptor")
+  amistadesComoA       Amistad[]             @relation("AmistadUsuarioA")
+  amistadesComoB       Amistad[]             @relation("AmistadUsuarioB")
+  conversacionesComoA  ConversacionPrivada[] @relation("ConversacionUsuarioA")
+  conversacionesComoB  ConversacionPrivada[] @relation("ConversacionUsuarioB")
+  mensajesEscritos     Mensaje[]             @relation("MensajeAutor")
+  mensajesEliminados   Mensaje[]             @relation("MensajeEliminadoPor")
+
+  @@map("usuario")
+}
+
+model Sesion {
+  id              Int       @id @default(autoincrement()) @map("id_sesion")
+  idUsuario       Int       @map("id_usuario")
+  hashToken       String    @unique @map("hash_token")
+  fechaCreacion   DateTime  @default(now()) @map("fecha_creacion")
+  fechaExpiracion DateTime  @map("fecha_expiracion")
+  fechaRevocacion DateTime? @map("fecha_revocacion")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([idUsuario])
+  @@map("sesion")
+}
+
+model RecuperacionCuenta {
+  id               Int       @id @default(autoincrement()) @map("id_recuperacion")
+  idUsuario        Int       @map("id_usuario")
+  hashToken        String    @unique @map("hash_token")
+  fechaCreacion    DateTime  @default(now()) @map("fecha_creacion")
+  fechaExpiracion  DateTime  @map("fecha_expiracion")
+  fechaUtilizacion DateTime? @map("fecha_utilizacion")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+
+  @@index([idUsuario])
+  @@map("recuperacion_cuenta")
+}
+
+model SolicitudAmistad {
+  id             Int             @id @default(autoincrement()) @map("id_solicitud")
+  idEmisor       Int             @map("id_emisor")
+  idReceptor     Int             @map("id_receptor")
+  estado         EstadoSolicitud @default(PENDIENTE)
+  fechaCreacion  DateTime        @default(now()) @map("fecha_creacion")
+  fechaRespuesta DateTime?       @map("fecha_respuesta")
+
+  emisor   Usuario @relation("SolicitudEmisor", fields: [idEmisor], references: [id], onDelete: Cascade)
+  receptor Usuario @relation("SolicitudReceptor", fields: [idReceptor], references: [id], onDelete: Cascade)
+
+  @@index([idReceptor, estado])
+  @@index([idEmisor, estado])
+  @@map("solicitud_amistad")
+}
+
+model Amistad {
+  idUsuarioA    Int      @map("id_usuario_a")
+  idUsuarioB    Int      @map("id_usuario_b")
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+
+  usuarioA Usuario @relation("AmistadUsuarioA", fields: [idUsuarioA], references: [id], onDelete: Cascade)
+  usuarioB Usuario @relation("AmistadUsuarioB", fields: [idUsuarioB], references: [id], onDelete: Cascade)
+
+  @@id([idUsuarioA, idUsuarioB])
+  @@index([idUsuarioB])
+  @@map("amistad")
+}
+
+model ConversacionPrivada {
+  id            Int      @id @default(autoincrement()) @map("id_conversacion")
+  idUsuarioA    Int      @map("id_usuario_a")
+  idUsuarioB    Int      @map("id_usuario_b")
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+
+  usuarioA Usuario   @relation("ConversacionUsuarioA", fields: [idUsuarioA], references: [id], onDelete: Cascade)
+  usuarioB Usuario   @relation("ConversacionUsuarioB", fields: [idUsuarioB], references: [id], onDelete: Cascade)
+  mensajes Mensaje[]
+
+  @@unique([idUsuarioA, idUsuarioB])
+  @@index([idUsuarioB])
+  @@map("conversacion_privada")
+}
+
+model Mensaje {
+  id                   Int       @id @default(autoincrement()) @map("id_mensaje")
+  idAutor              Int       @map("id_autor")
+  idConversacion       Int?      @map("id_conversacion")
+  idCanal              Int?      @map("id_canal")
+  contenido            String    @db.VarChar(2000)
+  fechaCreacion        DateTime  @default(now()) @map("fecha_creacion")
+  fechaEdicion         DateTime? @map("fecha_edicion")
+  fechaEliminacion     DateTime? @map("fecha_eliminacion")
+  idUsuarioEliminacion Int?      @map("id_usuario_eliminacion")
+
+  autor        Usuario              @relation("MensajeAutor", fields: [idAutor], references: [id], onDelete: Cascade)
+  conversacion ConversacionPrivada? @relation(fields: [idConversacion], references: [id], onDelete: Cascade)
+  eliminadoPor Usuario?             @relation("MensajeEliminadoPor", fields: [idUsuarioEliminacion], references: [id], onDelete: SetNull)
+
+  @@index([idConversacion, fechaCreacion])
+  @@index([idCanal, fechaCreacion])
+  @@map("mensaje")
+}
