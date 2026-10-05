@@ -30,6 +30,21 @@ function parOrdenado(idA, idB) {
     : { idUsuarioA: idB, idUsuarioB: idA };
 }
 
+// Campos de una amistad: los dos usuarios con sus datos publicos y la fecha.
+const amistadSelect = {
+  fechaCreacion: true,
+  usuarioA: { select: usuarioPublicoSelect },
+  usuarioB: { select: usuarioPublicoSelect },
+};
+
+// Arma la forma "Amigo" del contrato desde el punto de vista de idUsuario:
+// "usuario" es siempre la otra persona del par.
+function toAmigo(amistad, idUsuario) {
+  const otro =
+    amistad.usuarioA.id === idUsuario ? amistad.usuarioB : amistad.usuarioA;
+  return { usuario: toUsuarioPublico(otro), desde: amistad.fechaCreacion };
+}
+
 //Si dos usuarios son amigos
 // la usan las conversaciones privadas, antes de crear una conversacion o enviar un mensaje
 export async function areFriends(idUsuarioA, idUsuarioB) {
@@ -174,4 +189,123 @@ export async function sendRequest(idEmisor, idReceptor) {
   for (const id of [idEmisor, idReceptor])
     emitToUser(id, EVENTS.FRIEND_REQUEST, { solicitud });
   return solicitud;
+}
+
+// GET /api/friends/requests?tipo=...
+// Solo las pendientes, de la más nueva a la mas vieja.
+export async function listRequests(idUsuario, tipo) {
+  const solicitudes = await prisma.solicitudAmistad.findMany({
+    where: {
+      estado: "PENDIENTE",
+      ...(tipo === "recibidas"
+        ? { idReceptor: idUsuario }
+        : { idEmisor: idUsuario }),
+    },
+    select: solicitudSelect,
+    orderBy: { fechaCreacion: "desc" },
+  });
+  return solicitudes.map(toSolicitud);
+}
+
+// Busca una solicitud que el usuario pueda responder: tiene que existir,
+// el usuario tiene que ser el receptor y tiene que seguir pendiente.
+async function findRequestToRespond(idSolicitud, idUsuario) {
+  const solicitud = await prisma.solicitudAmistad.findUnique({
+    where: { id: idSolicitud },
+    select: { id: true, idEmisor: true, idReceptor: true, estado: true },
+  });
+  if (!solicitud)
+    throw new AppError(404, "REQUEST_NOT_FOUND", "La solicitud no existe");
+  if (solicitud.idReceptor !== idUsuario) {
+    throw new AppError(
+      403,
+      "NOT_RECEIVER",
+      "Solo quien recibió la solicitud puede responderla",
+    );
+  }
+  if (solicitud.estado !== "PENDIENTE") {
+    throw new AppError(
+      409,
+      "REQUEST_NOT_PENDING",
+      "La solicitud ya fue respondida",
+    );
+  }
+  return solicitud;
+}
+
+// Cambia el estado solo si sigue PENDIENTE, en una única operacion.
+// Si dos respuestas llegan a la vez, solo una actualiza; la otra recibe REQUEST_NOT_PENDING.
+async function marcarRespondida(tx, idSolicitud, estado) {
+  const { count } = await tx.solicitudAmistad.updateMany({
+    where: { id: idSolicitud, estado: "PENDIENTE" },
+    data: { estado, fechaRespuesta: new Date() },
+  });
+  if (count === 0)
+    throw new AppError(
+      409,
+      "REQUEST_NOT_PENDING",
+      "La solicitud ya fue respondida",
+    );
+}
+
+// POST /api/friends/requests/:id/accept
+// En una transacción: marca la solicitud como ACEPTADA y crea la amistad.
+// Si algo falla, no queda ninguna de las dos cosas a medias.
+export async function acceptRequest(idSolicitud, idUsuario) {
+  const solicitud = await findRequestToRespond(idSolicitud, idUsuario);
+
+  const amistad = await prisma.$transaction(async (tx) => {
+    await marcarRespondida(tx, idSolicitud, "ACEPTADA");
+    return tx.amistad.create({
+      data: parOrdenado(solicitud.idEmisor, solicitud.idReceptor),
+      select: amistadSelect,
+    });
+  });
+
+  // Cada uno recibe como "amigo" a la otra persona.
+  emitToUser(solicitud.idEmisor, EVENTS.FRIEND_ACCEPTED, {
+    idSolicitud,
+    amigo: toAmigo(amistad, solicitud.idEmisor),
+  });
+  const amigo = toAmigo(amistad, idUsuario);
+  emitToUser(idUsuario, EVENTS.FRIEND_ACCEPTED, { idSolicitud, amigo });
+  return amigo;
+}
+
+// POST /api/friends/requests/:id/reject
+// Marca la solicitud como RECHAZADA,despues se puede volver a solicitar.
+export async function rejectRequest(idSolicitud, idUsuario) {
+  const solicitud = await findRequestToRespond(idSolicitud, idUsuario);
+  await marcarRespondida(prisma, idSolicitud, "RECHAZADA");
+
+  for (const id of [solicitud.idEmisor, idUsuario])
+    emitToUser(id, EVENTS.FRIEND_REJECTED, { idSolicitud });
+}
+
+// GET /api/friends
+// Amigos del usuario, ordenados por nombre visible.
+export async function listFriends(idUsuario) {
+  const amistades = await prisma.amistad.findMany({
+    where: { OR: [{ idUsuarioA: idUsuario }, { idUsuarioB: idUsuario }] },
+    select: amistadSelect,
+  });
+  return amistades
+    .map((a) => toAmigo(a, idUsuario))
+    .sort((x, y) =>
+      x.usuario.nombreVisible.localeCompare(y.usuario.nombreVisible),
+    );
+}
+
+// DELETE /api/friends/:idUsuario
+// Borra solo la fila de amistad: la conversacio y sus mensajes se conservan.
+export async function removeFriend(idUsuario, idAmigo) {
+  const { count } = await prisma.amistad.deleteMany({
+    where: parOrdenado(idUsuario, idAmigo),
+  });
+  if (count === 0)
+    throw new AppError(404, "FRIENDSHIP_NOT_FOUND", "No son amigos");
+
+  // Cada uno recibe el id de la otra persona.
+  emitToUser(idUsuario, EVENTS.FRIEND_REMOVED, { idUsuario: idAmigo });
+  emitToUser(idAmigo, EVENTS.FRIEND_REMOVED, { idUsuario });
 }

@@ -14,3 +14,18 @@ export const searchQuerySchema = z.object({
 export const sendRequestSchema = z.object({
   idReceptor: z.number().int().positive(),
 });
+
+// GET /api/friends/requests?tipo=recibidas|enviadas
+export const listRequestsQuerySchema = z.object({
+  tipo: z.enum(["recibidas", "enviadas"]),
+});
+
+// :id de la solicitud en /requests/:id/accept y /requests/:id/reject
+export const requestIdParamsSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+// :idUsuario del amigo en DELETE /api/friends/:idUsuario
+export const friendIdParamsSchema = z.object({
+  idUsuario: z.coerce.number().int().positive(),
+});
