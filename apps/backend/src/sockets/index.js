@@ -1,9 +1,12 @@
-export function initSockets(io) {
-  io.on('connection', (socket) => {
-    console.log(`socket conectado: ${socket.id}`);
+import { authenticateSocket } from './authenticate.js';
+import { initEmitter, rooms } from './emitter.js';
 
-    socket.on('disconnect', () => {
-      console.log(`socket desconectado: ${socket.id}`);
-    });
+export function initSockets(io) {
+  initEmitter(io);
+  io.use(authenticateSocket);
+
+  io.on('connection', (socket) => {
+    const { user } = socket.data;
+    socket.join(rooms.user(user.id));
   });
 }

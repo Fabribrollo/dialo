@@ -37,7 +37,10 @@ Se tomaron para poder cerrar el contrato. Revísenlas en la sesión conjunta.
 
 ### Autenticación
 
-- Sesión guardada en la tabla `sesion`. El token viaja en la cookie **`dialo_sid`**: `httpOnly`, `sameSite: lax`, `secure` en producción, duración 30 días.
+- Sesión guardada en la tabla `sesion`. El token viaja en la cookie **`dialo_sid`**, `httpOnly`, con duración de 30 días. Las opciones están centralizadas en `config/cookies.js`:
+  - Desarrollo: `sameSite: lax`, sin `secure`. Front y API comparten origen gracias al proxy de Vite.
+  - Producción: `sameSite: none` + `secure`. Front y back quedan en dominios distintos (por ejemplo Vercel y Render) y con `lax` el navegador no mandaría la cookie.
+- El front manda `credentials: 'include'` en cada request, y CORS acepta solo `CLIENT_URL` con `credentials: true`.
 - La base guarda solo el hash del token.
 - Rutas marcadas **Auth: sí** responden `401 UNAUTHORIZED` sin sesión válida (inexistente, vencida o revocada).
 
@@ -68,6 +71,10 @@ Todas las respuestas de error tienen esta forma:
 - `code`: lo que lee el front para decidir qué hacer. Estable, en inglés, MAYÚSCULAS.
 - `message`: texto para mostrar al usuario, en español.
 - `details`: solo en `VALIDATION_ERROR`, una entrada por campo inválido: `{ "campo": "correo", "message": "Correo inválido" }`.
+
+### Conflictos de la base
+
+Si una restricción única de la base frena un insert (por ejemplo, dos solicitudes simultáneas), el `errorHandler` responde `409` con el código de la tabla: `REQUEST_EXISTS`, `ALREADY_FRIENDS`, `USERNAME_TAKEN`, `EMAIL_TAKEN`, `CONVERSATION_EXISTS` o `CONFLICT` si no hay uno específico. Los services igual validan antes, para devolver el error sin depender de la base.
 
 ### Paginación
 
@@ -550,7 +557,9 @@ Se crean como stubs en el Sprint 0 (T-05) para que nadie espere a nadie. Cada du
 | --- | --- | --- |
 | `VALIDATION_ERROR` | 400 | todas |
 | `UNAUTHORIZED` | 401 | todas |
-| `NOT_FOUND` | 404 | ruta inexistente |
+| `NOT_FOUND` | 404 | ruta o recurso inexistente |
+| `CONFLICT` | 409 | todas (restricción única sin código propio) |
+| `PAYLOAD_TOO_LARGE` | 413 | todas |
 | `INTERNAL_ERROR` | 500 | todas |
 | `USERNAME_TAKEN` | 409 | auth |
 | `EMAIL_TAKEN` | 409 | auth |
@@ -567,6 +576,7 @@ Se crean como stubs en el Sprint 0 (T-05) para que nadie espere a nadie. Cada du
 | `FRIENDSHIP_NOT_FOUND` | 404 | friends |
 | `NOT_FRIENDS` | 403 | conversations |
 | `SELF_CONVERSATION` | 400 | conversations |
+| `CONVERSATION_EXISTS` | 409 | conversations (carrera al crear) |
 | `CONVERSATION_NOT_FOUND` | 404 | conversations |
 | `NOT_PARTICIPANT` | 403 | conversations |
 | `MESSAGE_NOT_FOUND` | 404 | conversations (socket) |

@@ -15,7 +15,7 @@ Versión 1 · Estado: **borrador para revisar entre los tres**. Se acuerda junto
 
 ### Conexión
 
-1. El front abre **una sola** conexión después del login (`SocketContext`) y la cierra en el logout.
+1. El front abre **una sola** conexión después del login (`SocketContext`) y la cierra en el logout. En producción el back está en otro dominio, así que el cliente se conecta a `VITE_SOCKET_URL` con `withCredentials: true` para que viaje la cookie.
 2. La cookie `dialo_sid` viaja en el handshake. Un middleware de socket.io busca la sesión con el mismo criterio que `requireAuth` y guarda en `socket.data.user` la misma forma que `req.user`.
 3. Sin sesión válida, la conexión se rechaza con el error `UNAUTHORIZED`. El front lo recibe en `connect_error` y redirige al login.
    - **Solo en desarrollo** (`NODE_ENV` distinto de `production`): si el handshake trae `auth: { devUserId }`, el middleware usa ese usuario sin pedir cookie. Es el equivalente de `devAuth` y permite probar el chat antes de que exista el login. En el front: `io({ auth: { devUserId: 1 } })`.
