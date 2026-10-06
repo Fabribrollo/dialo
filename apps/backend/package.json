@@ -8,6 +8,8 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "test:conversations": "node --test test/conversations.test.js",
+    "test:messages": "node --test test/messages.test.js",
+    "smoke:messages": "node test/messages.smoke.js",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",

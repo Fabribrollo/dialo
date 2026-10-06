@@ -16,12 +16,14 @@ Versión 1 · Estado: **borrador para revisar entre los tres**. Se acuerda junto
 ### Conexión
 
 1. El front abre **una sola** conexión después del login (`SocketContext`) y la cierra en el logout. En producción el back está en otro dominio, así que el cliente se conecta a `VITE_SOCKET_URL` con `withCredentials: true` para que viaje la cookie.
-2. La cookie `dialo_sid` viaja en el handshake. Un middleware de socket.io busca la sesión con el mismo criterio que `requireAuth` y guarda en `socket.data.user` la misma forma que `req.user`.
+2. La cookie `dialo_sid` viaja en el handshake. `authenticateSocket` reutiliza `findAuthUserBySessionToken`, igual que la autenticación HTTP, y guarda en `socket.data.user` la misma forma que `req.user`.
 3. Sin sesión válida, la conexión se rechaza con el error `UNAUTHORIZED`. El front lo recibe en `connect_error` y redirige al login.
    - **Solo en desarrollo** (`NODE_ENV` distinto de `production`): si el handshake trae `auth: { devUserId }`, el middleware usa ese usuario sin pedir cookie. Es el equivalente de `devAuth` y permite probar el chat antes de que exista el login. En el front: `io({ auth: { devUserId: 1 } })`.
 4. Al conectarse, el servidor une el socket a:
    - `user:<id>` — su room personal.
    - `conversation:<id>` — una por cada conversación del usuario.
+5. Antes de cada operación de mensajes se vuelve a comprobar la sesión en la base. Si fue revocada o venció, se responde ack `UNAUTHORIZED` y se desconecta ese socket, retirándolo de sus rooms. Esta detección se realiza al intentar una operación; no hay sondeo periódico de sesiones inactivas. En desarrollo también se vuelve a comprobar la existencia del usuario de prueba.
+6. El primer evento puede enviarse al conectar: sus handlers esperan la inicialización de rooms antes de procesarlo. Las reconexiones recuperan las rooms de conversaciones existentes, incluso si ya no hay amistad.
 
 ### Rooms
 
@@ -43,6 +45,8 @@ Todo evento **cliente → servidor** recibe un callback de confirmación con una
 ```
 
 `error` tiene la misma forma que en la API (incluido `details` en `VALIDATION_ERROR`).
+
+Todos los eventos de mensajes pueden devolver `UNAUTHORIZED`. Ante fallas internas se devuelve `INTERNAL_ERROR` sin datos de la base ni credenciales. Los IDs deben ser números enteros positivos dentro del rango de PostgreSQL (hasta 2147483647); no se aceptan strings numéricos. El autor y el usuario que elimina se obtienen de la sesión: campos adicionales de identidad en el payload no se utilizan.
 
 ---
 
@@ -78,6 +82,8 @@ Payload:
 
 El servidor valida, verifica que el usuario participe y que sigan siendo amigos, guarda el mensaje y emite `message:new` a la room.
 
+El contenido se recorta en sus extremos antes de validar: debe tener entre 1 y 2000 caracteres. Los mensajes compuestos solo por espacios se rechazan. El mismo criterio se aplica en `message:edit`.
+
 Ack `ok`:
 ```json
 { "ok": true, "data": { "mensaje": "Mensaje" } }
@@ -102,6 +108,8 @@ Payload:
 
 Actualiza `contenido` y `fecha_edicion`, y emite `message:updated` a la room.
 
+La edición exige autoría y participación. Puede corregirse un mensaje anterior después de perder la amistad; esa pérdida solo impide nuevos envíos. Un mensaje eliminado no puede editarse ni restaurarse.
+
 Ack `ok`:
 ```json
 { "ok": true, "data": { "mensaje": "Mensaje" } }
@@ -114,6 +122,7 @@ Errores:
 | `MESSAGE_NOT_FOUND` | el mensaje no existe |
 | `NOT_AUTHOR` | el usuario no es el autor |
 | `MESSAGE_DELETED` | el mensaje ya fue eliminado |
+| `NOT_PARTICIPANT` | el autor no pertenece a la conversación privada |
 
 ### message:delete
 
@@ -126,6 +135,8 @@ Payload:
 
 Completa `fecha_eliminacion` e `id_usuario_eliminacion`, y emite `message:deleted` a la room.
 
+Es una eliminación lógica: se conserva la fila y los datos de auditoría. No se devuelve el contenido en el ack ni en el evento; T-10 lo representa con contenido nulo en detalle, listado e historial. La autoría y participación siguen siendo obligatorias, aunque ya no haya amistad. Los mensajes de canales quedan fuera de estas operaciones.
+
 Ack `ok`:
 ```json
 { "ok": true, "data": { "idMensaje": 120 } }
@@ -137,6 +148,8 @@ Errores:
 | `MESSAGE_NOT_FOUND` | el mensaje no existe |
 | `NOT_AUTHOR` | el usuario no es el autor |
 | `MESSAGE_DELETED` | ya estaba eliminado |
+| `VALIDATION_ERROR` | `idMensaje` ausente o inválido |
+| `NOT_PARTICIPANT` | el autor no pertenece a la conversación privada |
 
 ### message:new
 
