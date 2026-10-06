@@ -30,6 +30,7 @@ export function BuscadorUsuarios({ friends }) {
   const ultimaBusqueda = useRef(0);
 
   useEffect(() => {
+    const numero = ++ultimaBusqueda.current;
     const texto = q.trim();
     if (texto.length < 2) {
       setResultados([]);
@@ -38,7 +39,6 @@ export function BuscadorUsuarios({ friends }) {
     }
 
     // Cada búsqueda tiene un nro. Si llega la respuesta de una busqueda vieja, se ignora.
-    const numero = ++ultimaBusqueda.current;
     setEstado("cargando");
 
     // Espera 300 ms sin escribir antes de buscar, para no mandar un pedido por cada tecla.
@@ -55,7 +55,10 @@ export function BuscadorUsuarios({ friends }) {
       }
     }, 300);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      ultimaBusqueda.current++;
+    };
   }, [q, intento]);
 
   return (
