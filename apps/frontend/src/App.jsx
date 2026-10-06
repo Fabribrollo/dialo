@@ -1,34 +1,32 @@
-import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { API_URL } from './constants/api.js';
-
-function Placeholder({ name }) {
-  return <h1>{name}</h1>;
-}
-
-function HealthCheck() {
-  const [status, setStatus] = useState('verificando…');
-
-  useEffect(() => {
-    fetch(`${API_URL}/health`)
-      .then((res) => res.json())
-      .then((data) => setStatus(data.status))
-      .catch(() => setStatus('sin conexión con la API'));
-  }, []);
-
-  return <p>API: {status}</p>;
-}
+import GuestRoute from './components/GuestRoute.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import { SocketProvider } from './context/SocketContext.jsx';
+import { useAuth } from './hooks/useAuth.js';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
+import LoginPage from './pages/LoginPage.jsx';
+import ProfilePage from './pages/ProfilePage.jsx';
+import RegisterPage from './pages/RegisterPage.jsx';
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 
 export default function App() {
+  const { estado } = useAuth();
+
   return (
-    <>
-      <HealthCheck />
+    <SocketProvider enabled={estado === 'logueado'}>
       <Routes>
-        <Route path="/login" element={<Placeholder name="Login" />} />
-        <Route path="/register" element={<Placeholder name="Registro" />} />
-        <Route path="/app" element={<Placeholder name="App" />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route element={<GuestRoute />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+        </Route>
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={null} />
+          <Route path="/perfil" element={<ProfilePage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </>
+    </SocketProvider>
   );
 }
