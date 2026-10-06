@@ -520,6 +520,8 @@ Auth: sí
 
 Historial paginado, **más nuevos primero**. `cursor` es el `id` del mensaje más viejo que ya tiene el front; sin `cursor`, trae los últimos. El front invierte el orden para mostrarlos.
 
+`limit` vale 30 por defecto y admite de 1 a 50. Se ordena por `fechaCreacion` descendente y, ante fechas iguales, por `id` descendente. El cursor debe existir y pertenecer a esta conversación. Los mensajes eliminados siguen formando parte del historial con `contenido: null` y `eliminado: true`. `nextCursor` es `null` cuando no quedan mensajes anteriores.
+
 `200`:
 ```json
 { "items": ["Mensaje"], "nextCursor": 91 }
@@ -530,6 +532,7 @@ Errores:
 | --- | --- | --- |
 | 404 | `CONVERSATION_NOT_FOUND` | no existe |
 | 403 | `NOT_PARTICIPANT` | el usuario actual no participa |
+| 400 | `VALIDATION_ERROR` | parámetros inválidos o cursor inexistente/de otra conversación |
 
 Enviar, editar y eliminar mensajes: por socket, ver [sockets.md](./sockets.md).
 
