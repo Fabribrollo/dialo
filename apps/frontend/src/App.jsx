@@ -8,24 +8,35 @@ import LoginPage from "./pages/LoginPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
 import RegisterPage from "./pages/RegisterPage.jsx";
 import ResetPasswordPage from "./pages/ResetPasswordPage.jsx";
+import AuthLayout from "./components/AuthLayout.jsx";
+import AppShell from "./components/AppShell.jsx";
+import ConversationsPage from "./pages/ConversationsPage.jsx";
 import AmigosPage from "./pages/AmigosPage.jsx";
 
 export default function App() {
-  const { estado } = useAuth();
+  const { estado, usuario } = useAuth();
 
   return (
-    <SocketProvider enabled={estado === "logueado"}>
+    <SocketProvider
+      key={usuario?.id ?? "guest"}
+      enabled={estado === "logueado"}
+    >
       <Routes>
-        <Route element={<GuestRoute />}>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
+        <Route element={<AuthLayout />}>
+          <Route element={<GuestRoute />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+          </Route>
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
         </Route>
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/" element={null} />
-          <Route path="/perfil" element={<ProfilePage />} />
-          <Route path="/amigos" element={<AmigosPage />} />
+          <Route element={<AppShell />}>
+            <Route path="/" element={<ConversationsPage />} />
+            <Route path="/conversaciones/:id" element={<ConversationsPage />} />
+            <Route path="/perfil" element={<ProfilePage />} />
+            <Route path="/amigos" element={<AmigosPage />} />
+          </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
