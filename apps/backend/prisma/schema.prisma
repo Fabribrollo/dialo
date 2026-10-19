@@ -25,6 +25,39 @@ enum EstadoSolicitud {
   @@map("estado_solicitud")
 }
 
+enum TipoComunidad {
+  PUBLICA
+  PRIVADA
+
+  @@map("tipo_comunidad")
+}
+
+enum RolComunidad {
+  PROPIETARIO
+  ADMIN
+  MODERADOR
+  INTEGRANTE
+
+  @@map("rol_comunidad")
+}
+
+enum TipoCanal {
+  TEXTO
+  VOZ
+  VIDEO
+
+  @@map("tipo_canal")
+}
+
+enum PermisoCanal {
+  VER
+  ESCRIBIR
+  HABLAR
+  TRANSMITIR
+
+  @@map("permiso_canal")
+}
+
 model Usuario {
   id                  Int            @id @default(autoincrement()) @map("id_usuario")
   nombreUsuario       String         @unique @map("nombre_usuario") @db.VarChar(32)
@@ -46,6 +79,8 @@ model Usuario {
   conversacionesComoB  ConversacionPrivada[] @relation("ConversacionUsuarioB")
   mensajesEscritos     Mensaje[]             @relation("MensajeAutor")
   mensajesEliminados   Mensaje[]             @relation("MensajeEliminadoPor")
+  membresias           Membresia[]
+  invitacionesCreadas  Invitacion[]          @relation("InvitacionCreador")
 
   @@map("usuario")
 }
@@ -135,9 +170,102 @@ model Mensaje {
 
   autor        Usuario              @relation("MensajeAutor", fields: [idAutor], references: [id], onDelete: Cascade)
   conversacion ConversacionPrivada? @relation(fields: [idConversacion], references: [id], onDelete: Cascade)
+  canal        Canal?               @relation(fields: [idCanal], references: [id], onDelete: Cascade)
   eliminadoPor Usuario?             @relation("MensajeEliminadoPor", fields: [idUsuarioEliminacion], references: [id], onDelete: SetNull)
 
   @@index([idConversacion, fechaCreacion])
   @@index([idCanal, fechaCreacion])
   @@map("mensaje")
+}
+
+model Comunidad {
+  id            Int           @id @default(autoincrement()) @map("id_comunidad")
+  nombre        String        @db.VarChar(64)
+  imagenUrl     String?       @map("imagen_url")
+  tipo          TipoComunidad @default(PRIVADA)
+  fechaCreacion DateTime      @default(now()) @map("fecha_creacion")
+
+  membresias   Membresia[]
+  invitaciones Invitacion[]
+  canales      Canal[]
+
+  @@index([tipo])
+  @@map("comunidad")
+}
+
+model Membresia {
+  idComunidad  Int          @map("id_comunidad")
+  idUsuario    Int          @map("id_usuario")
+  rol          RolComunidad @default(INTEGRANTE)
+  fechaIngreso DateTime     @default(now()) @map("fecha_ingreso")
+
+  comunidad      Comunidad      @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+  usuario        Usuario        @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  habilitaciones CanalUsuario[]
+
+  @@id([idComunidad, idUsuario])
+  @@index([idUsuario, fechaIngreso])
+  @@map("membresia")
+}
+
+model Invitacion {
+  id              Int       @id @default(autoincrement()) @map("id_invitacion")
+  idComunidad     Int       @map("id_comunidad")
+  idCreador       Int       @map("id_creador")
+  codigo          String    @unique @db.VarChar(16)
+  usosMaximos     Int?      @map("usos_maximos")
+  usos            Int       @default(0)
+  fechaExpiracion DateTime? @map("fecha_expiracion")
+  fechaRevocacion DateTime? @map("fecha_revocacion")
+  fechaCreacion   DateTime  @default(now()) @map("fecha_creacion")
+
+  comunidad Comunidad @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+  creador   Usuario   @relation("InvitacionCreador", fields: [idCreador], references: [id], onDelete: Cascade)
+
+  @@index([idComunidad, fechaCreacion])
+  @@map("invitacion")
+}
+
+model Canal {
+  id            Int       @id @default(autoincrement()) @map("id_canal")
+  idComunidad   Int       @map("id_comunidad")
+  nombre        String    @db.VarChar(32)
+  tipo          TipoCanal @default(TEXTO)
+  privado       Boolean   @default(false)
+  posicion      Int       @default(0)
+  fechaCreacion DateTime  @default(now()) @map("fecha_creacion")
+
+  comunidad             Comunidad      @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+  habilitacionesRol     CanalRol[]
+  habilitacionesUsuario CanalUsuario[]
+  mensajes              Mensaje[]
+
+  @@unique([id, idComunidad])
+  @@index([idComunidad, posicion])
+  @@map("canal")
+}
+
+model CanalRol {
+  idCanal  Int            @map("id_canal")
+  rol      RolComunidad
+  permisos PermisoCanal[]
+
+  canal Canal @relation(fields: [idCanal], references: [id], onDelete: Cascade)
+
+  @@id([idCanal, rol])
+  @@map("canal_rol")
+}
+
+model CanalUsuario {
+  idCanal     Int            @map("id_canal")
+  idComunidad Int            @map("id_comunidad")
+  idUsuario   Int            @map("id_usuario")
+  permisos    PermisoCanal[]
+
+  canal     Canal     @relation(fields: [idCanal, idComunidad], references: [id, idComunidad], onDelete: Cascade)
+  membresia Membresia @relation(fields: [idComunidad, idUsuario], references: [idComunidad, idUsuario], onDelete: Cascade)
+
+  @@id([idCanal, idUsuario])
+  @@index([idComunidad, idUsuario])
+  @@map("canal_usuario")
 }
