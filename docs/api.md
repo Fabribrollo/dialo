@@ -4,6 +4,8 @@ Versión 1 · Estado: **borrador para revisar entre los tres**. Una vez acordado
 
 Eventos en tiempo real: ver [sockets.md](./sockets.md).
 
+Comunidades, invitaciones, canales y mensajes de canal (Entrega 50%): ver [comunidades.md](./comunidades.md).
+
 ---
 
 ## Decisiones tomadas en este borrador
