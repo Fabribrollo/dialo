@@ -1,5 +1,7 @@
 # Contrato de eventos socket — Dialo
 
+Eventos de comunidades y canales (Entrega 50%): ver [comunidades.md](./comunidades.md#eventos-de-socket).
+
 Versión 1 · Estado: **borrador para revisar entre los tres**. Se acuerda junto con [api.md](./api.md): cada línea "Socket:" de ese archivo apunta a un evento de acá.
 
 ---
