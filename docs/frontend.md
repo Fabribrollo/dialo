@@ -210,3 +210,114 @@ Express, Prisma y Socket.IO reales sobre una base local PGlite aislada. Se
 verificaron dos pestañas, permisos, orden por teclado, recarga, confirmaciones y
 anchos de 320/390/1366 px. La comprobación contra la instancia del equipo se
 realiza manualmente; los tests de componente usan servicios simulados.
+
+## T-27 — Chat de canales y diseño integrado
+
+La navegación global es superior en escritorio y pasa a una barra inferior en
+celular. Mensajes privados, comunidades, integrantes, invitaciones, administración,
+perfil y pantallas de acceso comparten fondos neutros cálidos, navegación azul profundo, secciones activas petróleo, acentos naranja,
+títulos monoespaciados y texto oscuro. Los nombres y textos se ajustan al ancho sin
+elipsis. El chat privado abre una conversación por vez y permite volver a la lista.
+
+En `/comunidades/:id/canales` se presenta el catálogo; al abrir un canal, la lista
+se contrae en **Cambiar canal**. Actualizar, crear y ordenar están dentro de ese
+selector. Editar, permisos y eliminar siguen disponibles solo para administración.
+Los canales de voz/video mantienen el aviso de próximas entregas.
+
+El chat de texto integra:
+
+- Historial inicial y carga de mensajes anteriores mediante T-25.
+- Alta de la suscripción T-23 antes del GET del historial; deduplicación por ID
+  entre HTTP, eventos T-26 y ack, con versiones de edición y tombstones de borrado.
+- Múltiples autores, perfil público vigente, fecha, hora y mensajes eliminados por
+  el autor o por moderación.
+- Envío/edición/eliminación propios con `ESCRIBIR`. Moderación con `VER`, rol mínimo
+  moderador y jerarquía estrictamente superior a la del autor actual. Un autor
+  que abandonó tiene rango cero. No se ofrece edición de mensajes ajenos.
+- Confirmación de eliminación y devolución del foco al cancelar.
+- Borradores por canal en memoria: cambiar de canal o fallar un envío no los borra.
+  Se limpian al salir de la pantalla, cerrar sesión o recargar el navegador;
+  no se guardan en almacenamiento persistente. Un ack no borra texto escrito
+  mientras se esperaba la respuesta. Enter envía; Shift+Enter agrega una línea;
+  se respeta la composición del teclado.
+- Cada canal tiene sus listeners y una generación para ignorar HTTP/acks tardíos.
+  Las altas/bajas de una misma room se serializan, incluyendo volver A → B → A.
+- Reconexión, foco, cambios de permisos/membresía y perfil revalidan el acceso y
+  recuperan la última página. Se descarta la ventana anterior para que ediciones
+  y bajas perdidas en páginas viejas no queden visibles; se pueden volver a cargar
+  anteriores desde el cursor actual. No se supone que se perdieron menos de 30.
+- Desconexión/revocación/eliminación/abandono retiran el contenido y deshabilitan
+  acciones hasta revalidar. Los permisos y la identidad se actualizan desde el servidor.
+  Si falla la lista de integrantes, sigue la lectura pero no la moderación.
+- Un timeout o error interno no provoca reenvíos automáticos: se vuelve a consultar
+  el historial y se conserva el texto para que la persona compruebe el resultado.
+  T-26 no tiene clave de idempotencia; un reintento manual puede crear otro mensaje.
+
+El servidor sigue siendo la autoridad para permisos, autoría, sesión y moderación.
+Los controles de la interfaz no sustituyen esas comprobaciones. Esta entrega no
+cambia el esquema de datos, las dependencias ni el alcance de despliegue de T-26.
+
+### Validación
+
+```sh
+npm run test -w apps/frontend
+npm run build -w apps/frontend
+```
+
+`channel-messages.test.jsx` cubre suscripción, paginación, deduplicación, respuestas
+fuera de orden, reconexión, permisos, revocación y limpieza. `channel-chat-page.test.jsx`
+cubre autores, jerarquía, edición propia, confirmación/foco, borradores y composición.
+Las pruebas de administración de T-24 se conservan separadas del chat y del selector.
+El recorrido completo con dos cuentas y varias pestañas se describe en la guía de
+validación que acompaña al parche.
+
+### Ajuste visual posterior de T-27
+
+La paleta parte del afiche de referencia: naranja `#ff8000`, petróleo `#006c6d`,
+azul profundo `#002b3c`, rojo anaranjado para avisos y neutros cálidos para lectura.
+Los tonos de texto se ajustan para conservar contraste; las combinaciones principales
+verificadas superan 4,5:1. Los controles deshabilitados usan relleno y texto propios,
+sin depender de transparencia.
+
+El chat usa la altura disponible entre la navegación y su compositor. Solo el
+historial se desplaza; en pantallas bajas la página admite desplazamiento adicional.
+Título y selector comparten cabecera. Al desplegar el catálogo la página recupera
+su altura natural; al editar permisos/datos el formulario ocupa el espacio del chat
+y el borrador se conserva en su pantalla. Los integrantes se despliegan sobre el
+historial y Escape cierra esa lista devolviendo el foco al botón de apertura.
+
+### T-27 — Espacios fluidos y resumen operativo de comunidades
+
+Los catálogos ya no se limitan a una columna centrada de 860/1200 px: usan el ancho
+útil con márgenes adaptables. Conversaciones se distribuye en una grilla de tarjetas;
+la búsqueda abarca el catálogo y el acceso a amigos queda en su cabecera. La vista
+de conversación mantiene el historial separado del compositor y no recupera la
+barra lateral global de Discord.
+
+El resumen de cada comunidad muestra una cabecera de identidad naranja, hasta ocho
+canales autorizados con acceso directo y hasta seis integrantes reales. Se consultan
+las APIs existentes y se reutilizan las colecciones que invalidan datos ante cambios,
+reconexión y pérdida de membresía. Actualizaciones de perfil refrescan los integrantes.
+Las listas completas siguen disponibles; errores y reintentos son independientes.
+Los datos de rol/fecha, edición e invitaciones y la acción destructiva quedan agrupados
+al pie, en lugar de ser el único contenido principal del resumen.
+
+Comunidades usa tarjetas de identidad petróleo, amigos distribuye búsqueda/solicitudes
+y contactos en columnas y perfil separa identidad/foto del formulario. Se apilan en
+celular, sin elipsis en nombres. Los cuerpos de mensaje mantienen una longitud de
+lectura acotada dentro de un espacio de conversación fluido. Los colores principales
+son naranja `#ff8200`, petróleo `#007c78`, azul `#002b3c` y fondos cálidos `#f3efdf`.
+No se modifica el modelo de datos ni las reglas de autorización del servidor.
+### T-27: barra lateral y paleta retro
+
+La navegación principal en escritorio vuelve a una barra lateral de 244 px
+(208 px entre 761 y 1100 px), con iconos, etiquetas, perfil, estado de conexión
+y cierre de sesión al pie. El contenido ocupa todo el ancho restante, conserva
+su propio desplazamiento y mantiene las grillas y el resumen operativo de comunidad.
+En móvil se conserva la cabecera compacta y la navegación inferior.
+
+La paleta de referencia usa carbón `#26302E`, crema `#EBE4CF`, mostaza `#BBA149`
+y naranja quemado `#D03D01`. Se emplean tonos derivados para fondos de tarjetas,
+bordes, texto secundario y estados. Las acciones principales llevan naranja con
+texto claro; la navegación activa usa mostaza con texto carbón. No cambian las
+rutas, contratos de API, permisos ni lógica de mensajería.

@@ -1,3 +1,4 @@
+import CommunityNav from '../components/communities/CommunityNav.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import FormField from '../components/FormField.jsx';
@@ -74,6 +75,7 @@ export default function CommunityInvitationsPage() {
   return <section className="page-container communities-page">
     <Link className="community-back" to={detail.valid ? `/comunidades/${id}` : '/comunidades'}>← Volver a la comunidad</Link>
     {!detail.comunidad ? <CommunityState {...detail} /> : <>
+      <CommunityNav comunidad={detail.comunidad} />
       <header className="page-heading community-page-heading"><div><h1>Invitaciones</h1><p>{detail.comunidad.nombre}</p></div>
         {permitted && <button type="button" className="secondary" disabled={list.refreshing || busy} onClick={() => { detail.reload(); list.reload(); }}>Actualizar</button>}</header>
       {!permitted ? <p role="alert">Tu rol no permite administrar invitaciones.</p> : <>

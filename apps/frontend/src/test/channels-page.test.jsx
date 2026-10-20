@@ -1,3 +1,4 @@
+// Estas pruebas conservan el alcance de administración de T-24. El chat y el selector real se verifican por separado.
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -9,6 +10,9 @@ import * as communities from '../services/communitiesService.js';
 import * as channels from '../services/channelsService.js';
 import { useSocket } from '../hooks/useSocket.js';
 
+vi.mock('../components/communities/CommunityDashboard.jsx', async () => { const { Link } = await import('react-router'); return { default: ({ comunidad }) => <><Link to={`/comunidades/${comunidad.id}/canales`}>Ver canales</Link><Link to={`/comunidades/${comunidad.id}/integrantes`}>Ver integrantes</Link></> }; });
+vi.mock('../components/channel-chat/ChannelChat.jsx', () => ({ default: () => null }));
+vi.mock('../components/channels/ChannelSelector.jsx', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));
 vi.mock('../hooks/useAuth.js', () => ({ useAuth: () => ({ usuario: { id: 1 } }) }));
 vi.mock('../services/communitiesService.js', () => ({ getCommunity: vi.fn(), getCommunities: vi.fn(), getCommunityMembers: vi.fn(), deleteCommunity: vi.fn(), leaveCommunity: vi.fn() }));

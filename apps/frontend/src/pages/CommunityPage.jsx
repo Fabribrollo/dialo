@@ -1,3 +1,5 @@
+import CommunityDashboard from '../components/communities/CommunityDashboard.jsx';
+import CommunityNav from '../components/communities/CommunityNav.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { useCommunities } from '../context/CommunitiesContext.jsx';
@@ -50,7 +52,7 @@ export default function CommunityPage() {
   const canManage = ['ADMIN', 'PROPIETARIO'].includes(comunidad?.miRol);
   const isOwner = comunidad?.miRol === 'PROPIETARIO';
   const canInvite = ['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(comunidad?.miRol);
-  return <section className="page-container communities-page">
+  return <section className="page-container communities-page community-home">
     <Link className="community-back" to="/comunidades">← Comunidades</Link>
     {!comunidad ? <CommunityState {...detail} /> : <>
       {state?.notice && <p role="status" className="community-success">{state.notice}</p>}
@@ -59,13 +61,14 @@ export default function CommunityPage() {
         <CommunityImage nombre={comunidad.nombre} url={comunidad.imagenUrl} large />
         <div><h1>{comunidad.nombre}</h1><p>{comunidad.tipo === 'PUBLICA' ? 'Pública' : 'Privada'} · {comunidad.cantidadIntegrantes} {comunidad.cantidadIntegrantes === 1 ? 'integrante' : 'integrantes'}</p></div>
       </header>
+      <CommunityNav comunidad={comunidad} />
+      <CommunityDashboard key={comunidad.id} comunidad={comunidad} />
+      <div className="community-management">
       <dl className="community-facts">
         <div><dt>Tu rol</dt><dd>{COMMUNITY_ROLES[comunidad.miRol]}</dd></div>
         <div><dt>Creada</dt><dd>{new Intl.DateTimeFormat('es-AR', { dateStyle: 'long' }).format(new Date(comunidad.fechaCreacion))}</dd></div>
       </dl>
       <div className="community-actions">
-        <Link className="button-link" to={`/comunidades/${id}/canales`}>Ver canales</Link>
-        <Link className="button-link" to={`/comunidades/${id}/integrantes`}>Ver integrantes</Link>
         {canInvite && <Link className="community-secondary-link" to={`/comunidades/${id}/invitaciones`}>Administrar invitaciones</Link>}
         {canManage && <Link className="community-secondary-link" to={`/comunidades/${id}/editar`}>Editar comunidad</Link>}
       </div>
@@ -78,6 +81,7 @@ export default function CommunityPage() {
         <p>Esta acción elimina también los canales, sus mensajes y las invitaciones.</p>
         <button ref={deleteButton} type="button" className="danger-button" onClick={() => setConfirming(true)}>Eliminar comunidad</button>
       </section>}
+      </div>
       {confirming && isOwner && <DeleteCommunityDialog comunidad={comunidad} returnFocusRef={deleteButton} onClose={() => setConfirming(false)} onConfirm={async () => {
         const version = actionVersion.current;
         await deleteCommunity(id);

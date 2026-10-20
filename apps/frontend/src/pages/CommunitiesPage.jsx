@@ -7,7 +7,7 @@ export const COMMUNITY_ROLES = { PROPIETARIO: 'Propietario', ADMIN: 'Administrad
 export default function CommunitiesPage() {
   const { items, loading, error, reload } = useCommunities();
   const { state } = useLocation();
-  return <section className="page-container communities-page" aria-labelledby="communities-title">
+  return <section className="page-container communities-page communities-index" aria-labelledby="communities-title">
     <header className="page-heading community-page-heading">
       <div><h1 id="communities-title">Comunidades</h1><p>Las comunidades a las que pertenecés.</p></div>
       <Link className="button-link" to="/comunidades/nueva">Crear comunidad</Link>
