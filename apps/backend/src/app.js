@@ -9,6 +9,7 @@ import searchRoutes from './routes/searchRoutes.js';
 import friendsRoutes from './routes/friendsRoutes.js';
 import conversationsRoutes from './routes/conversationsRoutes.js';
 import communitiesRoutes from './routes/communitiesRoutes.js';
+import invitationsRoutes from './routes/invitationsRoutes.js';
 
 export const app = express();
 
@@ -26,6 +27,7 @@ app.use('/api/users', usersRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/communities', communitiesRoutes);
+app.use('/api/invitations', invitationsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

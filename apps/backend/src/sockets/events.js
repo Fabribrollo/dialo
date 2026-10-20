@@ -14,4 +14,7 @@ export const EVENTS = {
   COMMUNITY_NEW: 'community:new',
   COMMUNITY_UPDATED: 'community:updated',
   COMMUNITY_DELETED: 'community:deleted',
+  COMMUNITY_LEFT: 'community:left',
+  COMMUNITY_MEMBER_JOINED: 'community:member-joined',
+  COMMUNITY_MEMBER_LEFT: 'community:member-left',
 };

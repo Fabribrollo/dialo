@@ -43,3 +43,7 @@ export function closeCommunity(idComunidad, idsCanales) {
     io.in(room).socketsLeave(room);
   }
 }
+
+export function leaveCommunity(idComunidad, idUsuario, idsCanales) {
+  io?.in(rooms.user(idUsuario)).socketsLeave([rooms.community(idComunidad), ...idsCanales.map(rooms.channel)]);
+}
