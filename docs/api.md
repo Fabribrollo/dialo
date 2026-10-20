@@ -1,6 +1,6 @@
 # Contrato de API — Dialo
 
-Versión 1 · Estado: **borrador para revisar entre los tres**. Una vez acordado, cualquier cambio se avisa en el grupo y se actualiza este archivo antes de tocar el código.
+Contrato implementado en `main` hasta T-27. Mantener este archivo junto con rutas, validaciones y servicios cuando cambie el comportamiento. Las limitaciones pendientes se indican expresamente.
 
 Eventos en tiempo real: ver [sockets.md](./sockets.md).
 
@@ -8,9 +8,7 @@ Comunidades, invitaciones, canales y mensajes de canal (Entrega 50%): ver [comun
 
 ---
 
-## Decisiones tomadas en este borrador
-
-Se tomaron para poder cerrar el contrato. Revísenlas en la sesión conjunta.
+## Decisiones implementadas
 
 | Tema | Decisión |
 | --- | --- |
@@ -32,7 +30,8 @@ Se tomaron para poder cerrar el contrato. Revísenlas en la sesión conjunta.
 ## Convenciones globales
 
 - Todas las rutas empiezan con `/api`.
-- Request y response en JSON, salvo la subida de foto (`multipart/form-data`).
+- Request y response en JSON, salvo fotos/imágenes (`multipart/form-data`) y respuestas sin contenido.
+- En ejemplos, cadenas como `"UsuarioPublico"` representan el objeto definido en Formas compartidas, no una cadena literal de la API.
 - Ids numéricos. Fechas en ISO 8601 (`"2026-10-05T17:03:05.000Z"`).
 - Nombres de campos en camelCase.
 - Respuestas exitosas sin contenido: `204` sin body.
@@ -41,20 +40,20 @@ Se tomaron para poder cerrar el contrato. Revísenlas en la sesión conjunta.
 
 - Sesión guardada en la tabla `sesion`. El token viaja en la cookie **`dialo_sid`**, `httpOnly`, con duración de 30 días. Las opciones están centralizadas en `config/cookies.js`:
   - Desarrollo: `sameSite: lax`, sin `secure`. Front y API comparten origen gracias al proxy de Vite.
-  - Producción: `sameSite: none` + `secure`. Front y back quedan en dominios distintos (por ejemplo Vercel y Render) y con `lax` el navegador no mandaría la cookie.
+  - Producción: `sameSite: none` + `secure`; requiere HTTPS. Estas opciones dependen de `NODE_ENV`, no de una detección automática de dominios.
 - El front manda `credentials: 'include'` en cada request, y CORS acepta solo `CLIENT_URL` con `credentials: true`.
 - La base guarda solo el hash del token.
 - Rutas marcadas **Auth: sí** responden `401 UNAUTHORIZED` sin sesión válida (inexistente, vencida o revocada).
 
 ### `req.user`
 
-`devAuth` (desarrollo) y `requireAuth` (real) dejan **exactamente** esta forma:
+El middleware real es `middlewares/authenticate.js`. Usa `findAuthUserBySessionToken` para la cookie o `findAuthUserById` para el acceso de desarrollo y deja esta forma:
 
 ```js
 req.user = { id: 1, nombreUsuario: "ana", nombreVisible: "Ana" }
 ```
 
-En desarrollo, `devAuth` toma el id del header `x-dev-user-id` y busca ese usuario en la base. El socket tiene su equivalente: el handshake acepta `auth: { devUserId }` (ver [sockets.md](./sockets.md#conexión)). Los dos se desactivan cuando `NODE_ENV` es `production`.
+En desarrollo, `authenticate` toma el ID del header `x-dev-user-id` y busca ese usuario en la base. El socket tiene su equivalente: el handshake acepta `auth: { devUserId }` (ver [sockets.md](./sockets.md#conexión)). Los dos se desactivan cuando `NODE_ENV` es `production`.
 
 ### Formato de error
 
@@ -64,15 +63,14 @@ Todas las respuestas de error tienen esta forma:
 {
   "error": {
     "code": "REQUEST_EXISTS",
-    "message": "Ya hay una solicitud pendiente entre ustedes",
-    "details": []
+    "message": "Ya hay una solicitud pendiente entre ustedes"
   }
 }
 ```
 
 - `code`: lo que lee el front para decidir qué hacer. Estable, en inglés, MAYÚSCULAS.
 - `message`: texto para mostrar al usuario, en español.
-- `details`: solo en `VALIDATION_ERROR`, una entrada por campo inválido: `{ "campo": "correo", "message": "Correo inválido" }`.
+- `details`: opcional; las validaciones de campos incluyen una entrada por campo inválido: `{ "campo": "correo", "message": "Correo inválido" }`.
 
 ### Conflictos de la base
 
@@ -80,7 +78,7 @@ Si una restricción única de la base frena un insert (por ejemplo, dos solicitu
 
 ### Paginación
 
-Por cursor. La respuesta trae `nextCursor`; si es `null`, no hay más.
+Los historiales de mensajes se paginan por cursor. Su respuesta trae `nextCursor`; si es `null`, no hay más. Los listados de amigos, solicitudes y conversaciones no tienen cursor; búsqueda de usuarios usa `limit` sin cursor.
 
 ```json
 { "items": [], "nextCursor": 120 }
@@ -174,13 +172,19 @@ Si `eliminado` es `true`, `contenido` es `null`.
 | `nombreUsuario` | 3 a 32 caracteres, solo minúsculas, números, `_` y `.` |
 | `correo` | email válido, hasta 254 caracteres, se guarda en minúsculas |
 | `contrasena` | 8 a 72 caracteres |
-| `nombreVisible` | 1 a 64 caracteres, sin espacios al inicio ni al final |
+| `nombreVisible` | se recortan los extremos y se validan 1 a 64 caracteres |
 | `informacionPersonal` | hasta 500 caracteres, puede ser `null` |
-| `contenido` (mensaje) | 1 a 2000 caracteres después de quitar espacios |
+| `contenido` (mensaje) | 1 a 2000 caracteres después de recortar los extremos; conserva espacios internos |
 | `q` (búsqueda) | 2 a 32 caracteres |
 | `limit` | 1 a 50 |
 
 ---
+
+## Estado de la API
+
+### GET /api/health
+
+Auth: no. Devuelve `200` con `{ "status": "ok" }`. Comprueba que Express responde; no realiza una consulta de salud a PostgreSQL.
 
 ## 1. Cuenta y acceso — `auth`
 
@@ -231,7 +235,7 @@ Errores:
 
 Auth: sí
 
-Completa `fecha_revocacion` de la sesión actual y borra la cookie.
+Completa `fecha_revocacion` de la sesión actual y borra la cookie. La desconexión proactiva de todos sus sockets sigue pendiente en T-15; no confundir revocación en base con retiro inmediato de otras pestañas.
 
 `204`
 
@@ -244,7 +248,7 @@ Body:
 { "correo": "ana@mail.com" }
 ```
 
-`202` siempre, exista o no el correo, para no revelar qué cuentas existen. Si existe, crea un registro en `recuperacion_cuenta` (vence en 1 hora) y envía el link `CLIENT_URL/reset-password?token=...`.
+Para una solicitud válida y sin fallas internas, devuelve `202` sin body exista o no el correo, para no revelar cuentas. Si existe, crea un registro en `recuperacion_cuenta` (vence en 1 hora) e intenta enviar `CLIENT_URL/reset-password?token=...`. Sin `RESEND_API_KEY` no se envía correo; en desarrollo se registra el enlace en la consola. Los fallos del proveedor se registran sin convertir la respuesta en una confirmación de entrega.
 
 Errores:
 | Status | code | Cuándo |
@@ -260,7 +264,7 @@ Body:
 { "token": "abc123...", "contrasena": "nueva-clave" }
 ```
 
-Cambia la contraseña, marca el token como usado y revoca todas las sesiones del usuario.
+Cambia la contraseña, marca el token como usado y revoca todas las sesiones del usuario en la base. La desconexión global inmediata de sockets y el vencimiento proactivo son parte de T-15.
 
 `204`
 
@@ -542,17 +546,17 @@ Enviar, editar y eliminar mensajes: por socket, ver [sockets.md](./sockets.md).
 
 ## Funciones compartidas entre features
 
-Se crean como stubs en el Sprint 0 (T-05) para que nadie espere a nadie. Cada dueño reemplaza el stub por la implementación real sin cambiar la firma.
+Estas funciones ya tienen implementación y se reutilizan entre los servicios.
 
-| Función | Ubicación | Dueño | Devuelve | La usan |
-| --- | --- | --- | --- | --- |
-| `areFriends(idA, idB)` | `services/friendsService.js` | B | `Promise<boolean>` | C (crear conversación, enviar mensaje) |
-| `getFriendIds(idUsuario)` | `services/friendsService.js` | B | `Promise<number[]>` | A (`user:updated`) |
-| `emitToUser(idUsuario, evento, payload)` | `sockets/emitter.js` | C | `void` | A, B, C |
-| `emitToConversation(idConversacion, evento, payload)` | `sockets/emitter.js` | C | `void` | C |
-| `joinConversation(idConversacion, idsUsuarios)` | `sockets/emitter.js` | C | `void` | C |
-| `usuarioPublicoSelect` | `utils/selects.js` | A | objeto `select` de Prisma | A, B, C |
-| `AppError(status, code, message, details?)` | `utils/AppError.js` | todos (T-05) | clase de error | A, B, C |
+| Función | Ubicación (bajo `apps/backend/src/`) | Devuelve/uso |
+| --- | --- | --- |
+| `areFriends(idA, idB)` | `services/friendsService.js` | `Promise<boolean>`; autoriza creación/envío privado |
+| `getFriendIds(idUsuario)` | `services/friendsService.js` | `Promise<number[]>`; destinatarios de perfil y listado privado |
+| `emitToUser(idUsuario, evento, payload)` | `sockets/emitter.js` | Emite a la room personal |
+| `emitToConversation(idConversacion, evento, payload)` | `sockets/emitter.js` | Emite a los participantes conectados |
+| `joinConversation(idConversacion, idsUsuarios)` | `sockets/emitter.js` | Une sockets existentes a una conversación |
+| `usuarioPublicoSelect`, `toUsuarioPublico(usuario)` | `utils/selects.js` | Selección/mapeo público; oculta `INVISIBLE` |
+| `AppError(status, code, message, details?)` | `utils/AppError.js` | Error con estado y código público |
 
 ---
 
@@ -570,7 +574,7 @@ Se crean como stubs en el Sprint 0 (T-05) para que nadie espere a nadie. Cada du
 | `EMAIL_TAKEN` | 409 | auth |
 | `INVALID_CREDENTIALS` | 401 | auth |
 | `INVALID_TOKEN` | 400 | auth |
-| `INVALID_FILE` | 400 | users |
+| `INVALID_FILE` | 400 | users, imagen de comunidad |
 | `USER_NOT_FOUND` | 404 | users, friends |
 | `SELF_REQUEST` | 400 | friends |
 | `ALREADY_FRIENDS` | 409 | friends |
@@ -581,7 +585,7 @@ Se crean como stubs en el Sprint 0 (T-05) para que nadie espere a nadie. Cada du
 | `FRIENDSHIP_NOT_FOUND` | 404 | friends |
 | `NOT_FRIENDS` | 403 | conversations |
 | `SELF_CONVERSATION` | 400 | conversations |
-| `CONVERSATION_EXISTS` | 409 | conversations (carrera al crear) |
+| `CONVERSATION_EXISTS` | 409 | traducción de una restricción única de conversación; la creación normal concurrente reutiliza el par con `skipDuplicates` |
 | `CONVERSATION_NOT_FOUND` | 404 | conversations |
 | `NOT_PARTICIPANT` | 403 | conversations |
 | `MESSAGE_NOT_FOUND` | 404 | conversations (socket) |
