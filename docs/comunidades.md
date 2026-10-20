@@ -498,7 +498,8 @@ Igual que el historial del chat privado: mas nuevos primero, cursor = id del men
 Errores:
 
 - 404 CHANNEL_NOT_FOUND: no existe o no tiene VER.
-- 400 VALIDATION_ERROR: parametros invalidos o cursor de otro canal.
+- 400 VALIDATION_ERROR: parametros invalidos, cursor inexistente o de otro canal/chat.
+- 400 CHANNEL_NOT_TEXT: el canal visible no es de texto.
 
 Enviar, editar y eliminar: por socket (ver abajo).
 
@@ -720,3 +721,43 @@ permiso/sesion en cada operacion; la pertenencia a una room no es autorizacion.
 Los endpoints de cambio de rol/expulsion pertenecen a F-09 y aun no existen.
 Cuando se agreguen deben compartir el bloqueo y recalcular audiencias, retirando
 las rooms correspondientes. No hay migraciones ni dependencias nuevas en T-23.
+
+
+### Historial de canales implementado (T-25)
+
+GET /api/channels/:id/messages esta implementado para TEXTO. Requiere sesion,
+membresia y VER actuales, sin exigir ESCRIBIR. La autorizacion se realiza antes
+de consultar el tipo o validar pertenencia del cursor, para no revelar mensajes
+o metadatos de canales ocultos. Los parametros deben ser IDs enteros positivos
+de PostgreSQL; limit va de 1 a 50, con 30 por defecto. No acepta query ajena al
+contrato. Un canal inexistente o sin VER responde CHANNEL_NOT_FOUND (404).
+
+Cada pagina se ejecuta mediante withChannelPermission, bajo el bloqueo de
+comunidad compartido con acceso, abandono, tipo y eliminacion. Una consulta
+iniciada mientras habia VER puede finalizar antes de una revocacion; las
+consultas posteriores a esa revocacion no mantienen autorizacion en cache.
+
+Orden: fechaCreacion descendente y luego id descendente. cursor identifica un
+mensaje del mismo canal, incluso si esta eliminado logicamente. La consulta
+usa la dupla fecha/id y toma limit + 1 para decidir nextCursor; devuelve null
+si no existe otra pagina. La paginacion de un historial sin cambios no repite ni
+omite mensajes. No es una foto congelada: inserciones posteriores se recuperan
+al recargar y las ediciones/eliminaciones se reflejan en la consulta siguiente.
+
+El DTO MensajeCanal contiene id, idCanal, autor (UsuarioPublico), contenido,
+fechaCreacion, fechaEdicion, eliminado y eliminadoPorModerador. Se reutiliza el
+selector y mapeo publico de autores, incluida la conversion INVISIBLE a AUSENTE.
+No expone correo, hashes, sesion, idConversacion ni identidad interna de quien
+elimino. El contenido de un mensaje eliminado es null. eliminadoPorModerador
+es true si la eliminacion registrada tiene un actor distinto del autor; si la
+referencia de auditoria es null, no se infiere un moderador desconocido.
+
+Para T-26, utils/channelMessages.js exporta channelMessageSelect y
+toChannelMessage. La paginacion reutiliza olderMessagesWhere de utils/messages.js,
+compartida con el historial privado sin modificar su orden ni contrato.
+services/channelMessagesService.js exporta listChannelMessages.
+
+No agrega rutas de envio ni una vista de mensajes. El envio/edicion/eliminacion
+corresponden a T-26 y la integracion de la interfaz a T-27. No requiere migracion
+ni dependencia nueva. Las pruebas de paginacion con mensajes se ejecutan en una
+base exclusiva; el smoke usa canales propios vacios sin insertar por SQL.

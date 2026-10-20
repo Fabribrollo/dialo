@@ -21,3 +21,13 @@ export function toMensaje(mensaje) {
     eliminado,
   };
 }
+
+// Cursor por fecha e ID: el ID solo desempata mensajes con la misma fecha.
+export function olderMessagesWhere(referencia) {
+  return {
+    OR: [
+      { fechaCreacion: { lt: referencia.fechaCreacion } },
+      { fechaCreacion: referencia.fechaCreacion, id: { lt: referencia.id } },
+    ],
+  };
+}

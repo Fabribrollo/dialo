@@ -157,3 +157,45 @@ su comunidad y revoca sus sesiones al terminar. Las tres cuentas permanecen.
 No necesita acceso directo a la base, no ejecuta seed ni migraciones y no modifica
 datos preexistentes. El resultado esperado es T-23 OK; cualquier fallo termina
 con codigo distinto de cero. No reemplaza la suite aislada de integracion.
+
+
+## Historial de canales (T-25)
+
+`npm run test:channel-messages -w apps/backend` ejecuta 19 pruebas HTTP con
+Prisma y sesiones reales. Requiere TEST_DATABASE_URL exclusiva de pruebas,
+crea/elimina su propio schema test_t25_<id> y aplica todas las migraciones.
+Usa cinco conexiones salvo que la URL indique otro limite. Para validar
+concurrencia entre conexiones se requiere PostgreSQL nativo.
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
+npm run test:channel-messages -w apps/backend
+npm run test:conversations -w apps/backend
+npm run test:messages -w apps/backend
+Remove-Item Env:TEST_DATABASE_URL
+```
+
+Cubre IDs/cursor/limites, autorizacion y roles, solo lectura, tipos de canal,
+paginacion con empates y fechas distintas del orden de IDs, aislamiento entre
+canales/comunidades/chat privado, DTO publico de autores, INVISIBLE, edicion,
+borrados y auditoria, autores que abandonaron, cursor eliminado, inserciones
+entre paginas, revocacion/recuperacion, abandono, borrado y persistencia tras
+reiniciar el servidor HTTP. Los datos positivos se insertan solo en ese schema
+exclusivo; no se habilitan rutas de escritura antes de T-26.
+
+Con la app ya ejecutandose:
+
+```powershell
+npm run smoke:channel-messages -w apps/backend
+```
+
+Usa localhost:3000 o DIALO_TEST_API_URL. Crea tres cuentas t25_*, comunidad,
+invitacion y canales propios. Comprueba historial vacio, limites, autenticacion,
+solo lectura, VOZ/VIDEO, revocacion y recuperacion de VER, abandono y borrado.
+Elimina solo su comunidad y revoca sus sesiones al terminar; las tres cuentas
+quedan. No ejecuta SQL, seed ni migraciones sobre la base del equipo.
+El resultado esperado es T-25 OK; fallos terminan con codigo distinto de cero.
+
+El smoke no acredita paginacion con mensajes ni redaccion de borrados: no existe
+aun envio de mensajes de canal por API/socket. Esos escenarios se validan con
+la suite aislada. No usar TEST_DATABASE_URL sobre la Neon compartida del equipo.
