@@ -2,7 +2,7 @@
 
 Eventos de comunidades y canales (Entrega 50%): ver [comunidades.md](./comunidades.md#eventos-de-socket).
 
-Versión 1 · Estado: **borrador para revisar entre los tres**. Se acuerda junto con [api.md](./api.md): cada línea "Socket:" de ese archivo apunta a un evento de acá.
+Contrato implementado hasta T-27, complementario a [api.md](api.md) y [comunidades.md](comunidades.md). Incluye la invalidacion de sesiones de T-15.
 
 ---
 
@@ -17,14 +17,17 @@ Versión 1 · Estado: **borrador para revisar entre los tres**. Se acuerda junto
 
 ### Conexión
 
-1. El front abre **una sola** conexión después del login (`SocketContext`) y la cierra en el logout. En producción el back está en otro dominio, así que el cliente se conecta a `VITE_SOCKET_URL` con `withCredentials: true` para que viaje la cookie.
-2. La cookie `dialo_sid` viaja en el handshake. `authenticateSocket` reutiliza `findAuthUserBySessionToken`, igual que la autenticación HTTP, y guarda en `socket.data.user` la misma forma que `req.user`.
-3. Sin sesión válida, la conexión se rechaza con el error `UNAUTHORIZED`. El front lo recibe en `connect_error` y redirige al login.
-   - **Solo en desarrollo** (`NODE_ENV` distinto de `production`): si el handshake trae `auth: { devUserId }`, el middleware usa ese usuario sin pedir cookie. Es el equivalente de `devAuth` y permite probar el chat antes de que exista el login. En el front: `io({ auth: { devUserId: 1 } })`.
+1. El front abre **una sola** conexión después del login (`SocketContext`) y la cierra en el logout. El cliente usa `VITE_SOCKET_URL` (vacío: origen actual) y `withCredentials: true`. En desarrollo Vite redirige `/socket.io`; en un despliegue con API separada se configura su origen y CORS.
+2. La cookie `dialo_sid` viaja en el handshake. `authenticateSocket` busca la sesion con `findSessionByToken` y guarda en `socket.data.user` la misma forma que `req.user`. El socket guarda solo el id y el vencimiento de la sesion, nunca el token.
+3. Sin sesión válida, la conexión se rechaza con el error `UNAUTHORIZED`. `ConversationsProvider` recibe `connect_error` y vuelve a consultar la identidad por HTTP. El front solo cierra la sesion ante un 401; ante una falla de red o del servidor ofrece reintentar.
+   - **Solo en desarrollo** (`NODE_ENV` distinto de `production`): si el handshake trae `auth: { devUserId }`, el middleware usa ese usuario sin pedir cookie. Es el equivalente del header HTTP `x-dev-user-id` de `authenticate`. El frontend lo habilita en desarrollo mediante `VITE_DEV_USER_ID`; dejarlo vacío para probar sesiones reales.
 4. Al conectarse, el servidor une el socket a:
    - `user:<id>` — su room personal.
+   - `session:<idSesion>` — todas las pestanas de esa sesion.
    - `conversation:<id>` — una por cada conversación del usuario.
-5. Antes de cada operación de mensajes se vuelve a comprobar la sesión en la base. Si fue revocada o venció, se responde ack `UNAUTHORIZED` y se desconecta ese socket, retirándolo de sus rooms. Esta detección se realiza al intentar una operación; no hay sondeo periódico de sesiones inactivas. En desarrollo también se vuelve a comprobar la existencia del usuario de prueba.
+   - `community:<id>` — una por cada membresía vigente.
+   - No se une automáticamente a `channel:<id>`; requiere `channel:subscribe` con Ver.
+5. Antes de cada operación de mensajes se vuelve a comprobar la sesión en la base. Si fue revocada o venció, se responde ack `UNAUTHORIZED` y se desconecta ese socket, retirándolo de sus rooms. En canales también se revalida cada sesión receptora antes de entregar mensajes. Ademas, el logout, el cambio de contrasena y el vencimiento desconectan los sockets en el momento, y un barrido cada 60 segundos corta las sesiones revocadas por otro camino (ver `session:ended`). En desarrollo también se vuelve a comprobar la existencia del usuario de prueba.
 6. El primer evento puede enviarse al conectar: sus handlers esperan la inicialización de rooms antes de procesarlo. Las reconexiones recuperan las rooms de conversaciones existentes, incluso si ya no hay amistad.
 
 ### Rooms
@@ -33,6 +36,8 @@ Versión 1 · Estado: **borrador para revisar entre los tres**. Se acuerda junto
 | --- | --- | --- |
 | `user:<id>` | todas las pestañas abiertas de ese usuario | avisos personales: amistades, perfil de amigos, conversaciones nuevas |
 | `conversation:<id>` | los sockets de los dos participantes | mensajes nuevos, editados y eliminados |
+| `community:<id>` | sockets de integrantes | cambios de comunidad, ingresos y abandonos |
+| `channel:<id>` | sockets que se suscribieron con Ver | mensajes de ese canal; cada entrega revalida sesión y Ver |
 
 ### Ack (respuesta a eventos del cliente)
 
@@ -59,9 +64,9 @@ Todos los eventos de mensajes pueden devolver `UNAUTHORIZED`. Ante fallas intern
 | `message:send` | cliente → servidor | — | vista de chat | `conversationsSocket.js` |
 | `message:edit` | cliente → servidor | — | vista de chat | `conversationsSocket.js` |
 | `message:delete` | cliente → servidor | — | vista de chat | `conversationsSocket.js` |
-| `message:new` | servidor → cliente | `conversation:<id>` | `conversationsSocket.js` | `useMessages`, lista de conversaciones |
-| `message:updated` | servidor → cliente | `conversation:<id>` | `conversationsSocket.js` | `useMessages`, lista de conversaciones |
-| `message:deleted` | servidor → cliente | `conversation:<id>` | `conversationsSocket.js` | `useMessages`, lista de conversaciones |
+| `message:new` | servidor → cliente | `conversation:<id>` | `messagesService.js` mediante `emitter.js` | `useMessages`, lista de conversaciones |
+| `message:updated` | servidor → cliente | `conversation:<id>` | `messagesService.js` mediante `emitter.js` | `useMessages`, lista de conversaciones |
+| `message:deleted` | servidor → cliente | `conversation:<id>` | `messagesService.js` mediante `emitter.js` | `useMessages`, lista de conversaciones |
 | `conversation:new` | servidor → cliente | `user:<id>` de los dos | `conversationsService` | lista de conversaciones |
 | `friend:request` | servidor → cliente | `user:<id>` de emisor y receptor | `friendsService` | bandeja de solicitudes, solicitudes enviadas, buscador |
 | `friend:accepted` | servidor → cliente | `user:<id>` de emisor y receptor | `friendsService` | `useFriends`, bandeja, buscador |
@@ -162,7 +167,7 @@ Payload:
 { "mensaje": "Mensaje" }
 ```
 
-Lo recibe también el autor. Regla del front: el autor agrega el mensaje cuando llega el **ack**; si después llega `message:new` con un `id` que ya tiene, lo ignora.
+Lo recibe también el autor, incluso antes del ack. El front combina ack, evento e historial por ID sin depender de su orden. Un mensaje eliminado no recupera contenido al recibir una respuesta anterior.
 
 ### message:updated
 
@@ -173,7 +178,7 @@ Payload:
 { "mensaje": "Mensaje" }
 ```
 
-El front reemplaza el mensaje con ese `id` y muestra "(editado)".
+El front combina el mensaje con ese ID y muestra el estado editado; una actualización no restaura un mensaje ya marcado como eliminado.
 
 ### message:deleted
 
@@ -281,10 +286,18 @@ Si el usuario está `INVISIBLE`, los amigos reciben `AUSENTE` y sus propias pest
 
 ## Archivos de constantes
 
-Ambos con el mismo contenido:
+Las dos apps mantienen las mismas claves y nombres. Contenido actual de `events.js` y `constants/events.js`:
 
 ```js
 export const EVENTS = {
+  CHANNEL_MESSAGE_SEND: 'channel-message:send',
+  CHANNEL_MESSAGE_EDIT: 'channel-message:edit',
+  CHANNEL_MESSAGE_DELETE: 'channel-message:delete',
+  CHANNEL_MESSAGE_NEW: 'channel-message:new',
+  CHANNEL_MESSAGE_UPDATED: 'channel-message:updated',
+  CHANNEL_MESSAGE_DELETED: 'channel-message:deleted',
+  CHANNEL_SUBSCRIBE: 'channel:subscribe',
+  CHANNEL_UNSUBSCRIBE: 'channel:unsubscribe',
   MESSAGE_SEND: 'message:send',
   MESSAGE_EDIT: 'message:edit',
   MESSAGE_DELETE: 'message:delete',
@@ -297,6 +310,18 @@ export const EVENTS = {
   FRIEND_REJECTED: 'friend:rejected',
   FRIEND_REMOVED: 'friend:removed',
   USER_UPDATED: 'user:updated',
+  COMMUNITY_NEW: 'community:new',
+  COMMUNITY_UPDATED: 'community:updated',
+  COMMUNITY_DELETED: 'community:deleted',
+  COMMUNITY_LEFT: 'community:left',
+  COMMUNITY_MEMBER_JOINED: 'community:member-joined',
+  COMMUNITY_MEMBER_LEFT: 'community:member-left',
+  CHANNEL_CREATED: 'channel:created',
+  CHANNEL_UPDATED: 'channel:updated',
+  CHANNEL_ACCESS_LOST: 'channel:access-lost',
+  CHANNEL_DELETED: 'channel:deleted',
+  CHANNELS_REORDERED: 'channels:reordered',
+  SESSION_ENDED: 'session:ended',
 };
 ```
 
@@ -319,8 +344,7 @@ Reemplazar acceso retira todas las pestanas que pierden VER y emite
 `channel:access-lost`. Quienes ganan o conservan acceso reciben
 `channel:updated` con sus propios misPermisos. Para volver a abrir el canal
 hay que suscribirse otra vez; no hace falta reconectar la sesion.
-Los eventos y mensajes de F-08 siguen el contrato de [comunidades.md](comunidades.md)
-y se implementan en T-25/T-26. Estar en una room no autoriza futuras escrituras.
+Los eventos y mensajes de F-08 implementados en T-25/T-26 siguen el contrato de [comunidades.md](comunidades.md). Estar en una room no autoriza futuras escrituras.
 
 
 ## Mensajes de canales (T-26)
@@ -359,10 +383,8 @@ antes de reintentar: los comandos no tienen clave de idempotencia.
 
 La cola por comunidad coordina escrituras, cambios de acceso y publicacion
 poscommit en la instancia actual. Varias instancias de API requieren adapter y
-coordinacion de eventos compartida. T-15 conserva la invalidacion proactiva global;
+coordinacion de eventos compartida. T-15 tiene pendiente la invalidacion proactiva global;
 T-26 aplica su guard de sesion especificamente al contenido de canales.
-
----
 
 ## Sesion
 
@@ -384,4 +406,8 @@ Justo despues del evento, el servidor desconecta esos sockets. El front sale de 
 - Vencimiento: cada socket se corta cuando vence su sesion, sin esperar un mensaje del cliente.
 - Barrido: cada 60 segundos el servidor corta los sockets cuya sesion ya no es valida por otra causa (motivo `REVOCADA`).
 
-Cada socket guarda solo el id y el vencimiento de su sesion, nunca el token.
+## Límites actuales
+
+No existe `community:member-updated`: el cambio de roles y la transferencia todavía no tienen rutas/eventos implementados. Crear/revocar invitaciones tampoco emite un evento específico; el frontend reconsulta al actualizar, reconectar o volver al foco. `user:updated` se entrega al usuario y sus amigos, no a toda la comunidad.
+
+La emisión de mensajes de canal revalida destinatarios secuencialmente y el ack espera la publicación; no se promete una latencia determinada ni se declara optimizada. La configuración actual usa una instancia de API. Varias instancias requieren un adapter y coordinación de eventos, además del bloqueo SQL del estado.
