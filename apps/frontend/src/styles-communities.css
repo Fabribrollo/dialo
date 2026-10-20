@@ -37,6 +37,25 @@
 .community-image-field .community-help { margin-top: 6px; }
 .community-success { background: #eaf3e8; color: #24583e; padding: 12px 16px; border-radius: 8px; font-size: 14px; margin-bottom: 20px; }
 .community-delete-dialog { max-width: min(520px, calc(100vw - 32px)); overflow-wrap: anywhere; }
+.community-secondary-link { display: inline-flex; padding: 10px 14px; border: 1px solid #cbd5cc; border-radius: 10px; }
+.community-member-row { display: flex; align-items: center; gap: 16px; padding: 16px 20px; }
+.community-member-row .user-avatar { width: 44px; height: 44px; font-size: 14px; }
+.community-member-row strong, .community-member-row .community-row-text > span { overflow-wrap: anywhere; }
+.invitation-form { max-width: 640px; margin-bottom: 32px; }
+.invitation-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 16px; }
+.invitation-form button[type="submit"] { justify-self: start; }
+.invitation-form .notice, .invitation-form .community-success { margin-top: 16px; }
+.invitation-row { padding: 20px; }
+.invitation-row-heading { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; margin-bottom: 8px; }
+.invitation-copy { margin: 16px 0; min-width: 0; }
+.invitation-copy label { font-size: 13px; font-weight: 650; }
+.invitation-copy > div { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.invitation-copy input { min-width: 0; font-size: 13px; }
+.invitation-copy button { flex-shrink: 0; }
+.invitation-copy p { margin-top: 8px; }
+.invitation-preview { max-width: 780px; }
+.invitation-preview .community-overview h2 { font-size: 26px; margin-bottom: 8px; overflow-wrap: anywhere; }
+.invitation-back { margin-top: 28px; }
 @media (max-width: 700px) {
   .app-layout .app-rail nav { width: 100%; }
   .app-layout .app-rail nav a { min-width: 0; flex: 1; padding: 6px 4px; }
@@ -49,4 +68,8 @@
   .community-image-large { width: 64px; height: 64px; }
   .community-image-field { flex-direction: column; }
   .community-image-field > div { width: 100%; }
+  .community-member-row { flex-wrap: wrap; gap: 12px; padding: 16px; }
+  .community-member-row .community-row-text { flex-basis: calc(100% - 56px); }
+  .community-member-row .community-role { padding-left: 56px; }
+  .invitation-copy > div { flex-direction: column; align-items: stretch; }
 }
