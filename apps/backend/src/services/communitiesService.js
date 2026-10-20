@@ -4,6 +4,7 @@ import { EVENTS } from '../sockets/events.js';
 import { AppError } from '../utils/AppError.js';
 import { toUsuarioPublico, usuarioPublicoSelect } from '../utils/selects.js';
 import { uploadImage } from '../utils/storage.js';
+import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 
 const JERARQUIA = { INTEGRANTE: 1, MODERADOR: 2, ADMIN: 3, PROPIETARIO: 4 };
 
@@ -135,9 +136,12 @@ export async function updateCommunityImage(idComunidad, idUsuario, buffer) {
 }
 
 export async function deleteCommunity(idComunidad, idUsuario) {
-  await requireRole(idComunidad, idUsuario, 'PROPIETARIO');
-  const canales = await prisma.canal.findMany({ where: { idComunidad }, select: { id: true } });
-  await prisma.comunidad.delete({ where: { id: idComunidad } });
+  const canales = await withCommunityChannelsLock(idComunidad, async (tx) => {
+    await requireRole(idComunidad, idUsuario, 'PROPIETARIO', tx);
+    const canales = await tx.canal.findMany({ where: { idComunidad }, select: { id: true } });
+    await tx.comunidad.delete({ where: { id: idComunidad } });
+    return canales;
+  });
   emitToCommunity(idComunidad, EVENTS.COMMUNITY_DELETED, { idComunidad });
   closeCommunity(idComunidad, canales.map((c) => c.id));
 }
@@ -170,12 +174,15 @@ export async function announceJoin(idComunidad, integrante) {
 }
 
 export async function abandonCommunity(idComunidad, idUsuario) {
-  const { rol } = await requireRole(idComunidad, idUsuario);
-  if (rol === 'PROPIETARIO') {
-    throw new AppError(409, 'OWNER_CANNOT_LEAVE', 'Transferí la propiedad o eliminá la comunidad antes de abandonarla');
-  }
-  const canales = await prisma.canal.findMany({ where: { idComunidad }, select: { id: true } });
-  await prisma.membresia.delete({ where: { idComunidad_idUsuario: { idComunidad, idUsuario } } });
+  const canales = await withCommunityChannelsLock(idComunidad, async (tx) => {
+    const { rol } = await requireRole(idComunidad, idUsuario, 'INTEGRANTE', tx);
+    if (rol === 'PROPIETARIO') {
+      throw new AppError(409, 'OWNER_CANNOT_LEAVE', 'Transferí la propiedad o eliminá la comunidad antes de abandonarla');
+    }
+    const canales = await tx.canal.findMany({ where: { idComunidad }, select: { id: true } });
+    await tx.membresia.delete({ where: { idComunidad_idUsuario: { idComunidad, idUsuario } } });
+    return canales;
+  });
   leaveCommunity(idComunidad, idUsuario, canales.map((c) => c.id));
   emitToCommunity(idComunidad, EVENTS.COMMUNITY_MEMBER_LEFT, { idComunidad, idUsuario });
   emitToUser(idUsuario, EVENTS.COMMUNITY_LEFT, { idComunidad });

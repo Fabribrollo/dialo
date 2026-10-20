@@ -11,6 +11,8 @@
     "test:messages": "node --test test/messages.test.js",
     "test:communities": "node --test test/communities.test.js",
     "test:channels": "node --test test/channels.test.js",
+    "test:channel-access": "node --test test/channel-permissions.test.js test/channel-access.test.js",
+    "smoke:channel-access": "node test/channel-access.smoke.js",
     "smoke:channels": "node test/channels.smoke.js",
     "smoke:messages": "node test/messages.smoke.js",
     "db:migrate": "prisma migrate dev",

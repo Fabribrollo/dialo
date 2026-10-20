@@ -1,4 +1,4 @@
-const PERMISSIONS = {
+export const CHANNEL_PERMISSIONS = {
   TEXTO: ['VER', 'ESCRIBIR'],
   VOZ: ['VER', 'HABLAR', 'TRANSMITIR'],
   VIDEO: ['VER', 'HABLAR', 'TRANSMITIR'],
@@ -6,7 +6,7 @@ const PERMISSIONS = {
 
 export function effectiveChannelPermissions(canal, rol, idUsuario) {
   if (!rol) return [];
-  const allowed = PERMISSIONS[canal.tipo] ?? [];
+  const allowed = CHANNEL_PERMISSIONS[canal.tipo] ?? [];
   if (rol === 'ADMIN' || rol === 'PROPIETARIO') return [...allowed];
   const result = new Set(canal.privado ? [] : canal.tipo === 'TEXTO' ? ['VER', 'ESCRIBIR'] : ['VER', 'HABLAR']);
   for (const grant of canal.habilitacionesRol ?? []) {
@@ -18,6 +18,9 @@ export function effectiveChannelPermissions(canal, rol, idUsuario) {
   if (result.size) result.add('VER');
   return allowed.filter((permission) => result.has(permission));
 }
+
+export const canModerateChannel = (rol, permisos) =>
+  ['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(rol) && permisos.includes('VER');
 
 export const channelSelect = {
   id: true, idComunidad: true, nombre: true, tipo: true, privado: true, posicion: true, fechaCreacion: true,

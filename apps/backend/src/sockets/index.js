@@ -2,6 +2,7 @@ import { authenticateSocket } from './authenticate.js';
 import { initEmitter, rooms } from './emitter.js';
 import { prisma } from '../prisma/client.js';
 import { registerConversationHandlers } from './conversationsSocket.js';
+import { registerChannelHandlers } from './channelsSocket.js';
 
 async function joinRooms(socket) {
   const { id } = socket.data.user;
@@ -26,6 +27,7 @@ export function initSockets(io) {
   io.on('connection', (socket) => {
     const ready = joinRooms(socket);
     registerConversationHandlers(socket, ready);
+    registerChannelHandlers(socket, ready);
     ready.catch((error) => {
       console.error(error);
       socket.disconnect(true);
