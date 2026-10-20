@@ -57,7 +57,6 @@ export async function replaceChannelAccess(idCanal, idUsuario, { privado, habili
     });
     const canal = await tx.canal.update({ where: { id: idCanal }, data: { privado }, select: channelSelect });
     return { canal, before: audience(previous, miembros), after: audience(canal, miembros), acceso: await toAccess(tx, canal) };
-  });
-  publishChannelChange(saved.canal, saved.before, saved.after);
+  }, (saved) => publishChannelChange(saved.canal, saved.before, saved.after));
   return saved.acceso;
 }

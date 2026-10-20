@@ -12,6 +12,8 @@
     "test:communities": "node --test test/communities.test.js",
     "test:channel-messages": "node --test test/channel-messages.test.js",
     "smoke:channel-messages": "node test/channel-messages.smoke.js",
+    "test:channel-realtime": "node --test test/channel-realtime.test.js",
+    "smoke:channel-realtime": "node test/channel-realtime.smoke.js",
     "test:channels": "node --test test/channels.test.js",
     "test:channel-access": "node --test test/channel-permissions.test.js test/channel-access.test.js",
     "smoke:channel-access": "node test/channel-access.smoke.js",

@@ -199,3 +199,50 @@ El resultado esperado es T-25 OK; fallos terminan con codigo distinto de cero.
 El smoke no acredita paginacion con mensajes ni redaccion de borrados: no existe
 aun envio de mensajes de canal por API/socket. Esos escenarios se validan con
 la suite aislada. No usar TEST_DATABASE_URL sobre la Neon compartida del equipo.
+
+
+## Mensajería y moderación de canales (T-26)
+
+`npm run test:channel-realtime -w apps/backend` ejecuta 25 pruebas de integración
+con Prisma, sesiones, API y Socket.IO reales. Requiere TEST_DATABASE_URL exclusiva,
+crea/elimina su propio schema test_t26_* y aplica todas las migraciones. Respeta
+connection_limit explícito; de lo contrario usa cinco conexiones. PostgreSQL
+nativo es necesario para confirmar concurrencia entre conexiones.
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
+npm run test:channel-realtime -w apps/backend
+npm run test:channel-access -w apps/backend
+npm run test:channels -w apps/backend
+npm run test:channel-messages -w apps/backend
+npm run test:conversations -w apps/backend
+npm run test:messages -w apps/backend
+npm run test:communities -w apps/backend
+Remove-Item Env:TEST_DATABASE_URL
+```
+
+Cobertura: identidad de sesión, payloads estrictos, persistencia, varias pestañas,
+un socket unido a una room sin autorización, lectura sin escritura, tipos,
+edición propia, moderación por rol y jerarquía, auditoría y contenido eliminado,
+IDs de chat privado/canales ocultos, revocación y recuperación, abandono,
+sesiones emisoras y receptoras vencidas/revocadas, sesión que vence esperando
+la cola, edición/eliminación simultáneas, eliminación doble, publicación frente
+a revocación y cambio de tipo, canal eliminado, eventos sin ack y reconexión.
+
+Con npm run dev ya ejecutándose:
+
+```powershell
+npm run smoke:channel-realtime -w apps/backend
+```
+
+El smoke usa localhost:3000 o DIALO_TEST_API_URL. Crea tres cuentas t26_*, una
+comunidad propia, invitación y canal. Comprueba envíos, edición propia, borrado
+propio y moderado por propietario, historial paginado con mensajes reales,
+cuatro pestañas suscriptas, exclusión de terceros, concurrencia, solo lectura,
+revocación/recuperación de VER y logout de receptores sin operación adicional.
+Elimina solo su comunidad (y sus mensajes por cascada) y revoca sus sesiones al
+terminar; las tres cuentas quedan como prueba. No toca datos preexistentes ni
+requiere credenciales de usuarios reales. No ejecuta seed ni migraciones.
+Esperado: T-26 OK. Un fallo termina con código distinto de cero.
+La matriz completa de moderadores/pares/superiores se verifica en la suite
+aislada: el smoke no inventa rutas de cambio de rol de F-09.

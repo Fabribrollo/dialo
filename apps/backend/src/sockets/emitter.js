@@ -1,3 +1,6 @@
+import { requireSocketUser } from './authenticate.js';
+import { getChannelPermissions } from '../services/channelsService.js';
+import { AppError } from '../utils/AppError.js';
 let io = null;
 
 export const rooms = {
@@ -17,6 +20,29 @@ export function emitToUser(idUsuario, evento, payload) {
 
 export function emitToConversation(idConversacion, evento, payload) {
   io?.to(rooms.conversation(idConversacion)).emit(evento, payload);
+}
+
+// Las rooms indican qué pestañas tienen el canal abierto, no su autorización.
+// T-15 puede retirar sesiones de forma proactiva; aquí igualmente se verifican
+// sesión y VER actuales antes de cada entrega, sin reutilizar el handshake.
+export async function emitToChannel(idCanal, evento, payload) {
+  if (!io) return;
+  const room = rooms.channel(idCanal);
+  const sockets = await io.in(room).fetchSockets();
+  const permissions = new Map();
+  for (const socket of sockets) {
+    try {
+      const user = await requireSocketUser(socket);
+      if (!permissions.has(user.id)) permissions.set(user.id, await getChannelPermissions(idCanal, user.id));
+      if (!permissions.get(user.id).includes('VER')) { await socket.leave(room); continue; }
+      await requireSocketUser(socket);
+      if (socket.rooms.has(room)) socket.emit(evento, payload);
+    } catch (error) {
+      if (!(error instanceof AppError)) console.error(error);
+      // Fallar cerrado también si no se pudo comprobar la credencial.
+      socket.disconnect(true);
+    }
+  }
 }
 
 export function joinConversation(idConversacion, idsUsuarios) {

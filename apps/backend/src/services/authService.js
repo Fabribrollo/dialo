@@ -11,15 +11,15 @@ const RESET_DURATION_MS = 60 * 60 * 1000;
 
 const authUserSelect = { id: true, nombreUsuario: true, nombreVisible: true };
 
-export async function findAuthUserById(id) {
+export async function findAuthUserById(id, db = prisma) {
   if (!Number.isInteger(id) || id <= 0) return null;
-  return prisma.usuario.findUnique({ where: { id }, select: authUserSelect });
+  return db.usuario.findUnique({ where: { id }, select: authUserSelect });
 }
 
-export async function findAuthUserBySessionToken(token) {
+export async function findAuthUserBySessionToken(token, db = prisma) {
   if (!token) return null;
 
-  const sesion = await prisma.sesion.findUnique({
+  const sesion = await db.sesion.findUnique({
     where: {
       hashToken: hashToken(token),
       fechaRevocacion: null,

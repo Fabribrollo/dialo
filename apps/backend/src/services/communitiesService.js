@@ -6,7 +6,7 @@ import { toUsuarioPublico, usuarioPublicoSelect } from '../utils/selects.js';
 import { uploadImage } from '../utils/storage.js';
 import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 
-const JERARQUIA = { INTEGRANTE: 1, MODERADOR: 2, ADMIN: 3, PROPIETARIO: 4 };
+export const JERARQUIA = { INTEGRANTE: 1, MODERADOR: 2, ADMIN: 3, PROPIETARIO: 4 };
 
 const comunidadSelect = {
   id: true,
@@ -136,14 +136,15 @@ export async function updateCommunityImage(idComunidad, idUsuario, buffer) {
 }
 
 export async function deleteCommunity(idComunidad, idUsuario) {
-  const canales = await withCommunityChannelsLock(idComunidad, async (tx) => {
+  await withCommunityChannelsLock(idComunidad, async (tx) => {
     await requireRole(idComunidad, idUsuario, 'PROPIETARIO', tx);
     const canales = await tx.canal.findMany({ where: { idComunidad }, select: { id: true } });
     await tx.comunidad.delete({ where: { id: idComunidad } });
     return canales;
+  }, undefined, (canales) => {
+    emitToCommunity(idComunidad, EVENTS.COMMUNITY_DELETED, { idComunidad });
+    closeCommunity(idComunidad, canales.map((c) => c.id));
   });
-  emitToCommunity(idComunidad, EVENTS.COMMUNITY_DELETED, { idComunidad });
-  closeCommunity(idComunidad, canales.map((c) => c.id));
 }
 
 export async function listMembers(idComunidad, idUsuario) {
@@ -174,7 +175,7 @@ export async function announceJoin(idComunidad, integrante) {
 }
 
 export async function abandonCommunity(idComunidad, idUsuario) {
-  const canales = await withCommunityChannelsLock(idComunidad, async (tx) => {
+  await withCommunityChannelsLock(idComunidad, async (tx) => {
     const { rol } = await requireRole(idComunidad, idUsuario, 'INTEGRANTE', tx);
     if (rol === 'PROPIETARIO') {
       throw new AppError(409, 'OWNER_CANNOT_LEAVE', 'Transferí la propiedad o eliminá la comunidad antes de abandonarla');
@@ -182,8 +183,9 @@ export async function abandonCommunity(idComunidad, idUsuario) {
     const canales = await tx.canal.findMany({ where: { idComunidad }, select: { id: true } });
     await tx.membresia.delete({ where: { idComunidad_idUsuario: { idComunidad, idUsuario } } });
     return canales;
+  }, undefined, (canales) => {
+    leaveCommunity(idComunidad, idUsuario, canales.map((c) => c.id));
+    emitToCommunity(idComunidad, EVENTS.COMMUNITY_MEMBER_LEFT, { idComunidad, idUsuario });
+    emitToUser(idUsuario, EVENTS.COMMUNITY_LEFT, { idComunidad });
   });
-  leaveCommunity(idComunidad, idUsuario, canales.map((c) => c.id));
-  emitToCommunity(idComunidad, EVENTS.COMMUNITY_MEMBER_LEFT, { idComunidad, idUsuario });
-  emitToUser(idUsuario, EVENTS.COMMUNITY_LEFT, { idComunidad });
 }

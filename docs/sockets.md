@@ -321,3 +321,43 @@ Reemplazar acceso retira todas las pestanas que pierden VER y emite
 hay que suscribirse otra vez; no hace falta reconectar la sesion.
 Los eventos y mensajes de F-08 siguen el contrato de [comunidades.md](comunidades.md)
 y se implementan en T-25/T-26. Estar en una room no autoriza futuras escrituras.
+
+
+## Mensajes de canales (T-26)
+
+Cliente a servidor, con ack:
+
+- channel-message:send: { idCanal, contenido }.
+- channel-message:edit: { idMensaje, contenido }.
+- channel-message:delete: { idMensaje }.
+
+Send/edit responden { ok: true, data: { mensaje } }; delete responde
+{ ok: true, data: { idMensaje, idCanal, eliminadoPorModerador } }.
+Los errores tienen { ok: false, error: { code, message, details? } }.
+Payloads estrictos, texto recortado 1..2000 y IDs positivos de PostgreSQL.
+La identidad siempre proviene de la sesion. Los mensajes se persisten antes
+del ack o evento y las operaciones revalidan sesion y permisos actuales.
+
+Servidor a cada socket suscripto con sesion vigente y VER:
+
+- channel-message:new / channel-message:updated: { mensaje: MensajeCanal }.
+- channel-message:deleted: { idMensaje, idCanal, eliminadoPorModerador }.
+
+El DTO compartido con historial esta en utils/channelMessages.js. Los borrados
+no incluyen el contenido original ni la identidad interna de auditoria. Solo el
+autor edita; borrar mensajes ajenos exige jerarquia estrictamente mayor, VER y
+rol MODERADOR o superior. El autor necesita ESCRIBIR para editar o borrar.
+Un mensaje privado o de canal oculto no se puede modificar con estos eventos.
+
+La pertenencia a una room no es autorizacion. emitToChannel revalida cada sesion
+y los permisos actuales; retira sockets sin VER y desconecta sesiones invalidas.
+Quienes no abrieron el canal no reciben estos eventos. Las pestanas del emisor
+que lo tengan abierto reciben el mismo evento que los demas; deduplicar por ID
+al combinarlo con el ack. Tras reconectar hay que volver a suscribirse y consultar
+historial para recuperar eventos perdidos. Si se pierde un ack, revisar historial
+antes de reintentar: los comandos no tienen clave de idempotencia.
+
+La cola por comunidad coordina escrituras, cambios de acceso y publicacion
+poscommit en la instancia actual. Varias instancias de API requieren adapter y
+coordinacion de eventos compartida. T-15 conserva la invalidacion proactiva global;
+T-26 aplica su guard de sesion especificamente al contenido de canales.

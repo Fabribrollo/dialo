@@ -530,19 +530,19 @@ channel-message:send
 - Payload: { "idCanal": 21, "contenido": "Hola" }
 - Requiere ESCRIBIR. Guarda el mensaje y emite channel-message:new a channel:id.
 - Ack ok: { "ok": true, "data": { "mensaje": MensajeCanal } }
-- Errores: VALIDATION_ERROR, CHANNEL_NOT_FOUND, NO_WRITE_PERMISSION.
+- Errores: VALIDATION_ERROR, CHANNEL_NOT_FOUND, CHANNEL_NOT_TEXT, NO_WRITE_PERMISSION, UNAUTHORIZED.
 
 channel-message:edit
 
 - Payload: { "idMensaje": 340, "contenido": "Hola (editado)" }
 - Solo el autor, y necesita ESCRIBIR. Emite channel-message:updated.
-- Errores: VALIDATION_ERROR, MESSAGE_NOT_FOUND, NOT_AUTHOR, MESSAGE_DELETED, NO_WRITE_PERMISSION.
+- Errores: VALIDATION_ERROR, MESSAGE_NOT_FOUND, CHANNEL_NOT_TEXT, NOT_AUTHOR, MESSAGE_DELETED, NO_WRITE_PERMISSION, UNAUTHORIZED.
 
 channel-message:delete
 
 - Payload: { "idMensaje": 340 }
 - El autor (con ESCRIBIR) o un moderador (MODERADOR o mas con VER, y el autor con rol menor). Emite channel-message:deleted.
-- Errores: MESSAGE_NOT_FOUND, MESSAGE_DELETED, CANNOT_DELETE_MESSAGE.
+- Errores: VALIDATION_ERROR, MESSAGE_NOT_FOUND, CHANNEL_NOT_TEXT, MESSAGE_DELETED, CANNOT_DELETE_MESSAGE, UNAUTHORIZED.
 
 ### Servidor a cliente
 
@@ -761,3 +761,62 @@ No agrega rutas de envio ni una vista de mensajes. El envio/edicion/eliminacion
 corresponden a T-26 y la integracion de la interfaz a T-27. No requiere migracion
 ni dependencia nueva. Las pruebas de paginacion con mensajes se ejecutan en una
 base exclusiva; el smoke usa canales propios vacios sin insertar por SQL.
+
+
+### Mensajeria en tiempo real implementada (T-26)
+
+Estan implementados channel-message:send/edit/delete y sus eventos new/updated/
+deleted, con las formas definidas arriba. Send y edit confirman
+{ ok: true, data: { mensaje: MensajeCanal } }. Delete confirma
+{ ok: true, data: { idMensaje, idCanal, eliminadoPorModerador } }.
+Errores usan { ok: false, error: { code, message, details? } }.
+Los payloads son estrictos: no admiten identidad, rol, auditoria ni campos extra.
+El texto se recorta y debe tener 1..2000 caracteres. Los IDs son enteros positivos
+de PostgreSQL. Un evento sin callback se procesa sin interrumpir el servidor.
+
+El emisor sale de la sesion. Los handlers esperan las rooms iniciales y revisan
+la sesion antes del payload, otra vez al ejecutar la escritura dentro de su
+transaccion y antes del ack. Conocer el canal o un mensaje no concede acceso.
+Se requiere TEXTO y VER; send y edit propio exigen ESCRIBIR. Moderar no permite
+editar mensajes ajenos. En edit/delete un mensaje privado, inexistente o de
+canal inaccesible responde MESSAGE_NOT_FOUND sin divulgar contenido.
+
+Delete es logico: conserva contenido en la base para auditoria pero lo oculta
+en historial/DTO/eventos. Guarda fechaEliminacion e idUsuarioEliminacion.
+El autor requiere ESCRIBIR. Otra persona necesita MODERADOR o superior, VER y
+jerarquia estrictamente mayor que el rol actual del autor. No se permite borrar
+a un par ni superior. Un autor que abandono tiene jerarquia 0 en esa comunidad.
+Una habilitacion individual de VER/ESCRIBIR no concede moderacion.
+
+Las escrituras usan el mismo bloqueo por comunidad que acceso, suscripciones,
+tipo, abandono y borrado. withCommunityChannelsLock admite un cuarto argumento
+opcional afterCommit(saved). withChannelPermission y mutateChannel lo reciben
+como ultimo argumento opcional. La transaccion confirma antes del callback;
+una cola por comunidad abarca transaccion y publicacion en esta instancia.
+La cola se libera tambien ante errores. Esto impide que ediciones aparezcan
+despues del evento de borrado y ordena revocaciones con nuevas publicaciones.
+No se reutilizan transacciones globales dentro de una transaccion: los helpers
+de autenticacion aceptan db opcional y las escrituras pasan tx.
+
+emitToChannel verifica destinatarios de la room en cada entrega: sesion vigente
+y VER actual. No se envia automaticamente a todas las membresias o pestanas;
+solo a sockets suscriptos. Una sesion vencida/revocada se desconecta antes de
+recibir contenido; otra sesion valida del mismo usuario sigue funcionando.
+Un socket sin VER sale de la room aunque hubiera quedado unido por error.
+La lista de permisos se comparte solo dentro de esa publicacion, nunca entre
+mensajes. Si no se puede comprobar la sesion, no se entrega contenido.
+
+T-15 sigue siendo responsable de la invalidacion global/proactiva de sesiones.
+El guard de T-26 protege mensajes de canal sin esperar esa tarea; no modifica
+la distribucion de mensajes privados ni agrega un barrido periodico de sesiones.
+
+La serializacion de publicaciones corresponde a una instancia activa de la API,
+como la configuracion actual de Socket.IO. El bloqueo SQL protege el estado entre
+conexiones, pero varias instancias requieren un adapter y coordinacion de eventos
+compartidos (por ejemplo, un outbox); no se declara resuelta esa distribucion.
+Si se pierde un ack o la conexion despues del commit, el mensaje puede estar
+guardado: el cliente debe reconciliar historial y deduplicar ack/evento por ID.
+No existe una clave de idempotencia de comandos en el contrato actual.
+
+No requiere migraciones ni dependencias nuevas. La interfaz y el rediseño
+integrado de T-27 consumiran estos eventos y el historial de T-25.
