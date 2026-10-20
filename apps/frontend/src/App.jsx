@@ -12,6 +12,10 @@ import AuthLayout from "./components/AuthLayout.jsx";
 import AppShell from "./components/AppShell.jsx";
 import ConversationsPage from "./pages/ConversationsPage.jsx";
 import AmigosPage from "./pages/AmigosPage.jsx";
+import CommunitiesLayout from "./context/CommunitiesContext.jsx";
+import CommunitiesPage from "./pages/CommunitiesPage.jsx";
+import CommunityPage from "./pages/CommunityPage.jsx";
+import CommunityFormPage from "./pages/CommunityFormPage.jsx";
 
 export default function App() {
   const { estado, usuario } = useAuth();
@@ -36,6 +40,12 @@ export default function App() {
             <Route path="/conversaciones/:id" element={<ConversationsPage />} />
             <Route path="/perfil" element={<ProfilePage />} />
             <Route path="/amigos" element={<AmigosPage />} />
+            <Route path="/comunidades" element={<CommunitiesLayout />}>
+              <Route index element={<CommunitiesPage />} />
+              <Route path="nueva" element={<CommunityFormPage />} />
+              <Route path=":id" element={<CommunityPage />} />
+              <Route path=":id/editar" element={<CommunityFormPage />} />
+            </Route>
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
