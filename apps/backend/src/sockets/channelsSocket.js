@@ -21,7 +21,8 @@ export function registerChannelHandlers(socket, ready) {
           await socket.leave(rooms.channel(idCanal));
           reply({ ok: true, data: {} });
         } else {
-          const canal = await withChannelPermission(idCanal, user.id, 'VER', async (_tx, context) => {
+          const canal = await withChannelPermission(idCanal, user.id, 'VER', async (tx, context) => {
+            await requireSocketUser(socket, tx);
             // No permitir que una revocación se intercale entre comprobar y unir.
             if (!socket.connected) throw new AppError(401, 'UNAUTHORIZED', 'La sesión no está conectada');
             await socket.join(rooms.channel(idCanal));

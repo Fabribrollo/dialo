@@ -34,11 +34,11 @@ export async function authenticateSocket(socket, next) {
   }
 }
 
-export async function requireSocketUser(socket) {
+export async function requireSocketUser(socket, db) {
   const auth = socket.data.auth;
   const user = !env.isProduction && auth?.devUserId
-    ? await findAuthUserById(auth.devUserId)
-    : await findAuthUserBySessionToken(auth?.token);
+    ? await findAuthUserById(auth.devUserId, db)
+    : await findAuthUserBySessionToken(auth?.token, db);
   if (!user || user.id !== socket.data.user?.id) {
     throw new AppError(401, 'UNAUTHORIZED', 'La sesión no es válida o venció');
   }

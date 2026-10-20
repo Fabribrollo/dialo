@@ -1,4 +1,10 @@
 export const EVENTS = {
+  CHANNEL_MESSAGE_SEND: 'channel-message:send',
+  CHANNEL_MESSAGE_EDIT: 'channel-message:edit',
+  CHANNEL_MESSAGE_DELETE: 'channel-message:delete',
+  CHANNEL_MESSAGE_NEW: 'channel-message:new',
+  CHANNEL_MESSAGE_UPDATED: 'channel-message:updated',
+  CHANNEL_MESSAGE_DELETED: 'channel-message:deleted',
   CHANNEL_SUBSCRIBE: 'channel:subscribe',
   CHANNEL_UNSUBSCRIBE: 'channel:unsubscribe',
   MESSAGE_SEND: 'message:send',
