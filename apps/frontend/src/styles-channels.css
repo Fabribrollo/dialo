@@ -1,0 +1,35 @@
+.channel-workspace { display: grid; grid-template-columns: minmax(200px, 270px) minmax(0, 1fr); gap: 24px; margin-top: 24px; align-items: start; }
+.channel-navigation, .channel-panel { min-width: 0; }
+.channel-list { margin: 0; }
+.channel-list:empty { display: none; }
+.channel-link { display: grid; gap: 5px; padding: 16px; color: var(--ink); overflow-wrap: anywhere; }
+.channel-link:hover, .channel-link[aria-current="page"] { background: #eaf3e8; text-decoration: none; }
+.channel-link[aria-current="page"] { box-shadow: inset 4px 0 var(--teal); }
+.channel-type { font-size: 12px; font-weight: 650; color: var(--teal); }
+.channel-order { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 16px 14px; }
+.channel-order button { padding: 7px 10px; font-size: 12px; }
+.channel-panel { border: 1px solid var(--line); border-radius: 12px; background: var(--paper); padding: 24px; }
+.channel-detail-heading h2 { margin-bottom: 6px; overflow-wrap: anywhere; }
+.channel-detail-heading { margin-bottom: 16px; }
+.channel-detail-actions { margin-top: 24px; gap: 10px; }
+.channel-placeholder { padding: 20px 0; font-size: 14px; color: var(--muted); }
+.channel-form h2, .channel-access-form h2 { font-size: 20px; overflow-wrap: anywhere; }
+.channel-form, .channel-access-form { margin-top: 24px; }
+.channel-checkbox { display: flex; align-items: center; gap: 9px; font-size: 14px; }
+.channel-checkbox input { width: 18px; height: 18px; flex: 0 0 18px; accent-color: var(--teal); }
+.channel-form button[type="submit"], .channel-access-form button[type="submit"] { justify-self: start; }
+.channel-cancel { margin-top: 16px; }
+.channel-access-fields { display: grid; gap: 16px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.channel-access-fields h3 { margin: 8px 0 0; font-size: 16px; }
+.channel-permission-row { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin: 0; }
+.channel-permission-row legend { font-size: 13px; padding: 0 4px; overflow-wrap: anywhere; max-width: 100%; }
+.channel-permission-options { display: flex; flex-wrap: wrap; gap: 12px 18px; }
+.channel-permission-row > button, .channel-permission-row > p { margin-top: 12px; font-size: 12px; }
+.channel-add-member { display: grid; gap: 10px; min-width: 0; }
+.channel-add-member button { justify-self: start; }
+.channel-access-form .notice button, .channel-form .notice button { margin-top: 10px; display: block; }
+.channel-panel select { width: 100%; min-width: 0; }
+@media (max-width: 780px) {
+  .channel-workspace { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .channel-panel { padding: 18px; }
+}
