@@ -1,27 +1,14 @@
 import { prisma } from '../prisma/client.js';
-import { Prisma } from '@prisma/client';
 import { requireRole } from './communitiesService.js';
 import { AppError } from '../utils/AppError.js';
-import { channelSelect, effectiveChannelPermissions, toChannel } from '../utils/channelPermissions.js';
+import { canModerateChannel, channelSelect, effectiveChannelPermissions, toChannel } from '../utils/channelPermissions.js';
 import { closeChannel, emitToUser, leaveChannel } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
+import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 
 const notFound = () => new AppError(404, 'CHANNEL_NOT_FOUND', 'El canal no existe');
 const canAdminister = (rol) => rol === 'ADMIN' || rol === 'PROPIETARIO';
-// Prisma califica sus consultas, pero $queryRaw no adopta automáticamente el
-// schema de DATABASE_URL. Escapar el identificador conserva el aislamiento.
-const schema = new URL(process.env.DATABASE_URL).searchParams.get('schema') || 'public';
-const communityTable = Prisma.raw(`"${schema.replaceAll('"', '""')}"."comunidad"`);
-
-// Una fila de comunidad coordina todas las escrituras de sus canales, también
-// entre procesos. T-23 debe reutilizar este bloqueo al cambiar las habilitaciones.
-export function withCommunityChannelsLock(idComunidad, operation, missing = () => new AppError(404, 'COMMUNITY_NOT_FOUND', 'La comunidad no existe')) {
-  return prisma.$transaction(async (tx) => {
-    const rows = await tx.$queryRaw`SELECT id_comunidad FROM ${communityTable} WHERE id_comunidad = ${idComunidad} FOR UPDATE`;
-    if (!rows.length) throw missing();
-    return operation(tx);
-  }, { maxWait: 10000, timeout: 30000 });
-}
+export { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 
 async function channelContext(db, idCanal, idUsuario) {
   const canal = await db.canal.findUnique({ where: { id: idCanal }, select: channelSelect });
@@ -44,6 +31,36 @@ export async function getChannelPermissions(idCanal, idUsuario, db = prisma) {
   return (await channelContext(db, idCanal, idUsuario))?.permisos ?? [];
 }
 
+// HTTP y sockets deben consultar esta autorización en cada operación, incluso
+// si el socket ya está en la room. El cliente nunca aporta su rol ni permisos.
+export async function requireChannelPermission(idCanal, idUsuario, permiso = 'VER', db = prisma) {
+  const context = await requireChannel(db, idCanal, idUsuario);
+  if (!context.permisos.includes(permiso)) {
+    const code = permiso === 'ESCRIBIR' ? 'NO_WRITE_PERMISSION' : 'NO_CHANNEL_PERMISSION';
+    throw new AppError(403, code, 'No tenés permiso para realizar esta operación en el canal');
+  }
+  return context;
+}
+
+export async function requireChannelModerator(idCanal, idUsuario, db = prisma) {
+  const context = await requireChannelPermission(idCanal, idUsuario, 'VER', db);
+  if (!canModerateChannel(context.rol, context.permisos)) {
+    throw new AppError(403, 'CANNOT_MODERATE_CHANNEL', 'Tu rol no permite moderar este canal');
+  }
+  return context;
+}
+
+// Coordina comprobación y operación con cambios de acceso/tipo/borrado.
+// El callback usa tx para evitar consultar permisos fuera de la transacción.
+export async function withChannelPermission(idCanal, idUsuario, permiso, operation) {
+  const original = await prisma.canal.findUnique({ where: { id: idCanal }, select: { idComunidad: true } });
+  if (!original) throw notFound();
+  return withCommunityChannelsLock(original.idComunidad, async (tx) => {
+    const context = await requireChannelPermission(idCanal, idUsuario, permiso, tx);
+    return operation(tx, context);
+  }, notFound);
+}
+
 export async function getChannel(idCanal, idUsuario) {
   const { canal, permisos } = await requireChannel(prisma, idCanal, idUsuario);
   return toChannel(canal, permisos);
@@ -58,7 +75,7 @@ export async function listChannels(idComunidad, idUsuario) {
   });
 }
 
-function audience(canal, miembros) {
+export function audience(canal, miembros) {
   return new Map(miembros.map((m) => [m.idUsuario, effectiveChannelPermissions(canal, m.rol, m.idUsuario)]));
 }
 const getMembers = (tx, idComunidad) => tx.membresia.findMany({ where: { idComunidad }, select: { idUsuario: true, rol: true } });
@@ -84,7 +101,7 @@ export async function createChannel(idComunidad, idUsuario, datos) {
   return toChannel(saved.canal, effectiveChannelPermissions(saved.canal, saved.rol, idUsuario));
 }
 
-async function mutateChannel(idCanal, idUsuario, operation) {
+export async function mutateChannel(idCanal, idUsuario, operation) {
   const original = await prisma.canal.findUnique({ where: { id: idCanal }, select: { idComunidad: true } });
   if (!original) throw notFound();
   return withCommunityChannelsLock(original.idComunidad, async (tx) => {

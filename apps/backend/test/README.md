@@ -22,7 +22,7 @@ La cobertura incluye autenticacion, roles, DTO publico, permisos por tipo/rol/
 integrante, filtrado privado, CRUD, validacion, cambios de tipo con contenido,
 cascadas, orden completo/estable, concurrencia y eventos con varias pestanas.
 Tambien simula sockets ya unidos a una room para comprobar su retiro al perder
-VER o al eliminar el canal. La suscripcion de cliente se implementa en T-26.
+VER o al eliminar el canal. La suscripcion de cliente esta implementada en T-23.
 
 Con la app ya ejecutandose, `npm run smoke:channels -w apps/backend` verifica el
 recorrido contra el servidor real (localhost:3000 por defecto o
@@ -112,3 +112,48 @@ Remove-Item Env:DIALO_TEST_API_URL
 Los fallos hacen terminar el comando con código distinto de cero y un mensaje `T-11 FALLÓ`. Una ejecución correcta muestra `T-11 OK` y los nombres de las cuentas creadas. No imprime cookies ni contraseñas.
 
 La comprobación completa de vencimiento, errores de validación y carreras simultáneas se realiza con `test:messages` sobre una base exclusiva de pruebas. El comando `smoke:messages` comprueba el recorrido principal contra la instancia que ya está ejecutándose; no sustituye esa suite.
+
+
+## Permisos y suscripciones de canales (T-23)
+
+`npm run test:channel-access -w apps/backend` ejecuta 4 pruebas puras de la
+matriz/validaciones y 14 pruebas de integracion HTTP/Socket.IO con Prisma.
+Requiere TEST_DATABASE_URL exclusiva de pruebas, crea/elimina su propio schema
+`test_t23_<id aleatorio>` y usa cinco conexiones salvo configuracion explicita.
+Para comprobar concurrencia entre conexiones se requiere PostgreSQL nativo con
+al menos cinco conexiones; un emulador con una sola conexion no lo acredita.
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
+npm run test:channel-access -w apps/backend
+npm run test:channels -w apps/backend
+npm run test:communities -w apps/backend
+Remove-Item Env:TEST_DATABASE_URL
+```
+
+Sin base de datos se pueden ejecutar solo las pruebas puras:
+
+```powershell
+npm exec -w apps/backend -- node --test test/channel-permissions.test.js
+```
+
+Cubre consulta/reemplazo completo, normalizacion, rechazo de escalamiento,
+roles e integrantes, DTO sin secretos, membresia de otra comunidad, lectura
+sin escritura/moderacion, voz/video, revocacion y recuperacion en dos pestanas,
+ausencia de eventos despues del retiro de rooms, logout, reemplazos simultaneos,
+suscripcion frente a revocacion, abandono y borrado de comunidad.
+
+Con la app ya ejecutandose:
+
+```powershell
+npm run smoke:channel-access -w apps/backend
+```
+
+El smoke usa localhost:3000 o DIALO_TEST_API_URL. Crea tres cuentas t23_*, una
+comunidad privada, invitacion y canales propios; prueba permisos por rol y
+usuario, solo lectura, validaciones, revocacion/recuperacion, varias pestanas,
+reemplazos concurrentes, permisos de voz y salida de la comunidad. Elimina solo
+su comunidad y revoca sus sesiones al terminar. Las tres cuentas permanecen.
+No necesita acceso directo a la base, no ejecuta seed ni migraciones y no modifica
+datos preexistentes. El resultado esperado es T-23 OK; cualquier fallo termina
+con codigo distinto de cero. No reemplaza la suite aislada de integracion.

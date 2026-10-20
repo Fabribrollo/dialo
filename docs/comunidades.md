@@ -225,7 +225,9 @@ Si eliminado es true, contenido es null. eliminadoPorModerador indica si lo borr
 - privado: booleano.
 - rol asignable: ADMIN, MODERADOR o INTEGRANTE.
 - permisos: lista sin repetidos de VER, ESCRIBIR, HABLAR, TRANSMITIR.
-- habilitaciones: hasta 50, sin repetir rol ni usuario.
+- habilitaciones: hasta 50, sin repetir rol ni usuario. Una lista de permisos
+  vacia equivale a omitir esa habilitacion: no se guarda una fila vacia ni
+  deniega los permisos obtenidos por otra via.
 - duracionHoras (invitacion): 1, 24, 168 o null (sin vencimiento).
 - usosMaximos (invitacion): 1 a 100, o null (sin limite).
 - orden: todos los ids de canales de la comunidad, sin repetidos.
@@ -635,20 +637,21 @@ para evitar difundir IDs de canales privados a quienes no tienen VER. Los
 nombres de eventos y las formas del payload se mantienen. La orden enviada por
 un administrador a PUT sigue incluyendo todos los canales de la comunidad.
 
-### Estado de implementacion de canales tras T-22
+### Estado de implementacion de canales tras T-23
 
 Estan implementados listado, creacion, detalle, actualizacion, ordenamiento y
 eliminacion. La evaluacion de permisos existente se reutiliza desde
 getChannelPermissions(idCanal, idUsuario); devuelve [] si no existe o no hay
-membresia. Configurar habilitaciones mediante GET/PUT /channels/:id/access
-corresponde a T-23. La interfaz corresponde a T-24; suscripciones e historial y
-mensajeria corresponden a T-25/T-26/T-27.
+membresia. GET/PUT /channels/:id/access y channel:subscribe/unsubscribe estan
+implementados en T-23. La interfaz corresponde a T-24; historial y mensajeria
+corresponden a T-25/T-26 y la integracion visual completa a T-27.
 
 Las escrituras de canales adquieren FOR UPDATE sobre la comunidad dentro de una
 transaccion. Esto coordina creacion, orden, modificacion y eliminacion entre
-procesos. withCommunityChannelsLock(idComunidad, operation) queda disponible
-para que T-23 y el envio de mensajes de T-26 compartan el mismo bloqueo y no
-compitan con cambios de tipo o eliminaciones.
+procesos. withCommunityChannelsLock(idComunidad, operation) vive ahora en
+utils/communityChannelsLock.js (se reexporta desde channelsService). Lo usan
+tambien el reemplazo de acceso, la suscripcion, el abandono y el borrado de la
+comunidad; T-26 debe usarlo para coordinar mensajes con cambios de acceso/tipo.
 
 El cambio de TEXTO a VOZ/VIDEO se rechaza si existe cualquier mensaje, incluidos
 los eliminados logicamente. Eliminar el canal aplica las cascadas del modelo.
@@ -674,3 +677,46 @@ anteriores que no lo utilizan. No hay nueva migracion ni dependencia.
 - NO_WRITE_PERMISSION (403): mensajes de canal (socket).
 - CANNOT_DELETE_MESSAGE (403): mensajes de canal (socket).
 - Se reusan MESSAGE_NOT_FOUND, NOT_AUTHOR y MESSAGE_DELETED.
+
+
+### Autorizacion compartida y configuracion de acceso (T-23)
+
+GET/PUT /api/channels/:id/access exige ADMIN o PROPIETARIO. PUT reemplaza
+privado y todas las habilitaciones dentro de una transaccion; ambos campos son
+obligatorios. Valida antes de escribir que los usuarios pertenezcan a la misma
+comunidad. No acepta campos extras, roles superiores, targets duplicados ni
+permisos repetidos. VER se agrega al guardar cualquier permiso, aunque luego
+al calcular los efectivos se descarten los que no aplican al tipo actual.
+Las respuestas de acceso muestran solo UsuarioPublico, sin correo ni credenciales.
+Las habilitaciones nunca se incluyen en el DTO normal ni en channel:updated.
+
+Para las siguientes tareas, channelsService exporta:
+
+- requireChannelPermission(idCanal, idUsuario, permiso = 'VER', db = prisma):
+  devuelve { canal, rol, permisos } con la membresia y habilitaciones actuales.
+  Sin VER arroja 404 CHANNEL_NOT_FOUND; con VER pero sin ESCRIBIR arroja
+  403 NO_WRITE_PERMISSION. Para HABLAR/TRANSMITIR usa 403 NO_CHANNEL_PERMISSION.
+- requireChannelModerator(idCanal, idUsuario, db = prisma): exige VER y
+  MODERADOR o superior; no convierte una habilitacion individual en rol.
+  Sin capacidad de moderar arroja 403 CANNOT_MODERATE_CHANNEL.
+  En T-26 la eliminacion de mensajes debe comprobar ademas la autoria y que
+  el autor tenga un rol menor: este helper solo comprueba capacidad en el canal.
+- withChannelPermission(idCanal, idUsuario, permiso, operation): adquiere el
+  bloqueo compartido y revalida dentro de la transaccion. operation(tx, context)
+  debe usar tx. Se usa al suscribir; T-26 debe usarlo para las escrituras.
+
+Las rutas existentes de detalle/listado y la suscripcion comparten el mismo
+calculo efectivo. Los handlers channel:subscribe/unsubscribe esperan la union
+inicial a rooms y revalidan la sesion en cada operacion. Una suscripcion no
+concede ESCRIBIR ni moderacion. Salir es idempotente aunque ya no exista el canal.
+
+Reemplazar acceso envia channel:updated personalizado a quienes conservan o
+ganan VER. Quienes lo pierden salen de todas las rooms del canal y reciben
+channel:access-lost. Si solo pierden ESCRIBIR conservan la room pero reciben
+sus permisos actualizados. Recuperar VER permite resuscribirse sin reconectar;
+no une automaticamente ninguna pestana. Los futuros mensajes deben revalidar
+permiso/sesion en cada operacion; la pertenencia a una room no es autorizacion.
+
+Los endpoints de cambio de rol/expulsion pertenecen a F-09 y aun no existen.
+Cuando se agreguen deben compartir el bloqueo y recalcular audiencias, retirando
+las rooms correspondientes. No hay migraciones ni dependencias nuevas en T-23.

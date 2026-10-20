@@ -1,4 +1,12 @@
 import * as service from '../services/channelsService.js';
+import * as accessService from '../services/channelAccessService.js';
+
+export async function getChannelAccess(req, res) {
+  res.json({ acceso: await accessService.getChannelAccess(req.validated.params.id, req.user.id) });
+}
+export async function replaceChannelAccess(req, res) {
+  res.json({ acceso: await accessService.replaceChannelAccess(req.validated.params.id, req.user.id, req.validated.body) });
+}
 
 export async function listChannels(req, res) {
   res.json({ items: await service.listChannels(req.validated.params.id, req.user.id) });

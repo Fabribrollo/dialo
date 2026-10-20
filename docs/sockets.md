@@ -299,3 +299,25 @@ export const EVENTS = {
   USER_UPDATED: 'user:updated',
 };
 ```
+
+
+## Suscripcion autorizada a canales (T-23)
+
+`channel:subscribe` recibe `{ idCanal }` y responde
+`{ ok: true, data: { canal } }`. Requiere una sesion vigente y VER actual;
+el payload no acepta identidad, rol ni permisos. Se revisa la base en cada
+solicitud y la union a `channel:id` se coordina con los cambios de acceso,
+abandono y borrado. Sin VER responde CHANNEL_NOT_FOUND sin filtrar el canal.
+
+`channel:unsubscribe` recibe `{ idCanal }` y responde
+`{ ok: true, data: {} }`. Es idempotente y solo retira el socket solicitante;
+requiere sesion pero permite salir aunque el canal se haya borrado.
+Ambos eventos validan IDs positivos enteros; errores usan `{ ok: false, error }`.
+Si la sesion fue revocada responden UNAUTHORIZED y desconectan el socket.
+
+Reemplazar acceso retira todas las pestanas que pierden VER y emite
+`channel:access-lost`. Quienes ganan o conservan acceso reciben
+`channel:updated` con sus propios misPermisos. Para volver a abrir el canal
+hay que suscribirse otra vez; no hace falta reconectar la sesion.
+Los eventos y mensajes de F-08 siguen el contrato de [comunidades.md](comunidades.md)
+y se implementan en T-25/T-26. Estar en una room no autoriza futuras escrituras.
