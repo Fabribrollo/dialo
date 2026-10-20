@@ -155,3 +155,58 @@ inexistentes ni cambios de schema o dependencias.
 
 La administración completa de roles, los canales y el explorador público no
 forman parte de T-21. Se conserva la presentación sencilla hasta T-27.
+
+## Canales y configuración de acceso (T-24)
+
+El detalle de comunidad incorpora Ver canales. Las rutas son:
+
+- `/comunidades/:id/canales`: listado ordenado de canales visibles.
+- `/comunidades/:id/canales/nuevo`: creación para ADMIN/PROPIETARIO.
+- `/comunidades/:id/canales/:canalId`: selección, detalle y administración.
+
+Los tipos Texto, Voz y Video se identifican con etiquetas. Voz/video indican que
+las llamadas estarán disponibles en una entrega posterior; no ofrecen conexión.
+El historial y compositor se integran con F-08. La selección actual muestra
+metadatos y permisos; no se suscribe todavía a la room de mensajes.
+
+ADMIN y PROPIETARIO crean, editan, eliminan y reordenan. Los botones Subir/Bajar
+funcionan con teclado y envían todos los IDs del listado administrativo. No se
+requiere arrastrar. Un conflicto INVALID_ORDER recarga el listado sin presentar
+un orden local como guardado. Eliminar exige confirmación y devuelve el foco al
+cancelar. Crear/editar bloquea envíos duplicados y conserva el borrador si falla.
+El conflicto CHANNEL_HAS_MESSAGES explica que un canal con mensajes debe seguir
+siendo Texto.
+
+Permisos consulta GET /channels/:id/access y los integrantes de la comunidad.
+Solo carga esa configuración cuando un administrador abre el formulario. Permite
+marcar privado, habilitar MODERADOR/INTEGRANTE y sumar usuarios individuales.
+Escribir/Hablar/Transmitir implica Ver. Desmarcar Ver limpia esa habilitación;
+quitar una habilitación individual no deniega permisos provenientes de un rol.
+Los canales públicos mantienen sus defaults y la UI lo explica. Para solo lectura
+se usa privado y Ver. Propietario y administradores conservan acceso completo.
+Los permisos guardados para otro tipo de canal se conservan y se indican.
+El formulario guarda un reemplazo completo, con máximo 50 habilitaciones no vacías.
+
+useChannels consume channel:created/updated/deleted/access-lost y
+channels:reordered, filtrando por comunidad. Los datos se recuperan desde HTTP
+al reconectar, volver al foco/visibilidad o actualizar manualmente. Un canal
+eliminado u ocultado se retira de inmediato, también si hay una consulta pendiente.
+Cambiar de comunidad o desmontar la vista invalida respuestas tardías y limpia
+los listeners. Abandonar o perder la comunidad cierra la pantalla completa.
+
+Los borradores administrativos se invalidan ante cambios del canal, desconexión,
+reconexión o regreso al foco; se solicita recargar antes de guardar. Un cambio
+remoto de otro canal no invalida el formulario actual. Esto no agrega control de
+versión al servidor: dos reemplazos válidos simultáneos siguen la semántica de
+última escritura definida por la API. Un error MEMBER_NOT_FOUND solicita renovar
+el listado de integrantes. Los formularios no otorgan roles ni moderación.
+
+T-24 mantiene el estilo sencillo de T-18/T-21 y se adapta a celular con una sola
+columna. La integración visual completa sigue prevista para T-27. No cambia el
+backend, las dependencias, las migraciones ni los archivos de entorno.
+
+Validación: 129 tests frontend (32 nuevos), build y recorrido en Chromium con
+Express, Prisma y Socket.IO reales sobre una base local PGlite aislada. Se
+verificaron dos pestañas, permisos, orden por teclado, recarga, confirmaciones y
+anchos de 320/390/1366 px. La comprobación contra la instancia del equipo se
+realiza manualmente; los tests de componente usan servicios simulados.

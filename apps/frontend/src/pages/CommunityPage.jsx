@@ -64,6 +64,7 @@ export default function CommunityPage() {
         <div><dt>Creada</dt><dd>{new Intl.DateTimeFormat('es-AR', { dateStyle: 'long' }).format(new Date(comunidad.fechaCreacion))}</dd></div>
       </dl>
       <div className="community-actions">
+        <Link className="button-link" to={`/comunidades/${id}/canales`}>Ver canales</Link>
         <Link className="button-link" to={`/comunidades/${id}/integrantes`}>Ver integrantes</Link>
         {canInvite && <Link className="community-secondary-link" to={`/comunidades/${id}/invitaciones`}>Administrar invitaciones</Link>}
         {canManage && <Link className="community-secondary-link" to={`/comunidades/${id}/editar`}>Editar comunidad</Link>}
