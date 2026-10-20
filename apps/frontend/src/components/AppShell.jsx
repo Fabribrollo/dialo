@@ -44,6 +44,10 @@ function Shell() {
             <Icon name="people" />
             <span>Amigos</span>
           </NavLink>
+          <NavLink to="/comunidades" title="Comunidades" aria-label="Comunidades">
+            <Icon name="communities" />
+            <span>Comunidades</span>
+          </NavLink>
           <NavLink to="/perfil" title="Mi perfil" aria-label="Mi perfil">
             <Icon name="profile" />
             <span>Perfil</span>

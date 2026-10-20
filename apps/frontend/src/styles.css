@@ -1,4 +1,5 @@
 @import url("./styles-chat.css");
+@import url("./styles-communities.css");
 :root {
   font-family: Inter, "Segoe UI", system-ui, sans-serif;
   color: #263433;

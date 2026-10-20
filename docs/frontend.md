@@ -71,3 +71,46 @@ Además se verificó el flujo completo en Chromium con dos sesiones, el backend 
 12. Cerrar sesión desde la navegación o el perfil: el chat deja de estar disponible y la conexión se limpia.
 
 Para comprobar T-11 independientemente del navegador sigue disponible `npm run smoke:messages -w apps/backend`; ese comando crea sus propias cuentas de prueba, no reutilizables desde la interfaz porque sus contraseñas son aleatorias.
+# Comunidades (T-18)
+
+Interfaz funcional y sencilla sobre los componentes y colores existentes. La
+integración visual completa de comunidades, canales y chats corresponde a T-27.
+
+## Rutas
+
+- `/comunidades`: listado de comunidades propias y acceso a creación.
+- `/comunidades/nueva`: creación con nombre, tipo e imagen opcional.
+- `/comunidades/:id`: detalle, rol propio y acciones autorizadas.
+- `/comunidades/:id/editar`: edición de nombre, tipo e imagen.
+
+Se reutiliza el único SocketProvider de la app. CommunitiesProvider se monta al
+entrar en esta sección, consulta el listado y consume eventos de comunidad,
+membresía y reconexión. Al salir se limpian sus listeners. La consulta de detalle
+valida el acceso con HTTP y descarta respuestas de rutas anteriores.
+
+`community:updated` no incluye `miRol`; se conserva el rol propio y se reconsulta
+el detalle. Los eventos de eliminación y abandono retiran el contenido abierto y
+vuelven al listado. Al reconectar se recuperan los datos por HTTP.
+
+ADMIN y PROPIETARIO pueden editar. Solo PROPIETARIO ve la eliminación, que exige
+confirmación en un diálogo con foco inicial en Cancelar. El backend sigue siendo
+la autoridad para todas las operaciones. Un 403/404 no revela el detalle privado.
+
+La imagen admite JPG, PNG y WebP de hasta 2 MB, con previsualización local y
+liberación de sus object URLs. La API recibe multipart con el campo `imagen`.
+Crear/editar datos y cargar imagen son operaciones separadas: si solo falla la
+imagen se informa el guardado parcial y se conserva el ID para reintentar sin
+crear otra comunidad. Durante el guardado se bloquean envíos repetidos.
+
+Los errores conservan el borrador. Una actualización remota no reemplaza los
+campos en edición. Una pérdida de acceso retira el contenido de la vista.
+
+## Alcance de esta tarea
+
+T-18 no agrega explorador público, invitaciones, integrantes ni canales a la UI.
+Las invitaciones y los integrantes se integrarán en T-21. El tipo PUBLICA se
+puede guardar con la API actual; el explorador y el ingreso directo necesitan
+completar sus rutas de backend antes de exponerlos en pantalla.
+
+No modifica el schema, las dependencias, el archivo de entorno ni la identidad de
+desarrollo. Las pruebas frontend se ejecutan con `npm run test -w apps/frontend`.
