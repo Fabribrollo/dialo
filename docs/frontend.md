@@ -1,323 +1,140 @@
-# Interfaz de Dialo: T-12 y estilo compartido
+# Frontend de Dialo
 
-## Objetivo y alcance
+Guía de la implementación integrada hasta T-27. Los contratos del servidor están en [api.md](api.md), [comunidades.md](comunidades.md) y [sockets.md](sockets.md).
 
-La interfaz integra las conversaciones privadas de T-10 con la mensajería de T-11, utilizando la sesión real de la app. También unifica la presentación de acceso, registro, recuperación de contraseña, perfil, amigos y solicitudes.
+## Alcance y navegación
 
-El backend, el modelo y los contratos HTTP/socket se conservan. El único `SocketProvider` existente sigue siendo responsable de abrir y cerrar la conexión. Se reinicia al cambiar la identidad autenticada; no se crean conexiones por conversación.
+| Ruta | Pantalla |
+| --- | --- |
+| `/` | Catálogo de conversaciones privadas |
+| `/conversaciones/:id` | Chat privado e historial |
+| `/amigos` | Búsqueda, solicitudes y amigos; Conversar obtiene o crea el chat |
+| `/perfil` | Perfil, foto y disponibilidad |
+| `/comunidades` | Comunidades de las que el usuario es integrante |
+| `/comunidades/nueva` | Crear comunidad |
+| `/comunidades/:id` | Resumen con canales autorizados, integrantes y acciones según rol |
+| `/comunidades/:id/editar` | Editar comunidad |
+| `/comunidades/:id/integrantes` | Lista de integrantes |
+| `/comunidades/:id/invitaciones` | Administración de invitaciones para MODERADOR o superior |
+| `/comunidades/:id/canales` | Catálogo de canales |
+| `/comunidades/:id/canales/nuevo` | Crear canal para ADMIN/PROPIETARIO; `nuevo` se interpreta dentro de la ruta `:canalId` |
+| `/comunidades/:id/canales/:canalId` | Chat de texto o detalle de voz/video y administración autorizada |
+| `/invitacion/:codigo` | Vista previa y aceptación; requiere sesión |
+| `/login`, `/register` | Acceso y registro para visitantes |
+| `/forgot-password`, `/reset-password` | Recuperación de contraseña |
 
-## Navegación y presentación
+No hay explorador público, ingreso directo, edición de roles, transferencia ni expulsión en esta interfaz. Los canales de voz y video muestran su tipo y configuración, sin llamadas.
 
-- `/`: lista de conversaciones y estado inicial.
-- `/conversaciones/:id`: detalle e historial del chat.
-- `/amigos`: buscador, solicitudes y amigos; el botón Conversar obtiene o crea un chat y lo abre.
-- `/perfil`: perfil, foto y disponibilidad.
-- `/login`, `/register`, `/forgot-password`, `/reset-password`: formularios con presentación común.
+## Presentación actual
 
-La navegación autenticada comparte una barra lateral, identidad y estado de conexión. En celular la navegación se presenta al pie y se alterna entre la lista y el chat, con regreso a conversaciones. Las pantallas usan fondos claros, una navegación verde oscuro, acentos suaves, tarjetas, avatares y estados de disponibilidad.
+En escritorio hay una barra lateral de 244 px, reducida a 208 px entre 761 y 1100 px, con iconos, texto y cuenta/conexión al pie. El contenido usa todo el ancho restante y conserva su desplazamiento. A 760 px o menos se usa cabecera compacta y navegación inferior.
 
-Los estilos viven en `styles.css` y `styles-chat.css`, con variables CSS compartidas y ajustes responsive a 1000 y 700 píxeles. No se agregó una biblioteca de componentes ni fuentes remotas.
+La paleta es carbón `#26302E`, crema `#EBE4CF`, mostaza `#BBA149` y naranja quemado `#D03D01`, con tonos derivados para tarjetas, bordes y estados. Las acciones principales usan naranja con texto claro y la navegación activa, mostaza con texto carbón. Los nombres se ajustan al ancho; los cuerpos de mensaje tienen una longitud de lectura acotada.
 
-## Integración de datos
+Conversaciones y comunidades usan grillas adaptables. Amigos distribuye búsqueda/solicitudes y contactos por zonas; perfil separa identidad/foto y formulario. En móvil estas zonas se apilan. El resumen de comunidad muestra hasta ocho canales visibles y seis integrantes reales, con acceso a las listas completas, estados de carga y reintentos independientes. Rol, fecha y administración quedan agrupados al pie.
 
-`ConversationsProvider` conserva el listado, lo ordena por actividad y procesa eventos de conversaciones, mensajes, perfil y amistad. Las consultas HTTP se identifican para evitar que una respuesta anterior revierta un evento más reciente. Una respuesta tardía de detalle tampoco debe rehabilitar la escritura tras eliminar amistad.
+Los estilos son `styles.css`, `styles-chat.css`, `styles-communities.css`, `styles-channels.css`, `styles-workspace.css` y `styles-sidebar.css`. Usan variables compartidas, fuentes del sistema y fallbacks monoespaciados; no requieren una biblioteca visual ni fuentes remotas.
 
-`useMessages` consulta páginas de 30 mensajes y las presenta por fecha e ID en orden cronológico. HTTP, ack y eventos se unifican por ID. Los mensajes eliminados conservan contenido nulo y no se restauran con respuestas antiguas. Las solicitudes pendientes se invalidan al cambiar de conversación o desmontar.
+## Sesión y conexión
 
-Después de reconectar se recuperan listado e historial reciente mediante HTTP. Los mensajes anteriores siguen disponibles mediante paginación. El historial reciente se vuelve a cargar; no se mantiene indefinidamente toda la colección antigua en memoria. Los listeners se retiran con las mismas referencias con las que fueron registrados.
+`AuthProvider` consulta el perfil propio al iniciar. `App` monta un único `SocketProvider` habilitado para la identidad autenticada y lo reinicia al cambiar el ID. No se abre una conexión por conversación/canal. El cliente HTTP manda cookies con `credentials: include` y Socket.IO con `withCredentials: true`.
 
-## Mensajes y errores
+Para sesiones reales, dejar `VITE_DEV_USER_ID` vacío: el `.env.example` trae `1`. En desarrollo ese valor envía `x-dev-user-id` y `auth.devUserId`, y puede hacer que las pruebas usen una identidad fija. El build de producción del frontend no activa ese mecanismo; el backend lo rechaza cuando `NODE_ENV=production`.
 
-- El autor se resuelve por `idAutor`, utilizando el usuario propio o el otro participante; se muestra nombre visible, identificador y fecha.
-- Envío con Enter; Shift + Enter agrega una línea. El límite es de 2000 caracteres y el envío se deshabilita si no hay conexión o amistad.
-- El borrador se conserva al perder conexión o fallar el ack. Si se escribe texto nuevo mientras espera el ack, no se elimina al confirmar el texto anterior.
-- Solo los mensajes propios ofrecen edición y eliminación. La eliminación requiere confirmación en un diálogo nativo.
-- Un timeout no implica que la escritura haya fallado: se consulta el historial y se indica revisarlo antes de reintentar. T-11 no tiene un identificador de idempotencia de envíos; reintentar un envío no confirmado podría generar otro mensaje.
-- `friend:removed` deshabilita nuevos envíos y conserva el historial. Volver a aceptar amistad actualiza el listado desde HTTP.
-- `user:updated` actualiza la identidad del participante. Para el usuario propio se consulta su perfil, porque su disponibilidad pública puede ocultar el estado Invisible.
-- `UNAUTHORIZED` vuelve a comprobar la identidad autenticada. Las fallas de transporte muestran el estado de reconexión.
+**Pendiente T-15:** `AuthContext.refresh()` todavía convierte cualquier fallo en ausencia de usuario; no diferencia un 401 de una falla de red/servidor. En logout limpia la identidad local incluso si falla la petición. La conexión de esta pestaña se cierra al desmontar su provider, pero la desconexión proactiva global de otras pestañas/sesiones no está resuelta. `ConversationsProvider` reconsulta la identidad ante `UNAUTHORIZED` o desconexión forzada del servidor. No presentar estos comportamientos como una solución completa de T-15.
 
-Los controles incluyen etiquetas, foco visible, acceso por teclado, enlace para saltar al contenido, estados de carga y errores con `role="alert"`. El diálogo de confirmación utiliza el comportamiento de foco y Escape del navegador. No se afirma una certificación de accesibilidad completa.
+## Conversaciones privadas
 
-## Pruebas automatizadas
+`ConversationsProvider` conserva y ordena el listado por actividad; consume eventos de conversación, mensajes, amistad y perfil. Las revisiones y los números de petición impiden que respuestas antiguas reviertan eventos recientes. Una respuesta tardía de detalle no rehabilita la escritura tras eliminar amistad.
+
+`useMessages` consulta páginas de 30 mensajes y ordena cronológicamente por fecha e ID. HTTP, ack y eventos se unifican por ID; el contenido eliminado no se restaura con respuestas antiguas. Cambiar de conversación o desmontar invalida consultas pendientes. Al reconectar se consulta el listado y la página reciente del historial; los mensajes anteriores se recuperan por cursor.
+
+- Autor resuelto mediante `idAutor`, el usuario propio o `otroUsuario`.
+- Enter envía, Shift+Enter agrega línea; máximo 2000 caracteres. Envío deshabilitado sin conexión o amistad.
+- Solo el autor edita/elimina; confirmar eliminación en diálogo nativo. Los mensajes anteriores propios pueden modificarse aunque ya no haya amistad, según T-11.
+- Una pérdida de amistad conserva el historial y deshabilita nuevos envíos. Aceptar otra vez recupera el listado desde HTTP.
+- El borrador se conserva si falla el envío o la conexión; un ack no borra texto nuevo escrito mientras se esperaba.
+- Un timeout consulta historial y requiere revisar el resultado antes de reintentar. No hay clave de idempotencia y reintentar puede generar otro mensaje.
+- `user:updated` actualiza la identidad pública del participante; el perfil propio se consulta por HTTP para conservar `INVISIBLE`.
+
+## Comunidades e invitaciones
+
+`CommunitiesProvider` se monta al entrar en comunidades o invitaciones. Consume eventos de comunidad y membresía; al salir limpia sus listeners. Los detalles validan el acceso por HTTP y descartan respuestas de rutas anteriores. `community:updated` no incluye `miRol`: la UI conserva el suyo y reconsulta. Eliminación y abandono retiran las vistas abiertas; reconexión recupera los datos por HTTP.
+
+ADMIN/PROPIETARIO editan nombre, tipo e imagen; solo el propietario elimina, con confirmación y foco inicial en Cancelar. La imagen admite JPG, PNG o WebP hasta 2 MB y se envía como multipart `imagen`. Datos e imagen se guardan en operaciones separadas: si falla solo la imagen se informa el guardado parcial y se conserva el ID para reintentar sin duplicar la comunidad. Se liberan las URLs locales de previsualización.
+
+Los errores conservan borradores; cambios remotos no pisan formularios en edición. El backend decide todos los permisos. Un 403/404 no permite continuar mostrando detalles privados sin autorización.
+
+Invitaciones admite 1 hora, 24 horas, 7 días o sin vencimiento; de 1 a 100 usos o sin límite. El enlace usa el origen actual del frontend. La UI distingue revocada, vencida y agotada. Si falla el portapapeles selecciona el texto para copia manual; revocar exige confirmación y no expulsa integrantes.
+
+`ProtectedRoute` conserva solo un destino interno de invitación validado, usando el router y `sessionStorage`. Login/registro y recargas recuperan ese destino; volver a la invitación limpia el dato. No admite destinos externos. Ver una vista previa no crea una membresía y Rechazar solo vuelve al listado.
+
+Aceptar bloquea envíos duplicados; respuesta HTTP y `community:new` se unifican por ID. Si llega el evento de ingreso pero se pierde la respuesta, se reconoce la membresía. La lista de integrantes muestra identidad pública, disponibilidad y rol; se actualiza ante eventos de membresía, reconexión, foco o petición manual.
+
+No hay eventos de creación/revocación de invitaciones: se reconsultan al volver al foco, reconectar o actualizar. `user:updated` se envía únicamente al usuario y sus amigos, no a todos los integrantes de una comunidad. Las consultas HTTP recuperan identidades vigentes; no se promete notificación de perfil inmediata entre integrantes que no son amigos.
+
+Los no propietarios pueden abandonar con confirmación; `community:left` retira la comunidad y cierra sus vistas en otras pestañas. El propietario no puede abandonar y la transferencia aún no está disponible.
+
+## Canales y acceso
+
+El catálogo muestra canales visibles, su tipo y privacidad. Al seleccionar uno se contrae en **Cambiar canal**; dentro están Actualizar, Crear y el ordenamiento. ADMIN/PROPIETARIO crean, editan, eliminan y ordenan con botones Subir/Bajar, utilizables por teclado. El orden enviado contiene todos los IDs de la comunidad. `INVALID_ORDER` exige recargar; no se presenta el orden local como guardado.
+
+Eliminar exige confirmación. Crear/editar bloquean envíos repetidos y conservan borradores ante error. `CHANNEL_HAS_MESSAGES` impide convertir TEXTO a VOZ/VIDEO si hay cualquier mensaje, incluidos los eliminados lógicamente.
+
+El formulario Permisos consulta `/channels/:id/access` y la lista de integrantes solo al abrirlo. Permite canal privado, habilitaciones MODERADOR/INTEGRANTE y usuarios individuales. Escribir/Hablar/Transmitir implica Ver; quitar una habilitación no deniega lo concedido por otra vía. Los públicos conservan sus defaults; para solo lectura se configura privado y Ver. ADMIN/PROPIETARIO conservan todos los permisos aplicables.
+
+El guardado reemplaza la configuración completa y admite hasta 50 entradas. Los permisos de otro tipo se conservan configurados aunque no sean efectivos. No se asignan roles ni moderación desde este formulario.
+
+`useChannels` consume `channel:created`, `channel:updated`, `channel:deleted`, `channel:access-lost` y `channels:reordered`. Reconsulta ante reconexión, foco/visibilidad o actualización manual; invalida respuestas anteriores y retira canales borrados/ocultos. Abandonar o perder la comunidad cierra la sección.
+
+Los borradores administrativos se marcan obsoletos ante cambios del canal, desconexión, reconexión o foco; se exige recargar antes de guardar. Un cambio en otro canal no los invalida. Esto no agrega versionado al servidor: dos reemplazos válidos simultáneos mantienen semántica de última escritura. `MEMBER_NOT_FOUND` solicita renovar integrantes.
+
+## Chat de canales
+
+`useChannelMessages` registra handlers antes de suscribir y pide el historial después del ack de `channel:subscribe`. Combina HTTP, ack y eventos por ID, incluyendo versiones de edición y marcas de eliminación que impiden recuperar contenido borrado. Las suscripciones/bajas de una misma room se serializan para contemplar A → B → A.
+
+- Historial T-25 y eventos T-26 con múltiples autores, identidad pública, fechas y distinción entre borrado propio/moderado.
+- Enviar y editar propios requieren `ESCRIBIR`; eliminar propios también. Eliminar ajenos exige `VER`, rol MODERADOR o superior y jerarquía estrictamente mayor a la del autor actual. Si el autor abandonó, su rango es cero. No se ofrece editar mensajes ajenos.
+- Borradores por canal en memoria; cambiar de canal o fallar el envío los conserva. Salir de la pantalla, recargar o cerrar sesión los elimina. No se guardan en almacenamiento persistente.
+- Enter, Shift+Enter y composición de teclado contemplados. Un ack no borra texto nuevo escrito mientras se esperaba.
+- Generaciones invalidan HTTP/acks de un canal anterior. Reconexión, foco, permisos, membresía y eventos de perfil revalidan y recuperan la última página. Se descarta la ventana antigua y se pueden volver a cargar anteriores, sin suponer un máximo de eventos perdidos.
+- Desconexión retira el contenido; sin conexión puede recuperarse una lectura por HTTP al revalidar, pero no se habilitan escrituras hasta tener suscripción vigente. Revocación, eliminación y abandono retiran el contenido autorizado y bloquean acciones.
+- Si falla por red/servidor la lista de integrantes, se conserva lectura sin moderación; errores de autorización retiran el acceso.
+- Timeout o error interno provocan reconciliación, sin reenvío automático. No hay idempotencia de comandos: comprobar historial antes de reintentar.
+
+El chat usa la altura disponible y desplaza el historial separado del compositor. En pantallas bajas la página puede desplazarse también. Abrir el catálogo devuelve altura natural; editar datos/permisos reemplaza temporalmente el chat y conserva su borrador. Integrantes abre un panel sobre el historial; Escape cierra y devuelve el foco. La eliminación tiene confirmación y devuelve foco al cancelar.
+
+## Pruebas
 
 Desde la raíz:
 
-```powershell
+```sh
 npm ci
 npm run test -w apps/frontend
 npm run build -w apps/frontend
 ```
 
-La suite usa Vitest, Testing Library y jsdom. No utiliza la base del equipo ni requiere el backend en ejecución: HTTP y sockets se simulan de forma controlada para verificar carreras y estados.
+La suite usa Vitest, Testing Library y jsdom; simula HTTP/sockets y no requiere backend ni base. Cubre privados, comunidades, invitaciones, canales, permisos, paginación, carreras, reconexión, deduplicación, limpieza, borradores y controles de moderación. T-27 quedó validada con 176 tests en 15 archivos; el número puede variar al agregar casos.
 
-Cobertura: deduplicación, orden cronológico, redacción irreversible de contenido eliminado, errores de ack y desconexión, eventos ajenos, cambio rápido de chat, HTTP pendiente, paginación, reconexión, limpieza de listeners, escritura tras eliminar amistad, cambios de identidad, controles propios, confirmación/cancelación, teclado y conservación de borradores.
+Durante T-27 se comprobó además React + Express + Prisma + Socket.IO en Chromium con varias pestañas, usando una base PGlite efímera de una conexión, sin Neon compartido. Se revisaron 320, 390, 736, 1024, 1366 y 1920 px. Esa ejecución no es un script de navegador incluido en el repo ni acredita concurrencia de PostgreSQL nativo. Las suites reproducibles del backend están en [test/README.md](../apps/backend/test/README.md).
 
-Además se verificó el flujo completo en Chromium con dos sesiones, el backend y PostgreSQL embebido en un schema local aislado. Esa ejecución no utilizó Neon ni las credenciales del equipo.
+Los controles incluyen etiquetas, foco visible, teclado, estados y enlace para saltar al contenido. No se declara una auditoría completa de accesibilidad.
 
-## Verificación manual en la instancia del equipo
+## Recorrido manual integrado
 
-1. Ejecutar `npm run db:generate -w apps/backend` y `npm run dev`.
-2. Abrir `http://localhost:5173`. Con sesiones reales, `VITE_DEV_USER_ID` debe estar vacío.
-3. Usar una ventana normal y otra privada para dos cuentas distintas. Pueden registrarse desde la interfaz; anotar sus contraseñas fuera de la conversación.
-4. Desde Amigos, buscar el identificador de la otra cuenta, enviar solicitud y aceptarla en la segunda ventana.
-5. Elegir Conversar. En la otra cuenta, abrir el chat del listado.
-6. Intercambiar mensajes: deben aparecer una vez en ambas ventanas. Editar un mensaje propio y confirmar su eliminación; comprobar los cambios en la segunda cuenta.
-7. Recargar el chat y verificar que persistan los cambios. Con más de 30 mensajes, cargar anteriores y comprobar el orden.
-8. Actualizar nombre visible o foto mientras sigue habiendo amistad: el otro participante debe ver la identidad actualizada. El backend emite cambios de perfil a amigos actuales; no promete actualizarlos en tiempo real después de eliminar amistad.
-9. Eliminar la amistad desde Amigos: el historial permanece y nuevos envíos se deshabilitan. Los mensajes propios anteriores todavía pueden editarse o eliminarse según T-11.
-10. Detener el backend mientras se compone un texto: debe conservarse. Reiniciarlo, esperar reconexión y comprobar la recuperación de datos.
-11. Comprobar edición, envío, cancelación y confirmación mediante teclado; repetir en una ventana angosta.
-12. Cerrar sesión desde la navegación o el perfil: el chat deja de estar disponible y la conexión se limpia.
+1. Configurar entorno según [README](../README.md), con `VITE_DEV_USER_ID` vacío. Generar Prisma y ejecutar `npm run dev`.
+2. Usar ventana normal y privada para dos cuentas distintas; dos pestañas normales comparten la misma cookie/sesión.
+3. Registrar/iniciar sesión, editar perfil/foto/disponibilidad y buscar al otro usuario en Amigos. Enviar y aceptar solicitud; comprobar las otras pestañas.
+4. Abrir Conversar en ambas cuentas; enviar, editar y confirmar/cancelar eliminación propia. Recargar y verificar persistencia, orden y paginación con más de 30 mensajes.
+5. Eliminar amistad: conservar historial y bloquear nuevos envíos; aceptar otra vez recupera escritura. El perfil se notifica a amigos actuales, sin prometer avisos después de eliminar amistad.
+6. Crear comunidad; comprobar aparición en otra pestaña de la misma cuenta. Editar nombre/tipo/imagen y cancelar/confirmar según corresponda en una comunidad descartable.
+7. Crear y copiar invitación, abrirla desde otra sesión, consultar previa sin ingresar y aceptar. Probar el destino pendiente desde login/registro, vencimiento, revocación y usos.
+8. Ver integrantes y abandonar con una cuenta no propietaria; comprobar cierre de vistas en sus otras pestañas.
+9. Crear canales de texto/voz/video, ordenarlos con teclado y editar. Voz/video no deben mostrar conexión de llamada. Eliminar solo canales descartables.
+10. Configurar un canal privado, habilitar Ver a un integrante y comprobar lectura sin envío. Otorgar Escribir; enviar/editar/eliminar propios y comprobar recepción una sola vez en varias pestañas. Revocar Ver y comprobar retirada del contenido; restaurar y volver a abrir.
+11. Con propietario y autor de menor rango, confirmar/cancelar eliminación moderada; no debe existir edición ajena. Para otros roles se puede usar el seed en una base de desarrollo descartable; no hay endpoint para cambiar roles.
+12. Cargar historial anterior, alternar rápido de canal y comprobar borradores. Detener/reiniciar backend; comprobar conservación de texto y recuperación de historial/permisos. Revisar el resultado de un envío sin ack antes de reintentar.
+13. Repetir por teclado y a ancho móvil; comprobar navegación, compositor y cierre de integrantes con Escape.
+14. Cerrar sesión limpia la pestaña actual. Los escenarios de desconexión proactiva de otras sesiones y de falla inicial de red deben validarse como parte de T-15 cuando se integre.
 
-Para comprobar T-11 independientemente del navegador sigue disponible `npm run smoke:messages -w apps/backend`; ese comando crea sus propias cuentas de prueba, no reutilizables desde la interfaz porque sus contraseñas son aleatorias.
-# Comunidades (T-18)
-
-Interfaz funcional y sencilla sobre los componentes y colores existentes. La
-integración visual completa de comunidades, canales y chats corresponde a T-27.
-
-## Rutas
-
-- `/comunidades`: listado de comunidades propias y acceso a creación.
-- `/comunidades/nueva`: creación con nombre, tipo e imagen opcional.
-- `/comunidades/:id`: detalle, rol propio y acciones autorizadas.
-- `/comunidades/:id/editar`: edición de nombre, tipo e imagen.
-
-Se reutiliza el único SocketProvider de la app. CommunitiesProvider se monta al
-entrar en esta sección, consulta el listado y consume eventos de comunidad,
-membresía y reconexión. Al salir se limpian sus listeners. La consulta de detalle
-valida el acceso con HTTP y descarta respuestas de rutas anteriores.
-
-`community:updated` no incluye `miRol`; se conserva el rol propio y se reconsulta
-el detalle. Los eventos de eliminación y abandono retiran el contenido abierto y
-vuelven al listado. Al reconectar se recuperan los datos por HTTP.
-
-ADMIN y PROPIETARIO pueden editar. Solo PROPIETARIO ve la eliminación, que exige
-confirmación en un diálogo con foco inicial en Cancelar. El backend sigue siendo
-la autoridad para todas las operaciones. Un 403/404 no revela el detalle privado.
-
-La imagen admite JPG, PNG y WebP de hasta 2 MB, con previsualización local y
-liberación de sus object URLs. La API recibe multipart con el campo `imagen`.
-Crear/editar datos y cargar imagen son operaciones separadas: si solo falla la
-imagen se informa el guardado parcial y se conserva el ID para reintentar sin
-crear otra comunidad. Durante el guardado se bloquean envíos repetidos.
-
-Los errores conservan el borrador. Una actualización remota no reemplaza los
-campos en edición. Una pérdida de acceso retira el contenido de la vista.
-
-## Alcance de esta tarea
-
-T-18 no agrega explorador público, invitaciones, integrantes ni canales a la UI.
-Las invitaciones y los integrantes se integrarán en T-21. El tipo PUBLICA se
-puede guardar con la API actual; el explorador y el ingreso directo necesitan
-completar sus rutas de backend antes de exponerlos en pantalla.
-
-No modifica el schema, las dependencias, el archivo de entorno ni la identidad de
-desarrollo. Las pruebas frontend se ejecutan con `npm run test -w apps/frontend`.
-
-## Invitaciones e integrantes (T-21)
-
-Se agregan `/comunidades/:id/invitaciones`, `/comunidades/:id/integrantes` y
-`/invitacion/:codigo`. El detalle de comunidad ofrece acceso a integrantes y,
-para MODERADOR/ADMIN/PROPIETARIO, administración de invitaciones.
-
-Las invitaciones admiten 1 hora, 24 horas, 7 días o ningún vencimiento; el máximo
-de usos puede ser de 1 a 100 o sin límite. La UI diferencia estado activo,
-revocado, vencido y agotado. El enlace usa el origen actual de la app. Si falla
-el portapapeles, se selecciona el texto para copiarlo manualmente, sin informar
-una copia exitosa. Revocar requiere confirmación y no expulsa a integrantes.
-
-La vista previa exige sesión según el contrato del backend. ProtectedRoute
-conserva únicamente un destino interno validado de invitación en el router y
-sessionStorage; GuestRoute lo recupera después de login/registro. Los enlaces
-entre ambos formularios conservan el destino y la recarga lo recupera. Nunca se
-aceptan URLs externas como destino. Al volver a la invitación se limpia ese dato.
-
-Consultar la vista previa no genera membresías. Aceptar llama a la API y rechazar
-solo vuelve al listado. Una aceptación se bloquea mientras está pendiente; ack y
-community:new se unifican por ID. Si llega el evento de ingreso pero se pierde
-la respuesta HTTP, la interfaz reconoce la membresía sin volver a aceptar.
-
-La lista de integrantes muestra identidad pública, disponibilidad y rol. Se
-recupera con HTTP ante eventos de membresía, reconexión, foco o actualización
-manual. Consume user:updated cuando el backend lo entrega; no amplía sus
-destinatarios, que actualmente son el usuario y sus amigos.
-
-Los integrantes no propietarios pueden abandonar con confirmación. El evento
-community:left cierra las vistas de otras pestañas y retira la comunidad del
-listado. El propietario no recibe una acción de abandono. Operaciones tardías
-no deben mezclar listas ni redirigir una página que el usuario ya abandonó.
-
-El backend no define eventos de creación/revocación de invitaciones. Esos
-cambios se recuperan al volver al foco, reconectar o pulsar Actualizar; el
-servidor vuelve a validar la invitación al aceptar. No se agregaron eventos
-inexistentes ni cambios de schema o dependencias.
-
-La administración completa de roles, los canales y el explorador público no
-forman parte de T-21. Se conserva la presentación sencilla hasta T-27.
-
-## Canales y configuración de acceso (T-24)
-
-El detalle de comunidad incorpora Ver canales. Las rutas son:
-
-- `/comunidades/:id/canales`: listado ordenado de canales visibles.
-- `/comunidades/:id/canales/nuevo`: creación para ADMIN/PROPIETARIO.
-- `/comunidades/:id/canales/:canalId`: selección, detalle y administración.
-
-Los tipos Texto, Voz y Video se identifican con etiquetas. Voz/video indican que
-las llamadas estarán disponibles en una entrega posterior; no ofrecen conexión.
-El historial y compositor se integran con F-08. La selección actual muestra
-metadatos y permisos; no se suscribe todavía a la room de mensajes.
-
-ADMIN y PROPIETARIO crean, editan, eliminan y reordenan. Los botones Subir/Bajar
-funcionan con teclado y envían todos los IDs del listado administrativo. No se
-requiere arrastrar. Un conflicto INVALID_ORDER recarga el listado sin presentar
-un orden local como guardado. Eliminar exige confirmación y devuelve el foco al
-cancelar. Crear/editar bloquea envíos duplicados y conserva el borrador si falla.
-El conflicto CHANNEL_HAS_MESSAGES explica que un canal con mensajes debe seguir
-siendo Texto.
-
-Permisos consulta GET /channels/:id/access y los integrantes de la comunidad.
-Solo carga esa configuración cuando un administrador abre el formulario. Permite
-marcar privado, habilitar MODERADOR/INTEGRANTE y sumar usuarios individuales.
-Escribir/Hablar/Transmitir implica Ver. Desmarcar Ver limpia esa habilitación;
-quitar una habilitación individual no deniega permisos provenientes de un rol.
-Los canales públicos mantienen sus defaults y la UI lo explica. Para solo lectura
-se usa privado y Ver. Propietario y administradores conservan acceso completo.
-Los permisos guardados para otro tipo de canal se conservan y se indican.
-El formulario guarda un reemplazo completo, con máximo 50 habilitaciones no vacías.
-
-useChannels consume channel:created/updated/deleted/access-lost y
-channels:reordered, filtrando por comunidad. Los datos se recuperan desde HTTP
-al reconectar, volver al foco/visibilidad o actualizar manualmente. Un canal
-eliminado u ocultado se retira de inmediato, también si hay una consulta pendiente.
-Cambiar de comunidad o desmontar la vista invalida respuestas tardías y limpia
-los listeners. Abandonar o perder la comunidad cierra la pantalla completa.
-
-Los borradores administrativos se invalidan ante cambios del canal, desconexión,
-reconexión o regreso al foco; se solicita recargar antes de guardar. Un cambio
-remoto de otro canal no invalida el formulario actual. Esto no agrega control de
-versión al servidor: dos reemplazos válidos simultáneos siguen la semántica de
-última escritura definida por la API. Un error MEMBER_NOT_FOUND solicita renovar
-el listado de integrantes. Los formularios no otorgan roles ni moderación.
-
-T-24 mantiene el estilo sencillo de T-18/T-21 y se adapta a celular con una sola
-columna. La integración visual completa sigue prevista para T-27. No cambia el
-backend, las dependencias, las migraciones ni los archivos de entorno.
-
-Validación: 129 tests frontend (32 nuevos), build y recorrido en Chromium con
-Express, Prisma y Socket.IO reales sobre una base local PGlite aislada. Se
-verificaron dos pestañas, permisos, orden por teclado, recarga, confirmaciones y
-anchos de 320/390/1366 px. La comprobación contra la instancia del equipo se
-realiza manualmente; los tests de componente usan servicios simulados.
-
-## T-27 — Chat de canales y diseño integrado
-
-La navegación global es superior en escritorio y pasa a una barra inferior en
-celular. Mensajes privados, comunidades, integrantes, invitaciones, administración,
-perfil y pantallas de acceso comparten fondos neutros cálidos, navegación azul profundo, secciones activas petróleo, acentos naranja,
-títulos monoespaciados y texto oscuro. Los nombres y textos se ajustan al ancho sin
-elipsis. El chat privado abre una conversación por vez y permite volver a la lista.
-
-En `/comunidades/:id/canales` se presenta el catálogo; al abrir un canal, la lista
-se contrae en **Cambiar canal**. Actualizar, crear y ordenar están dentro de ese
-selector. Editar, permisos y eliminar siguen disponibles solo para administración.
-Los canales de voz/video mantienen el aviso de próximas entregas.
-
-El chat de texto integra:
-
-- Historial inicial y carga de mensajes anteriores mediante T-25.
-- Alta de la suscripción T-23 antes del GET del historial; deduplicación por ID
-  entre HTTP, eventos T-26 y ack, con versiones de edición y tombstones de borrado.
-- Múltiples autores, perfil público vigente, fecha, hora y mensajes eliminados por
-  el autor o por moderación.
-- Envío/edición/eliminación propios con `ESCRIBIR`. Moderación con `VER`, rol mínimo
-  moderador y jerarquía estrictamente superior a la del autor actual. Un autor
-  que abandonó tiene rango cero. No se ofrece edición de mensajes ajenos.
-- Confirmación de eliminación y devolución del foco al cancelar.
-- Borradores por canal en memoria: cambiar de canal o fallar un envío no los borra.
-  Se limpian al salir de la pantalla, cerrar sesión o recargar el navegador;
-  no se guardan en almacenamiento persistente. Un ack no borra texto escrito
-  mientras se esperaba la respuesta. Enter envía; Shift+Enter agrega una línea;
-  se respeta la composición del teclado.
-- Cada canal tiene sus listeners y una generación para ignorar HTTP/acks tardíos.
-  Las altas/bajas de una misma room se serializan, incluyendo volver A → B → A.
-- Reconexión, foco, cambios de permisos/membresía y perfil revalidan el acceso y
-  recuperan la última página. Se descarta la ventana anterior para que ediciones
-  y bajas perdidas en páginas viejas no queden visibles; se pueden volver a cargar
-  anteriores desde el cursor actual. No se supone que se perdieron menos de 30.
-- Desconexión/revocación/eliminación/abandono retiran el contenido y deshabilitan
-  acciones hasta revalidar. Los permisos y la identidad se actualizan desde el servidor.
-  Si falla la lista de integrantes, sigue la lectura pero no la moderación.
-- Un timeout o error interno no provoca reenvíos automáticos: se vuelve a consultar
-  el historial y se conserva el texto para que la persona compruebe el resultado.
-  T-26 no tiene clave de idempotencia; un reintento manual puede crear otro mensaje.
-
-El servidor sigue siendo la autoridad para permisos, autoría, sesión y moderación.
-Los controles de la interfaz no sustituyen esas comprobaciones. Esta entrega no
-cambia el esquema de datos, las dependencias ni el alcance de despliegue de T-26.
-
-### Validación
-
-```sh
-npm run test -w apps/frontend
-npm run build -w apps/frontend
-```
-
-`channel-messages.test.jsx` cubre suscripción, paginación, deduplicación, respuestas
-fuera de orden, reconexión, permisos, revocación y limpieza. `channel-chat-page.test.jsx`
-cubre autores, jerarquía, edición propia, confirmación/foco, borradores y composición.
-Las pruebas de administración de T-24 se conservan separadas del chat y del selector.
-El recorrido completo con dos cuentas y varias pestañas se describe en la guía de
-validación que acompaña al parche.
-
-### Ajuste visual posterior de T-27
-
-La paleta parte del afiche de referencia: naranja `#ff8000`, petróleo `#006c6d`,
-azul profundo `#002b3c`, rojo anaranjado para avisos y neutros cálidos para lectura.
-Los tonos de texto se ajustan para conservar contraste; las combinaciones principales
-verificadas superan 4,5:1. Los controles deshabilitados usan relleno y texto propios,
-sin depender de transparencia.
-
-El chat usa la altura disponible entre la navegación y su compositor. Solo el
-historial se desplaza; en pantallas bajas la página admite desplazamiento adicional.
-Título y selector comparten cabecera. Al desplegar el catálogo la página recupera
-su altura natural; al editar permisos/datos el formulario ocupa el espacio del chat
-y el borrador se conserva en su pantalla. Los integrantes se despliegan sobre el
-historial y Escape cierra esa lista devolviendo el foco al botón de apertura.
-
-### T-27 — Espacios fluidos y resumen operativo de comunidades
-
-Los catálogos ya no se limitan a una columna centrada de 860/1200 px: usan el ancho
-útil con márgenes adaptables. Conversaciones se distribuye en una grilla de tarjetas;
-la búsqueda abarca el catálogo y el acceso a amigos queda en su cabecera. La vista
-de conversación mantiene el historial separado del compositor y no recupera la
-barra lateral global de Discord.
-
-El resumen de cada comunidad muestra una cabecera de identidad naranja, hasta ocho
-canales autorizados con acceso directo y hasta seis integrantes reales. Se consultan
-las APIs existentes y se reutilizan las colecciones que invalidan datos ante cambios,
-reconexión y pérdida de membresía. Actualizaciones de perfil refrescan los integrantes.
-Las listas completas siguen disponibles; errores y reintentos son independientes.
-Los datos de rol/fecha, edición e invitaciones y la acción destructiva quedan agrupados
-al pie, en lugar de ser el único contenido principal del resumen.
-
-Comunidades usa tarjetas de identidad petróleo, amigos distribuye búsqueda/solicitudes
-y contactos en columnas y perfil separa identidad/foto del formulario. Se apilan en
-celular, sin elipsis en nombres. Los cuerpos de mensaje mantienen una longitud de
-lectura acotada dentro de un espacio de conversación fluido. Los colores principales
-son naranja `#ff8200`, petróleo `#007c78`, azul `#002b3c` y fondos cálidos `#f3efdf`.
-No se modifica el modelo de datos ni las reglas de autorización del servidor.
-### T-27: barra lateral y paleta retro
-
-La navegación principal en escritorio vuelve a una barra lateral de 244 px
-(208 px entre 761 y 1100 px), con iconos, etiquetas, perfil, estado de conexión
-y cierre de sesión al pie. El contenido ocupa todo el ancho restante, conserva
-su propio desplazamiento y mantiene las grillas y el resumen operativo de comunidad.
-En móvil se conserva la cabecera compacta y la navegación inferior.
-
-La paleta de referencia usa carbón `#26302E`, crema `#EBE4CF`, mostaza `#BBA149`
-y naranja quemado `#D03D01`. Se emplean tonos derivados para fondos de tarjetas,
-bordes, texto secundario y estados. Las acciones principales llevan naranja con
-texto claro; la navegación activa usa mostaza con texto carbón. No cambian las
-rutas, contratos de API, permisos ni lógica de mensajería.
+La latencia de mensajes observada en la instancia del equipo sigue pendiente de medición; no se declara optimizada por el rediseño visual. Los retoques visuales posteriores quedan fuera de esta revisión documental.

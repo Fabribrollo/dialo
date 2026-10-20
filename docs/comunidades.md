@@ -1,8 +1,9 @@
 # Contrato de comunidades y canales - Dialo (Entrega 50%)
 
-Version 1. Borrador para revisar entre los tres (T-13).
+Contrato implementado hasta T-27. Las propuestas originales de T-13 que todavía no tienen código están separadas en el apartado de pendientes.
 Cubre F-05 (comunidades), F-06 (invitaciones e integrantes), F-07 (canales y acceso) y F-08 (mensajes en canales).
-Usa las mismas convenciones que api.md y sockets.md: rutas bajo /api, camelCase, mismo formato de error, paginacion por cursor, Auth: si responde 401 UNAUTHORIZED.
+Usa las convenciones de [api.md](api.md) y [sockets.md](sockets.md): rutas bajo `/api`, camelCase, formato de error compartido e historiales paginados por cursor. Los listados de comunidades, integrantes, canales e invitaciones no están paginados. Todas estas rutas requieren sesión y responden `401 UNAUTHORIZED` sin ella.
+En los ejemplos, `Comunidad`, `Canal`, `Integrante` y otros nombres representan objetos de las formas compartidas, no valores JSON literales.
 El chat privado (conversations y eventos message:\*) no cambia.
 
 ---
@@ -11,7 +12,7 @@ El chat privado (conversations y eventos message:\*) no cambia.
 
 - Tipos de comunidad: PUBLICA y PRIVADA.
 - Roles base: PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE. Uno por integrante. Los roles personalizados quedan para F-09.
-- Hay un solo propietario por comunidad. No puede abandonarla: primero transfiere la propiedad o la elimina.
+- Hay un solo propietario por comunidad. No puede abandonarla; actualmente puede eliminarla. Transferir la propiedad sigue pendiente.
 - Crear una comunidad es una transaccion: comunidad + membresia PROPIETARIO del creador + canal de texto "general".
 - Eliminar una comunidad: solo el propietario. Borra en cascada canales, mensajes de canal, membresias e invitaciones.
 - Eliminar un canal: ADMIN o mas. Borra en cascada sus mensajes y su configuracion de acceso.
@@ -30,21 +31,27 @@ El chat privado (conversations y eventos message:\*) no cambia.
 
 ## Tipos de comunidad
 
-PUBLICA:
+Ambos tipos se pueden crear y editar. El listado `GET /api/communities` solo devuelve las comunidades de las que el usuario es integrante.
 
-- Aparece en el explorador (GET /api/communities/explore).
-- Cualquier usuario puede ver su vista previa.
-- Se puede ingresar directo (POST /api/communities/:id/join) o con invitacion.
-- Si un no integrante pide GET /api/communities/:id recibe 403 NOT_MEMBER.
+- PUBLICA: un no integrante que consulta el detalle recibe `403 NOT_MEMBER`.
+- PRIVADA: un no integrante recibe `404 COMMUNITY_NOT_FOUND`.
+- El ingreso implementado para ambos tipos es mediante una invitación válida. La vista previa se obtiene por `/api/invitations/:codigo` y requiere sesión.
+- Pasar de PUBLICA a PRIVADA no expulsa a integrantes.
 
-PRIVADA:
+### Funcionalidades pendientes
 
-- No aparece en el explorador.
-- Solo se puede ver la vista previa con una invitacion valida.
-- Solo se ingresa con invitacion.
-- Si un no integrante pide GET /api/communities/:id recibe 404 COMMUNITY_NOT_FOUND.
+Estas rutas de T-13 **no están implementadas** y no deben usarse como API disponible:
 
-Pasar de PUBLICA a PRIVADA no expulsa a nadie.
+| Propuesta | Estado |
+| --- | --- |
+| `GET /api/communities/explore` | Explorador público pendiente |
+| `GET /api/communities/:id/preview` | Previa pública directa pendiente; la previa por invitación sí existe |
+| `POST /api/communities/:id/join` | Ingreso directo a públicas pendiente |
+| `POST /api/communities/:id/transfer` | Transferencia pendiente |
+| `PATCH /api/communities/:id/members/:idUsuario` | Cambio de roles pendiente, dentro de la administración futura |
+| Expulsión y roles personalizados | Fuera de la implementación actual |
+
+Tampoco existe el evento `community:member-updated`. Las futuras operaciones deberán conservar la jerarquía y coordinar cambios de permisos/rooms; esta guía no las presenta como garantías actuales.
 
 ---
 
@@ -54,22 +61,18 @@ Jerarquia: PROPIETARIO (4) > ADMIN (3) > MODERADOR (2) > INTEGRANTE (1).
 
 Que puede hacer cada rol (cada rol puede todo lo de los roles menores):
 
-- INTEGRANTE: ver la comunidad, sus integrantes y los canales a los que tiene acceso. Abandonar la comunidad.
+- INTEGRANTE: ver la comunidad, sus integrantes y los canales a los que tiene acceso. Abandonar la comunidad si no es propietario.
 - MODERADOR: crear, listar y revocar invitaciones. Eliminar mensajes ajenos en canales donde tiene VER.
-- ADMIN: editar nombre, imagen y tipo de la comunidad. Crear, editar, ordenar y eliminar canales y configurar su acceso. Cambiar roles (solo a MODERADOR o INTEGRANTE).
-- PROPIETARIO: transferir la propiedad, eliminar la comunidad, asignar ADMIN. No puede abandonar.
+- ADMIN: editar nombre, imagen y tipo de la comunidad. Crear, editar, ordenar y eliminar canales y configurar su acceso.
+- PROPIETARIO: las acciones de ADMIN y eliminar la comunidad. No puede abandonar. Asignación de roles y transferencia no están implementadas.
 
-Regla de jerarquia (se aplica igual en HTTP y en sockets):
-
-- Nadie puede actuar sobre alguien con rol igual o mayor al suyo (cambiarle el rol o eliminarle mensajes).
-- Nadie puede asignar un rol igual o mayor al propio, salvo el propietario, que puede asignar ADMIN.
-- El rol PROPIETARIO no se asigna con PATCH, solo con la transferencia.
+La moderación exige jerarquía estrictamente superior al rol actual del autor del mensaje. No permite editar mensajes ajenos. Un autor que abandonó tiene rango cero. Los roles de fixtures/seed no implican que exista una API para cambiarlos.
 
 ---
 
 ## Permisos de canal
 
-- VER (todos los tipos): ver el canal, abrirlo, leer el historial y recibir sus eventos.
+- VER (todos los tipos): ver y abrir el canal. En TEXTO permite leer historial y recibir mensajes; no habilita llamadas todavía.
 - ESCRIBIR (TEXTO): enviar mensajes. Editar y eliminar los propios tambien lo requiere.
 - HABLAR (VOZ, VIDEO): hablar en la llamada. Se guarda ahora, se usa en F-10.
 - TRANSMITIR (VOZ, VIDEO): camara y pantalla. Se guarda ahora, se usa en F-10.
@@ -157,7 +160,7 @@ Solo la ven MODERADOR o mas.
 
 - usosMaximos y fechaExpiracion pueden ser null (sin limite).
 - estado: ACTIVA, VENCIDA, AGOTADA o REVOCADA. Lo calcula el servidor.
-- El enlace que arma el front es CLIENT_URL/invitacion/codigo.
+- El frontend arma `<origen actual>/invitacion/<codigo>`; no lee `CLIENT_URL`, que es configuración del backend.
 
 ### Canal
 
@@ -217,13 +220,15 @@ Si eliminado es true, contenido es null. eliminadoPorModerador indica si lo borr
 
 ## Validaciones
 
+Los parámetros HTTP y de historial usan IDs enteros positivos de PostgreSQL (máximo 2147483647); los payloads de comandos socket exigen números, no strings numéricos. Las rutas validan parámetros antes de ejecutar servicios. Los errores comunes de sesión y formato se suman a los errores específicos de cada operación.
+
 - nombre de comunidad: 2 a 64 caracteres, sin espacios al inicio ni al final.
 - tipo de comunidad: PUBLICA o PRIVADA.
 - imagen de comunidad: jpg, png o webp, hasta 2 MB.
 - nombre de canal: 1 a 32 caracteres, sin espacios al inicio ni al final.
 - tipo de canal: TEXTO, VOZ o VIDEO.
 - privado: booleano.
-- rol asignable: ADMIN, MODERADOR o INTEGRANTE.
+- Los roles existen en el modelo; no hay un payload de asignación implementado.
 - permisos: lista sin repetidos de VER, ESCRIBIR, HABLAR, TRANSMITIR.
 - habilitaciones: hasta 50, sin repetir rol ni usuario. Una lista de permisos
   vacia equivale a omitir esa habilitacion: no se guarda una fila vacia ni
@@ -231,8 +236,7 @@ Si eliminado es true, contenido es null. eliminadoPorModerador indica si lo borr
 - duracionHoras (invitacion): 1, 24, 168 o null (sin vencimiento).
 - usosMaximos (invitacion): 1 a 100, o null (sin limite).
 - orden: todos los ids de canales de la comunidad, sin repetidos.
-- contenido (mensaje de canal): 1 a 2000 caracteres despues de quitar espacios.
-- q (explorador): 2 a 32 caracteres.
+- contenido (mensaje de canal): 1 a 2000 caracteres después de recortar extremos, conservando espacios internos.
 - limit: 1 a 50.
 
 ---
@@ -249,16 +253,11 @@ Comunidades del usuario, la de ingreso mas reciente primero.
 
 Auth: si.
 Body: { "nombre": "Club de lectura", "tipo": "PRIVADA" }
+`tipo` es opcional; por defecto es PRIVADA.
 En una transaccion crea la comunidad, la membresia PROPIETARIO del usuario y el canal "general" (TEXTO, publico). El propietario sale de la sesion: el body no acepta idPropietario. La imagen se sube despues.
 201: { "comunidad": Comunidad }
 Socket: community:new a user:id propio, y une sus sockets a community:id.
 Errores: 400 VALIDATION_ERROR.
-
-### GET /api/communities/explore?q=lect&limit=20
-
-Auth: si.
-Busca comunidades PUBLICA por nombre (contiene, sin distinguir mayusculas).
-200: { "items": [ComunidadPreview] }
 
 ### GET /api/communities/:id
 
@@ -268,12 +267,6 @@ Errores:
 
 - 404 COMMUNITY_NOT_FOUND: no existe, o es privada y no es integrante.
 - 403 NOT_MEMBER: es publica y no es integrante.
-
-### GET /api/communities/:id/preview
-
-Auth: si. Solo comunidades PUBLICA.
-200: { "comunidad": ComunidadPreview }
-Errores: 404 COMMUNITY_NOT_FOUND si no existe o es privada.
 
 ### PATCH /api/communities/:id
 
@@ -302,30 +295,9 @@ Borra la comunidad y en cascada canales, mensajes de canal, membresias e invitac
 Socket: community:deleted a community:id, y despues saca a todos los sockets de community:id y de sus canales.
 Errores: 403 INSUFFICIENT_ROLE, 404 COMMUNITY_NOT_FOUND.
 
-### POST /api/communities/:id/transfer
-
-Auth: si. PROPIETARIO.
-Body: { "idUsuario": 7 }
-En una transaccion el destino pasa a PROPIETARIO y el propietario anterior a ADMIN.
-200: { "comunidad": Comunidad }
-Socket: community:updated y community:member-updated (dos veces) a community:id.
-Errores:
-
-- 400 SELF_TRANSFER: es el propio usuario.
-- 403 INSUFFICIENT_ROLE: no es el propietario.
-- 404 MEMBER_NOT_FOUND: el destino no es integrante.
-
 ---
 
 ## 6. Ingreso e integrantes (F-06)
-
-### POST /api/communities/:id/join
-
-Auth: si. Solo comunidades PUBLICA.
-Ingresa con rol INTEGRANTE. Si ya era integrante no cambia nada.
-201 si ingreso, 200 si ya era integrante: { "comunidad": Comunidad }
-Socket (si ingreso): community:member-joined a community:id y community:new a user:id propio. Une sus sockets a community:id.
-Errores: 404 COMMUNITY_NOT_FOUND si no existe o es privada.
 
 ### POST /api/communities/:id/leave
 
@@ -339,21 +311,8 @@ Errores:
 ### GET /api/communities/:id/members
 
 Auth: si. Integrante.
-Ordenados por rol (mayor primero) y despues por nombreVisible.
+Ordenados por rol (mayor primero), después por nombreVisible y por ID de usuario como desempate.
 200: { "items": [Integrante] }
-
-### PATCH /api/communities/:id/members/:idUsuario
-
-Auth: si. ADMIN o mas, respetando la regla de jerarquia.
-Body: { "rol": "MODERADOR" }
-200: { "integrante": Integrante }
-Socket: community:member-updated a community:id, y se recalcula el acceso del afectado a los canales.
-Errores:
-
-- 400 VALIDATION_ERROR: rol invalido (incluido PROPIETARIO).
-- 403 INSUFFICIENT_ROLE.
-- 403 CANNOT_MANAGE_MEMBER: el destino tiene rol igual o mayor, o el rol pedido es igual o mayor al propio.
-- 404 MEMBER_NOT_FOUND.
 
 ---
 
@@ -362,7 +321,8 @@ Errores:
 ### POST /api/communities/:id/invitations
 
 Auth: si. MODERADOR o mas.
-Body (opcional): { "duracionHoras": 24, "usosMaximos": 10 }
+Body JSON: { "duracionHoras": 24, "usosMaximos": 10 }
+Los dos campos son opcionales y por defecto son null; para omitirlos enviar `{}`.
 201: { "invitacion": Invitacion }
 Errores: 400 VALIDATION_ERROR, 403 INSUFFICIENT_ROLE, 404 COMMUNITY_NOT_FOUND.
 
@@ -375,7 +335,7 @@ Todas las invitaciones de la comunidad, mas nuevas primero.
 ### DELETE /api/communities/:id/invitations/:idInvitacion
 
 Auth: si. MODERADOR o mas.
-Revoca la invitacion (queda guardada con estado REVOCADA). Repetirlo tambien responde 204. 204.
+Revoca la invitación (queda guardada con estado REVOCADA). Responde 204; repetirlo también responde 204.
 Errores: 403 INSUFFICIENT_ROLE, 404 INVITATION_NOT_FOUND.
 
 ### GET /api/invitations/:codigo
@@ -393,9 +353,9 @@ Errores:
 ### POST /api/invitations/:codigo/accept
 
 Auth: si.
-Ingresa con rol INTEGRANTE y suma un uso, en una transaccion. Si ya era integrante no consume un uso. Dos aceptaciones al mismo tiempo no pueden pasar el maximo de usos.
+Ingresa con rol INTEGRANTE y suma un uso, en una transacción. Primero exige que la invitación esté activa; incluso un integrante existente recibe el error de una invitación vencida/revocada/agotada. Si está activa y ya es integrante no consume un uso. Dos aceptaciones al mismo tiempo no pueden superar el máximo.
 201 si ingreso, 200 si ya era integrante: { "comunidad": Comunidad }
-Socket (si ingreso): igual que join.
+Socket (si ingresó): une sus sockets a `community:id`, emite `community:member-joined` a esa room y `community:new` a `user:id` propio.
 Errores: los mismos que la vista previa.
 
 ---
@@ -518,12 +478,13 @@ channel:subscribe
 
 - Payload: { "idCanal": 21 }
 - Ack ok: { "ok": true, "data": { "canal": Canal } }
-- Errores: CHANNEL_NOT_FOUND.
+- Errores: CHANNEL_NOT_FOUND, VALIDATION_ERROR, UNAUTHORIZED.
 
 channel:unsubscribe
 
 - Payload: { "idCanal": 21 }
 - Ack ok: { "ok": true, "data": {} }
+- Errores: VALIDATION_ERROR, UNAUTHORIZED. Permite salir aunque el canal ya no exista.
 
 channel-message:send
 
@@ -536,12 +497,14 @@ channel-message:edit
 
 - Payload: { "idMensaje": 340, "contenido": "Hola (editado)" }
 - Solo el autor, y necesita ESCRIBIR. Emite channel-message:updated.
+- Ack ok: { "ok": true, "data": { "mensaje": MensajeCanal } }
 - Errores: VALIDATION_ERROR, MESSAGE_NOT_FOUND, CHANNEL_NOT_TEXT, NOT_AUTHOR, MESSAGE_DELETED, NO_WRITE_PERMISSION, UNAUTHORIZED.
 
 channel-message:delete
 
 - Payload: { "idMensaje": 340 }
 - El autor (con ESCRIBIR) o un moderador (MODERADOR o mas con VER, y el autor con rol menor). Emite channel-message:deleted.
+- Ack ok: { "ok": true, "data": { "idMensaje": 340, "idCanal": 21, "eliminadoPorModerador": true } }
 - Errores: VALIDATION_ERROR, MESSAGE_NOT_FOUND, CHANNEL_NOT_TEXT, MESSAGE_DELETED, CANNOT_DELETE_MESSAGE, UNAUTHORIZED.
 
 ### Servidor a cliente
@@ -549,12 +512,11 @@ channel-message:delete
 Comunidades:
 
 - community:new a user:id. Payload { "comunidad": Comunidad }. Se creo o se ingreso a una comunidad.
-- community:updated a community:id. Payload { "comunidad": Comunidad }. El front conserva su propio miRol.
+- community:updated a community:id. Payload { "comunidad": Comunidad sin miRol }. El front conserva su propio rol y reconsulta; el evento no lleva un rol común para todos.
 - community:deleted a community:id. Payload { "idComunidad": 4 }.
 - community:left a user:id. Payload { "idComunidad": 4 }. Para las otras pestanas de quien abandono.
 - community:member-joined a community:id. Payload { "idComunidad": 4, "integrante": Integrante }.
 - community:member-left a community:id. Payload { "idComunidad": 4, "idUsuario": 7 }.
-- community:member-updated a community:id. Payload { "idComunidad": 4, "integrante": Integrante }.
 
 Canales:
 
@@ -572,14 +534,15 @@ Mensajes de canal:
 
 ### Perdida de acceso
 
-Cuando un usuario pierde VER en un canal (cambia la configuracion, le cambian el rol, abandona o se borra la comunidad):
+Al reemplazar el acceso o cambiar privacidad, el servidor retira de `channel:id` las pestañas que pierden VER y envía `channel:access-lost` a `user:id`. El frontend retira el canal de la lista y vuelve al catálogo de canales si lo tenía seleccionado. Quienes ganan o conservan VER reciben `channel:updated` con permisos propios; recuperar acceso permite resuscribirse, sin unión automática.
 
-1. El servidor saca sus sockets de channel:id en ese momento, sin esperar que se reconecte.
-2. Le emite channel:access-lost a user:id.
-3. El front saca el canal de la lista y, si lo tenia abierto, lo cierra y vuelve a la comunidad.
+Otros retiros tienen eventos distintos:
 
-Si recupera VER, recibe channel:updated y puede volver a suscribirse.
-Toda operacion (HTTP o socket) vuelve a revisar los permisos actuales en la base, no los del momento de la suscripcion.
+- Abandono: retira rooms de comunidad/canales, informa `community:member-left` a quienes permanecen y `community:left` a las pestañas del usuario que salió.
+- Eliminación del canal: cierra su room y envía `channel:deleted` a quienes tenían VER.
+- Eliminación de comunidad: emite `community:deleted` y cierra sus rooms y las de sus canales.
+
+No se emite adicionalmente `channel:access-lost` por cada canal en todos esos casos. Los cambios de rol no se contemplan como operación disponible porque aún no hay endpoint. Toda operación HTTP/socket comprueba permisos actuales, no solo los del momento de la suscripción.
 
 ### Constantes nuevas para events.js (back y front)
 
@@ -590,7 +553,6 @@ COMMUNITY_DELETED: 'community:deleted',
 COMMUNITY_LEFT: 'community:left',
 COMMUNITY_MEMBER_JOINED: 'community:member-joined',
 COMMUNITY_MEMBER_LEFT: 'community:member-left',
-COMMUNITY_MEMBER_UPDATED: 'community:member-updated',
 CHANNEL_SUBSCRIBE: 'channel:subscribe',
 CHANNEL_UNSUBSCRIBE: 'channel:unsubscribe',
 CHANNEL_CREATED: 'channel:created',
@@ -610,12 +572,14 @@ CHANNEL_MESSAGE_DELETED: 'channel-message:deleted',
 
 ## Rutas del front
 
-- /comunidades: mis comunidades y el explorador.
-- /comunidades/:id: la comunidad (lista de canales e integrantes).
-- /comunidades/:id/canales/:idCanal: un canal abierto.
-- /invitacion/:codigo: vista previa con Aceptar y Rechazar. Si no hay sesion, se guarda el codigo, se va al login y despues se vuelve aca.
+- `/comunidades`: comunidades propias, sin explorador público.
+- `/comunidades/nueva` y `/comunidades/:id/editar`: formularios autorizados.
+- `/comunidades/:id`: resumen con canales e integrantes reales.
+- `/comunidades/:id/integrantes` y `/comunidades/:id/invitaciones`: listas y administración autorizada.
+- `/comunidades/:id/canales`, `/comunidades/:id/canales/nuevo` y `/comunidades/:id/canales/:canalId`: catálogo, creación y chat/configuración.
+- `/invitacion/:codigo`: previa, Aceptar y Rechazar; sin sesión conserva un destino interno validado y vuelve después de login/registro.
 
-Los canales de VOZ y VIDEO se muestran con un aviso de que las llamadas todavia no estan disponibles.
+VOZ/VIDEO muestran que las llamadas aún no están disponibles. El comportamiento de interfaz se detalla en [frontend.md](frontend.md).
 
 ---
 
@@ -623,36 +587,35 @@ Los canales de VOZ y VIDEO se muestran con un aviso de que las llamadas todavia 
 
 Para no repetir las reglas de permisos en cada feature.
 
-- getMembership(idComunidad, idUsuario): devuelve { rol } o null. En services/communitiesService.js. Duenio: Fabri. La usan todos.
-- requireRole(idComunidad, idUsuario, rolMinimo): tira 404 COMMUNITY_NOT_FOUND o 403 INSUFFICIENT_ROLE. En services/communitiesService.js. Duenio: Fabri.
-- getChannelPermissions(idCanal, idUsuario): devuelve la lista de permisos efectivos (vacia si no es integrante). En services/channelsService.js. Duenio: Valentin. La usan Valentin (canales y mensajes) y el socket.
-- emitToCommunity(idComunidad, evento, payload), joinCommunity(idComunidad, idsUsuarios), leaveCommunity(idComunidad, idUsuario): en sockets/emitter.js.
+- getMembership(idComunidad, idUsuario): devuelve { rol } o null. En services/communitiesService.js. La usan los servicios de comunidades/invitaciones.
+- requireRole(idComunidad, idUsuario, rolMinimo, db?): devuelve { rol }; puede lanzar 404 COMMUNITY_NOT_FOUND, 403 NOT_MEMBER o 403 INSUFFICIENT_ROLE. En services/communitiesService.js.
+- getChannelPermissions(idCanal, idUsuario): devuelve la lista de permisos efectivos (vacia si no es integrante). En services/channelsService.js. La usan canales, mensajes y sockets.
+- emitToCommunity(idComunidad, evento, payload), joinCommunity(idComunidad, idsUsuarios), leaveCommunity(idComunidad, idUsuario, idsCanales): en sockets/emitter.js.
 - emitToChannel(idCanal, evento, payload), leaveChannel(idCanal, idUsuario): en sockets/emitter.js.
 
 ---
 
-## Errores nuevos
+## Implementación compartida y errores
 
 Nota de T-22: las notificaciones de eliminacion y orden se envian por usuario
 para evitar difundir IDs de canales privados a quienes no tienen VER. Los
 nombres de eventos y las formas del payload se mantienen. La orden enviada por
 un administrador a PUT sigue incluyendo todos los canales de la comunidad.
 
-### Estado de implementacion de canales tras T-23
+### Implementación y coordinación de canales
 
 Estan implementados listado, creacion, detalle, actualizacion, ordenamiento y
 eliminacion. La evaluacion de permisos existente se reutiliza desde
 getChannelPermissions(idCanal, idUsuario); devuelve [] si no existe o no hay
 membresia. GET/PUT /channels/:id/access y channel:subscribe/unsubscribe estan
-implementados en T-23. La interfaz corresponde a T-24; historial y mensajeria
-corresponden a T-25/T-26 y la integracion visual completa a T-27.
+implementados en T-23. La administración visual se implementó en T-24, el historial/mensajería en T-25/T-26 y la interfaz integrada en T-27.
 
 Las escrituras de canales adquieren FOR UPDATE sobre la comunidad dentro de una
 transaccion. Esto coordina creacion, orden, modificacion y eliminacion entre
 procesos. withCommunityChannelsLock(idComunidad, operation) vive ahora en
 utils/communityChannelsLock.js (se reexporta desde channelsService). Lo usan
 tambien el reemplazo de acceso, la suscripcion, el abandono y el borrado de la
-comunidad; T-26 debe usarlo para coordinar mensajes con cambios de acceso/tipo.
+comunidad. T-26 lo utiliza para coordinar mensajes con cambios de acceso/tipo y publicación posterior al commit.
 
 El cambio de TEXTO a VOZ/VIDEO se rechaza si existe cualquier mensaje, incluidos
 los eliminados logicamente. Eliminar el canal aplica las cascadas del modelo.
@@ -664,10 +627,8 @@ anteriores que no lo utilizan. No hay nueva migracion ni dependencia.
 - COMMUNITY_NOT_FOUND (404): communities.
 - NOT_MEMBER (403): communities.
 - INSUFFICIENT_ROLE (403): communities, invitations, channels.
-- CANNOT_MANAGE_MEMBER (403): members.
 - MEMBER_NOT_FOUND (404): members, channels.
 - OWNER_CANNOT_LEAVE (409): members.
-- SELF_TRANSFER (400): communities.
 - INVITATION_NOT_FOUND (404): invitations.
 - INVITATION_EXPIRED (410): invitations.
 - INVITATION_REVOKED (410): invitations.
@@ -675,7 +636,9 @@ anteriores que no lo utilizan. No hay nueva migracion ni dependencia.
 - CHANNEL_NOT_FOUND (404): channels.
 - CHANNEL_HAS_MESSAGES (409): channels.
 - INVALID_ORDER (400): channels.
+- CHANNEL_NOT_TEXT (400): historial y mensajes de canal.
 - NO_WRITE_PERMISSION (403): mensajes de canal (socket).
+- NO_CHANNEL_PERMISSION (403) y CANNOT_MODERATE_CHANNEL (403): helpers de autorización; no implican una ruta de llamadas/moderación adicional.
 - CANNOT_DELETE_MESSAGE (403): mensajes de canal (socket).
 - Se reusan MESSAGE_NOT_FOUND, NOT_AUTHOR y MESSAGE_DELETED.
 
@@ -691,7 +654,7 @@ al calcular los efectivos se descarten los que no aplican al tipo actual.
 Las respuestas de acceso muestran solo UsuarioPublico, sin correo ni credenciales.
 Las habilitaciones nunca se incluyen en el DTO normal ni en channel:updated.
 
-Para las siguientes tareas, channelsService exporta:
+channelsService exporta:
 
 - requireChannelPermission(idCanal, idUsuario, permiso = 'VER', db = prisma):
   devuelve { canal, rol, permisos } con la membresia y habilitaciones actuales.
@@ -700,11 +663,10 @@ Para las siguientes tareas, channelsService exporta:
 - requireChannelModerator(idCanal, idUsuario, db = prisma): exige VER y
   MODERADOR o superior; no convierte una habilitacion individual en rol.
   Sin capacidad de moderar arroja 403 CANNOT_MODERATE_CHANNEL.
-  En T-26 la eliminacion de mensajes debe comprobar ademas la autoria y que
-  el autor tenga un rol menor: este helper solo comprueba capacidad en el canal.
-- withChannelPermission(idCanal, idUsuario, permiso, operation): adquiere el
+  La eliminación de T-26 comprueba además autoría y jerarquía del autor; este helper por sí solo no autoriza eliminar cualquier mensaje.
+- withChannelPermission(idCanal, idUsuario, permiso, operation, afterCommit?): adquiere el
   bloqueo compartido y revalida dentro de la transaccion. operation(tx, context)
-  debe usar tx. Se usa al suscribir; T-26 debe usarlo para las escrituras.
+  debe usar tx. Se usa en suscripción, historial y escrituras de mensajes.
 
 Las rutas existentes de detalle/listado y la suscripcion comparten el mismo
 calculo efectivo. Los handlers channel:subscribe/unsubscribe esperan la union
@@ -715,8 +677,8 @@ Reemplazar acceso envia channel:updated personalizado a quienes conservan o
 ganan VER. Quienes lo pierden salen de todas las rooms del canal y reciben
 channel:access-lost. Si solo pierden ESCRIBIR conservan la room pero reciben
 sus permisos actualizados. Recuperar VER permite resuscribirse sin reconectar;
-no une automaticamente ninguna pestana. Los futuros mensajes deben revalidar
-permiso/sesion en cada operacion; la pertenencia a una room no es autorizacion.
+no une automaticamente ninguna pestana. Los mensajes revalidan
+permiso/sesión en cada operación y entrega; la pertenencia a una room no es autorizacion.
 
 Los endpoints de cambio de rol/expulsion pertenecen a F-09 y aun no existen.
 Cuando se agreguen deben compartir el bloqueo y recalcular audiencias, retirando
@@ -752,15 +714,12 @@ elimino. El contenido de un mensaje eliminado es null. eliminadoPorModerador
 es true si la eliminacion registrada tiene un actor distinto del autor; si la
 referencia de auditoria es null, no se infiere un moderador desconocido.
 
-Para T-26, utils/channelMessages.js exporta channelMessageSelect y
+utils/channelMessages.js exporta channelMessageSelect y
 toChannelMessage. La paginacion reutiliza olderMessagesWhere de utils/messages.js,
 compartida con el historial privado sin modificar su orden ni contrato.
 services/channelMessagesService.js exporta listChannelMessages.
 
-No agrega rutas de envio ni una vista de mensajes. El envio/edicion/eliminacion
-corresponden a T-26 y la integracion de la interfaz a T-27. No requiere migracion
-ni dependencia nueva. Las pruebas de paginacion con mensajes se ejecutan en una
-base exclusiva; el smoke usa canales propios vacios sin insertar por SQL.
+El historial es HTTP; envío/edición/eliminación están implementados por socket en T-26 y la interfaz en T-27. Las pruebas de paginación insertan fixtures en una base exclusiva; el smoke específico de T-25 conserva su alcance de canales vacíos. El smoke T-26 sí prueba paginación con mensajes reales.
 
 
 ### Mensajeria en tiempo real implementada (T-26)
@@ -818,5 +777,4 @@ Si se pierde un ack o la conexion despues del commit, el mensaje puede estar
 guardado: el cliente debe reconciliar historial y deduplicar ack/evento por ID.
 No existe una clave de idempotencia de comandos en el contrato actual.
 
-No requiere migraciones ni dependencias nuevas. La interfaz y el rediseño
-integrado de T-27 consumiran estos eventos y el historial de T-25.
+La interfaz integrada de T-27 consume estos eventos y el historial de T-25. La validación reproducible del backend se describe en [test/README.md](../apps/backend/test/README.md); no declarar completa T-15 por las comprobaciones específicas de canales.

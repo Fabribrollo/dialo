@@ -1,248 +1,121 @@
-# Pruebas de conversaciones privadas (T-10 y T-11)
+# Pruebas del backend
 
-## Canales (T-22)
+Las suites verifican la API y Socket.IO con Prisma y sesiones reales. Las pruebas puras de permisos no usan base. No existe un script `npm test` general del backend: ejecutar los comandos de esta guía desde la raíz del repositorio.
 
-`npm run test:channels -w apps/backend` requiere TEST_DATABASE_URL exclusiva de
-pruebas. Crea y elimina solamente un schema `test_t22_<id aleatorio>`, aplica
-todas las migraciones y ejecuta la API y sockets con sesiones reales.
+## Preparación
 
-La suite usa cinco conexiones por defecto para verificar solicitudes
-concurrentes. Si TEST_DATABASE_URL fija connection_limit, se respeta ese valor.
-Para validar bloqueos entre conexiones usar PostgreSQL real con al menos cinco
-conexiones disponibles; PGlite multiplica conexiones sobre una sola y no
-acredita ese escenario. No configurar la base del equipo como base de pruebas.
+Instalar según el [README principal](../../../README.md) y generar Prisma Client:
 
-```powershell
-$env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
-npm run test:channels -w apps/backend
-Remove-Item Env:TEST_DATABASE_URL
+```sh
+npm ci
+npm run db:generate -w apps/backend
 ```
 
-La cobertura incluye autenticacion, roles, DTO publico, permisos por tipo/rol/
-integrante, filtrado privado, CRUD, validacion, cambios de tipo con contenido,
-cascadas, orden completo/estable, concurrencia y eventos con varias pestanas.
-Tambien simula sockets ya unidos a una room para comprobar su retiro al perder
-VER o al eliminar el canal. La suscripcion de cliente esta implementada en T-23.
+Para integración, configurar **`TEST_DATABASE_URL` exclusiva de pruebas**, con conexión directa PostgreSQL y permiso para crear/eliminar schemas. No usar la base compartida del equipo ni producción. Las suites toman esta variable explícita, no la conexión de desarrollo del `.env`, y configuran internamente su entorno y sesiones.
 
-Con la app ya ejecutandose, `npm run smoke:channels -w apps/backend` verifica el
-recorrido contra el servidor real (localhost:3000 por defecto o
-DIALO_TEST_API_URL). Crea tres cuentas t22_*, una comunidad privada e invitacion
-de prueba y canales de los tres tipos. Comprueba CRUD, persistencia, permisos,
-orden, creaciones y reordenamientos concurrentes, eventos, varias pestanas y abandono. Al finalizar
-elimina unicamente su comunidad y revoca sus sesiones; las cuentas de prueba
-permanecen. Si falla la limpieza, informa el ID de la comunidad pendiente.
+Cada suite crea un schema aleatorio, aplica el SQL de todas las migraciones de `prisma/migrations` en orden mediante `migrations.js`, prepara fixtures y elimina solo ese schema al terminar. Una interrupción abrupta puede dejarlo pendiente de limpieza. No es necesario ejecutar seed ni migrar la base de desarrollo para estas suites.
 
-No modifica comunidades, cuentas o conversaciones preexistentes. No ejecuta
-migraciones ni el seed y no requiere credenciales de usuarios reales. La
-restriccion de cambio de tipo con mensajes se prueba en la suite aislada; el
-smoke no inserta mensajes de canal porque T-26 todavia no existe.
+| Suite | Comando (`npm run … -w apps/backend`) | Casos actuales | Schema temporal |
+| --- | --- | --- | --- |
+| Conversaciones privadas T-10 | `test:conversations` | 18 | `test_t10_*` |
+| Mensajería privada T-11 | `test:messages` | 20 | `test_t11_*` |
+| Comunidades/invitaciones T-16/T-17/T-19/T-20 | `test:communities` | 19 | `test_f05_*` |
+| Canales T-22 | `test:channels` | 17 | `test_t22_*` |
+| Permisos/suscripciones T-23 | `test:channel-access` | 4 puros + 14 de integración | `test_t23_*` en integración |
+| Historial de canales T-25 | `test:channel-messages` | 19 | `test_t25_*` |
+| Mensajería de canales T-26 | `test:channel-realtime` | 25 | `test_t26_*` |
 
-La fixture de T-11 para un mensaje de canal crea ahora un canal valido, en vez de
-usar un ID arbitrario que viola la FK agregada en T-14.
+Estos conteos describen la versión actual, no un reporte de una ejecución nueva. T-10, T-11 y comunidades fuerzan una conexión; T-22, T-23, T-25 y T-26 usan cinco salvo `connection_limit` explícito en la URL. Para acreditar bloqueos/concurrencia entre conexiones, ejecutar las suites correspondientes contra PostgreSQL nativo con al menos cinco conexiones disponibles. PGlite de una conexión no acredita ese escenario.
 
-Estas pruebas ejercitan las cuatro rutas HTTP con sesiones reales, Prisma y una base compatible con PostgreSQL. También verifican el evento `conversation:new` mediante clientes Socket.IO.
+## Ejecución completa de integración
 
-## Ejecución
-
-1. Desde la raíz del repositorio, ejecutar `npm ci` y `npm run db:generate -w apps/backend`.
-2. Configurar `TEST_DATABASE_URL` con una conexión **exclusiva de pruebas**, accesible directamente y con permiso para crear schemas. No usar la conexión de producción.
-3. Ejecutar `npm run test:conversations -w apps/backend`, `npm run test:messages -w apps/backend` y `npm run test:communities -w apps/backend`. Cada suite prepara y elimina su propio schema.
-
-Ejemplo en PowerShell, reemplazando la conexión por la de una base de pruebas:
+Ejemplo PowerShell, reemplazando los valores por una base exclusiva:
 
 ```powershell
 $env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
 npm run test:conversations -w apps/backend
+npm run test:messages -w apps/backend
+npm run test:communities -w apps/backend
+npm run test:channels -w apps/backend
+npm run test:channel-access -w apps/backend
+npm run test:channel-messages -w apps/backend
+npm run test:channel-realtime -w apps/backend
 Remove-Item Env:TEST_DATABASE_URL
 ```
 
-El test no utiliza `DATABASE_URL` del `.env`. Crea un schema `test_t10_<identificador aleatorio>` o `test_t11_<identificador aleatorio>`, ejecuta allí el SQL de todas las migraciones de `prisma/migrations` en orden (incluidas sus restricciones e índices, ver `migrations.js`), genera cuentas de prueba y elimina únicamente ese schema al finalizar. Si se interrumpe el proceso abruptamente, el schema temporal puede quedar pendiente de limpieza manual. Las migraciones nuevas se suman solas a la preparación del schema.
+Ejecutar secuencialmente y revisar el resultado de cada comando: PowerShell puede continuar aunque uno falle. Una suite aprobada termina con código cero; no interpretar un fallo de conexión como validación funcional.
 
-## Cobertura
+Solo pruebas puras, sin base ni instalación de otro binario Node:
 
-- Autenticación de todas las rutas con cookies y rechazo del acceso de desarrollo en producción.
-- Creación, reutilización y par ordenado de participantes.
-- Validación de IDs, límites y cursores.
-- Rechazo de conversación propia, sin amistad y acceso de terceros.
-- Creación concurrente: una barrera fuerza lecturas iniciales vacías; la restricción SQL real resuelve las escrituras del mismo par.
-- Evento personalizado, varias pestañas, unión a rooms y ausencia de eventos duplicados al reutilizar.
-- Listado propio, orden por actividad y datos públicos.
-- Historial conservado y escritura deshabilitada al eliminar amistad.
-- Ocultación de contenido eliminado e identidad invisible.
-- Paginación por fecha e ID, fechas iguales, inserciones entre páginas y fin del historial.
-
-La suite `test:conversations` cubre T-10; las operaciones de mensajes pertenecen a la suite `test:messages` de T-11.
-
-## Cobertura de T-11
-
-- Handshake sin cookie, falso, malformado, vencido y revocado; identidad de desarrollo deshabilitada en producción.
-- Rooms personales y solo de conversaciones propias, inicialización del primer evento y reconexión.
-- Envío persistido y autor obtenido de la sesión, sin suplantación mediante payloads.
-- Entrega de eventos a ambos participantes y todas sus pestañas, excluyendo terceros.
-- Rechazo de nuevos envíos después de eliminar amistad desde sockets ya conectados.
-- Validación de IDs, contenido vacío o solo espacios, límite de 2000 caracteres y ack con detalles.
-- Edición solo del autor con fecha de edición y evento correspondiente.
-- Eliminación lógica solo del autor, fecha y usuario de eliminación, ack y evento sin contenido.
-- Redacción de contenido eliminado en historial, detalle y último mensaje.
-- Mensajes inexistentes, ya eliminados y de canales fuera del alcance.
-- Sesión revocada por logout o vencida después de conectar: las tres operaciones se rechazan y el socket se desconecta.
-- Eliminaciones simultáneas y edición/eliminación concurrentes sin resucitar el mensaje.
-- Eventos sin callback y ejecución del comando de verificación manual contra el servidor de pruebas.
-
-## Verificación contra el servidor en ejecución
-
-Con `npm run dev` ejecutándose en otra terminal, desde la raíz:
-
-```powershell
-npm run smoke:messages -w apps/backend
+```sh
+node --test apps/backend/test/channel-permissions.test.js
 ```
 
-Este comando **utiliza la base configurada en el backend que está en ejecución**, que puede ser la Neon del equipo. Crea tres cuentas nuevas `t11_<identificador>_a/b/c`, una amistad, una conversación y un mensaje. Prueba envío, edición, eliminación, varias pestañas, acceso de terceros, pérdida de amistad e invalidación por logout, sin usar cuentas existentes ni solicitar sus contraseñas. Al finalizar desconecta sockets y revoca las sesiones de prueba.
+## Cobertura por área
 
-Las cuentas y la conversación permanecen en la base como datos de prueba; el mensaje queda eliminado lógicamente y la amistad se elimina. Si el comando falla a mitad del recorrido, pueden quedar también datos de las etapas anteriores. No borra ni modifica cuentas o conversaciones preexistentes.
+### Conversaciones privadas
 
-La URL por defecto es `http://localhost:3000`. Para otro puerto:
+T-10 comprueba las cuatro rutas HTTP: creación/reutilización con par ordenado, concurrencia del mismo par, validación de IDs/límites/cursores, conversación propia o sin amistad, acceso de terceros, listado por actividad y detalle personalizado. Verifica `conversation:new`, varias pestañas, rooms antes del evento, deduplicación al reutilizar, historial tras quitar amistad, disponibilidad invisible, contenido eliminado y paginación por fecha/ID.
+
+T-11 agrega autenticación del handshake, sesiones falsas/vencidas/revocadas, rechazo de identidad de desarrollo en producción, primer evento y reconexión. Cubre envío, autoría, edición/eliminación propias, auditoría, redacción irreversible, validación, eventos a participantes/pestañas y rechazo de terceros. Comprueba pérdida de amistad, operaciones con sesión revocada, carreras de edición/eliminación y eventos sin callback. Su fixture de mensaje de canal crea un canal válido para respetar la FK del modelo.
+
+Estas suites no acreditan la desconexión proactiva global pendiente en T-15. En privados se revalida la sesión al operar; la recepción de una sesión inactiva revocada sigue siendo parte de esa tarea.
+
+### Comunidades e invitaciones
+
+La suite comprueba creación atómica con propietario/canal general, listado y detalle por membresía, edición e imagen, eliminación y cascadas, permisos y DTO públicos. Cubre integrantes, abandono, eventos, invitaciones con usos/vencimiento/revocación, previa sin ingreso, aceptación y concurrencia sin superar usos. Los roles necesarios se preparan en fixtures: esto no acredita endpoints de administración de roles o transferencia, que todavía no existen.
+
+### Canales y acceso
+
+T-22 cubre CRUD, tipos, roles, filtrado privado, defaults, DTO público, cambio de tipo con contenido, cascadas, posición estable, orden completo/concurrente y eventos en varias pestañas. Simula sockets ya unidos para verificar retiro al perder Ver o borrar el canal.
+
+T-23 verifica la matriz efectiva y schemas estrictos, configuración completa, normalización, rechazo de escalamiento, roles/usuarios, membresías ajenas, solo lectura, voz/video, revocación/recuperación y varias pestañas. Incluye suscripción frente a cambios de acceso, abandono, borrado y sesión; no reutiliza la autorización del handshake como permiso permanente.
+
+### Historial de canales
+
+T-25 cubre IDs, cursores y límites, autorización/roles, canales de solo lectura, rechazo de voz/video, paginación con fechas empatadas o distintas del orden de IDs, separación entre canales/comunidades/privados, DTO de autores, Invisible, borrados/auditoría y autores que abandonaron. Verifica cursor eliminado, inserciones entre páginas, pérdida/recuperación de acceso, abandono, borrado y persistencia tras reiniciar HTTP. Sus mensajes se insertan como fixtures solo en el schema aislado.
+
+### Mensajería y moderación de canales
+
+T-26 comprueba identidad de sesión, payloads estrictos, persistencia, varias pestañas, una room sin autorización, solo lectura, tipos, edición propia y eliminación por jerarquía. Cubre auditoría y contenido eliminado, IDs ajenos, pérdida/recuperación de acceso, abandono, sesiones emisoras y receptoras vencidas/revocadas, sesión que vence esperando la cola, eliminación doble, carreras de edición/borrado y publicación/revocación/tipo, canal eliminado, eventos sin ack y reconexión.
+
+La protección de receptores de T-26 ocurre al entregar mensajes de canal; no es un barrido global de sesiones ni sustituye T-15.
+
+## Smoke tests contra el servidor en ejecución
+
+Ejecutar con la app ya iniciada en otra terminal mediante `npm run dev`. Estos comandos **usan la base del backend en ejecución** y crean datos allí. No leen `TEST_DATABASE_URL`, no levantan una base aislada, no ejecutan seed ni migraciones y no requieren contraseñas de usuarios existentes.
+
+El destino por defecto es `http://localhost:3000`; `DIALO_TEST_API_URL` permite otro origen, sin `/api`:
 
 ```powershell
 $env:DIALO_TEST_API_URL = "http://localhost:3001"
-npm run smoke:messages -w apps/backend
+npm run smoke:channel-realtime -w apps/backend
 Remove-Item Env:DIALO_TEST_API_URL
 ```
 
-Los fallos hacen terminar el comando con código distinto de cero y un mensaje `T-11 FALLÓ`. Una ejecución correcta muestra `T-11 OK` y los nombres de las cuentas creadas. No imprime cookies ni contraseñas.
+| Comando (`npm run … -w apps/backend`) | Qué comprueba | Datos que permanecen |
+| --- | --- | --- |
+| `smoke:messages` | T-11: envío, edición, eliminación, pestañas, terceros, pérdida de amistad y operación tras logout | Tres cuentas `t11_*`, conversación y mensaje eliminado lógicamente; retira amistad y revoca sesiones |
+| `smoke:channels` | T-22: tipos, CRUD, orden/creaciones concurrentes, eventos, varias pestañas y abandono | Tres cuentas `t22_*`; elimina su comunidad y revoca sesiones |
+| `smoke:channel-access` | T-23: validación, permisos por rol/usuario, solo lectura, voz/video, revocación/recuperación y concurrencia | Tres cuentas `t23_*`; elimina su comunidad y revoca sesiones |
+| `smoke:channel-messages` | T-25: historial vacío, límites, autenticación, solo lectura, tipos, revocación y abandono | Tres cuentas `t25_*`; elimina su comunidad y revoca sesiones |
+| `smoke:channel-realtime` | T-26: mensajes persistidos, edición/borrado propio y moderado, paginación, cuatro pestañas, terceros, concurrencia, permisos y sesión receptora | Tres cuentas `t26_*`; elimina su comunidad/mensajes y revoca sesiones |
 
-La comprobación completa de vencimiento, errores de validación y carreras simultáneas se realiza con `test:messages` sobre una base exclusiva de pruebas. El comando `smoke:messages` comprueba el recorrido principal contra la instancia que ya está ejecutándose; no sustituye esa suite.
+No hay smoke específico de comunidades. Cada smoke genera sus propias cuentas con contraseñas aleatorias y no reutilizables desde la UI. No modifica datos preexistentes, pero un fallo/interrupción puede dejar sus propios datos pendientes de limpieza. Revisar la salida si informa una comunidad pendiente.
 
+Un resultado correcto muestra `T-11 OK`, `T-22 OK`, `T-23 OK`, `T-25 OK` o `T-26 OK`, según el comando. Un fallo termina con código distinto de cero. No se imprimen cookies ni contraseñas.
 
-## Permisos y suscripciones de canales (T-23)
+Los smokes T-22 y T-25 conservan su alcance acotado: T-22 no crea mensajes para probar el bloqueo de cambio de tipo; T-25 consulta canales vacíos y no acredita paginación con contenido ni redacción de borrados. Esos casos están en las suites aisladas y el smoke de T-26. No es porque falte la mensajería: T-26 ya está implementada.
 
-`npm run test:channel-access -w apps/backend` ejecuta 4 pruebas puras de la
-matriz/validaciones y 14 pruebas de integracion HTTP/Socket.IO con Prisma.
-Requiere TEST_DATABASE_URL exclusiva de pruebas, crea/elimina su propio schema
-`test_t23_<id aleatorio>` y usa cinco conexiones salvo configuracion explicita.
-Para comprobar concurrencia entre conexiones se requiere PostgreSQL nativo con
-al menos cinco conexiones; un emulador con una sola conexion no lo acredita.
+El smoke T-26 comprueba moderación por propietario; la matriz de moderadores/pares/superiores se prueba en la suite aislada. Los smokes complementan, no reemplazan, la integración completa.
 
-```powershell
-$env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
-npm run test:channel-access -w apps/backend
-npm run test:channels -w apps/backend
-npm run test:communities -w apps/backend
-Remove-Item Env:TEST_DATABASE_URL
+## Frontend y validación final
+
+La suite del frontend se ejecuta por separado y simula HTTP/Socket.IO:
+
+```sh
+npm run test -w apps/frontend
+npm run build -w apps/frontend
 ```
 
-Sin base de datos se pueden ejecutar solo las pruebas puras:
-
-```powershell
-npm exec -w apps/backend -- node --test test/channel-permissions.test.js
-```
-
-Cubre consulta/reemplazo completo, normalizacion, rechazo de escalamiento,
-roles e integrantes, DTO sin secretos, membresia de otra comunidad, lectura
-sin escritura/moderacion, voz/video, revocacion y recuperacion en dos pestanas,
-ausencia de eventos despues del retiro de rooms, logout, reemplazos simultaneos,
-suscripcion frente a revocacion, abandono y borrado de comunidad.
-
-Con la app ya ejecutandose:
-
-```powershell
-npm run smoke:channel-access -w apps/backend
-```
-
-El smoke usa localhost:3000 o DIALO_TEST_API_URL. Crea tres cuentas t23_*, una
-comunidad privada, invitacion y canales propios; prueba permisos por rol y
-usuario, solo lectura, validaciones, revocacion/recuperacion, varias pestanas,
-reemplazos concurrentes, permisos de voz y salida de la comunidad. Elimina solo
-su comunidad y revoca sus sesiones al terminar. Las tres cuentas permanecen.
-No necesita acceso directo a la base, no ejecuta seed ni migraciones y no modifica
-datos preexistentes. El resultado esperado es T-23 OK; cualquier fallo termina
-con codigo distinto de cero. No reemplaza la suite aislada de integracion.
-
-
-## Historial de canales (T-25)
-
-`npm run test:channel-messages -w apps/backend` ejecuta 19 pruebas HTTP con
-Prisma y sesiones reales. Requiere TEST_DATABASE_URL exclusiva de pruebas,
-crea/elimina su propio schema test_t25_<id> y aplica todas las migraciones.
-Usa cinco conexiones salvo que la URL indique otro limite. Para validar
-concurrencia entre conexiones se requiere PostgreSQL nativo.
-
-```powershell
-$env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
-npm run test:channel-messages -w apps/backend
-npm run test:conversations -w apps/backend
-npm run test:messages -w apps/backend
-Remove-Item Env:TEST_DATABASE_URL
-```
-
-Cubre IDs/cursor/limites, autorizacion y roles, solo lectura, tipos de canal,
-paginacion con empates y fechas distintas del orden de IDs, aislamiento entre
-canales/comunidades/chat privado, DTO publico de autores, INVISIBLE, edicion,
-borrados y auditoria, autores que abandonaron, cursor eliminado, inserciones
-entre paginas, revocacion/recuperacion, abandono, borrado y persistencia tras
-reiniciar el servidor HTTP. Los datos positivos se insertan solo en ese schema
-exclusivo; no se habilitan rutas de escritura antes de T-26.
-
-Con la app ya ejecutandose:
-
-```powershell
-npm run smoke:channel-messages -w apps/backend
-```
-
-Usa localhost:3000 o DIALO_TEST_API_URL. Crea tres cuentas t25_*, comunidad,
-invitacion y canales propios. Comprueba historial vacio, limites, autenticacion,
-solo lectura, VOZ/VIDEO, revocacion y recuperacion de VER, abandono y borrado.
-Elimina solo su comunidad y revoca sus sesiones al terminar; las tres cuentas
-quedan. No ejecuta SQL, seed ni migraciones sobre la base del equipo.
-El resultado esperado es T-25 OK; fallos terminan con codigo distinto de cero.
-
-El smoke no acredita paginacion con mensajes ni redaccion de borrados: no existe
-aun envio de mensajes de canal por API/socket. Esos escenarios se validan con
-la suite aislada. No usar TEST_DATABASE_URL sobre la Neon compartida del equipo.
-
-
-## Mensajería y moderación de canales (T-26)
-
-`npm run test:channel-realtime -w apps/backend` ejecuta 25 pruebas de integración
-con Prisma, sesiones, API y Socket.IO reales. Requiere TEST_DATABASE_URL exclusiva,
-crea/elimina su propio schema test_t26_* y aplica todas las migraciones. Respeta
-connection_limit explícito; de lo contrario usa cinco conexiones. PostgreSQL
-nativo es necesario para confirmar concurrencia entre conexiones.
-
-```powershell
-$env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
-npm run test:channel-realtime -w apps/backend
-npm run test:channel-access -w apps/backend
-npm run test:channels -w apps/backend
-npm run test:channel-messages -w apps/backend
-npm run test:conversations -w apps/backend
-npm run test:messages -w apps/backend
-npm run test:communities -w apps/backend
-Remove-Item Env:TEST_DATABASE_URL
-```
-
-Cobertura: identidad de sesión, payloads estrictos, persistencia, varias pestañas,
-un socket unido a una room sin autorización, lectura sin escritura, tipos,
-edición propia, moderación por rol y jerarquía, auditoría y contenido eliminado,
-IDs de chat privado/canales ocultos, revocación y recuperación, abandono,
-sesiones emisoras y receptoras vencidas/revocadas, sesión que vence esperando
-la cola, edición/eliminación simultáneas, eliminación doble, publicación frente
-a revocación y cambio de tipo, canal eliminado, eventos sin ack y reconexión.
-
-Con npm run dev ya ejecutándose:
-
-```powershell
-npm run smoke:channel-realtime -w apps/backend
-```
-
-El smoke usa localhost:3000 o DIALO_TEST_API_URL. Crea tres cuentas t26_*, una
-comunidad propia, invitación y canal. Comprueba envíos, edición propia, borrado
-propio y moderado por propietario, historial paginado con mensajes reales,
-cuatro pestañas suscriptas, exclusión de terceros, concurrencia, solo lectura,
-revocación/recuperación de VER y logout de receptores sin operación adicional.
-Elimina solo su comunidad (y sus mensajes por cascada) y revoca sus sesiones al
-terminar; las tres cuentas quedan como prueba. No toca datos preexistentes ni
-requiere credenciales de usuarios reales. No ejecuta seed ni migraciones.
-Esperado: T-26 OK. Un fallo termina con código distinto de cero.
-La matriz completa de moderadores/pares/superiores se verifica en la suite
-aislada: el smoke no inventa rutas de cambio de rol de F-09.
+El recorrido manual con distintas cuentas, varias pestañas y móvil está en [la guía frontend](../../../docs/frontend.md#recorrido-manual-integrado). La aprobación de estas pruebas no implica que T-15 esté completa ni que se haya medido/optimizado la latencia de la instancia del equipo.
