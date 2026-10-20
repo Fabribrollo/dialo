@@ -47,3 +47,11 @@ export function closeCommunity(idComunidad, idsCanales) {
 export function leaveCommunity(idComunidad, idUsuario, idsCanales) {
   io?.in(rooms.user(idUsuario)).socketsLeave([rooms.community(idComunidad), ...idsCanales.map(rooms.channel)]);
 }
+
+export function leaveChannel(idCanal, idUsuario) {
+  io?.in(rooms.user(idUsuario)).socketsLeave(rooms.channel(idCanal));
+}
+
+export function closeChannel(idCanal) {
+  io?.in(rooms.channel(idCanal)).socketsLeave(rooms.channel(idCanal));
+}

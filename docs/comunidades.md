@@ -439,7 +439,7 @@ Errores:
 Auth: si. ADMIN o mas.
 Body: { "orden": [21, 25, 22, 23] }
 Tiene que incluir todos los canales de la comunidad, una vez cada uno. Se guarda en una transaccion. 204.
-Socket: channels:reordered a community:id.
+Socket: channels:reordered a user:id de cada integrante, con solo los IDs que puede ver.
 Errores:
 
 - 400 INVALID_ORDER: faltan canales, hay repetidos o hay canales de otra comunidad.
@@ -450,7 +450,7 @@ Errores:
 
 Auth: si. ADMIN o mas.
 Borra el canal, sus mensajes y su configuracion de acceso. 204.
-Socket: channel:deleted a community:id, y saca a todos los sockets de channel:id.
+Socket: channel:deleted a user:id de quienes tenian VER, y saca a todos los sockets de channel:id.
 Errores: 403 INSUFFICIENT_ROLE, 404 CHANNEL_NOT_FOUND.
 
 ### GET /api/channels/:id/access
@@ -557,9 +557,9 @@ Canales:
 
 - channel:created a user:id de cada integrante con VER. Payload { "canal": Canal }.
 - channel:updated a user:id de cada integrante con VER. Payload { "canal": Canal }. Tambien lo recibe quien gano acceso.
-- channel:deleted a community:id. Payload { "idComunidad": 4, "idCanal": 21 }.
+- channel:deleted a user:id de cada integrante que tenia VER. Payload { "idComunidad": 4, "idCanal": 21 }.
 - channel:access-lost a user:id. Payload { "idComunidad": 4, "idCanal": 21 }.
-- channels:reordered a community:id. Payload { "idComunidad": 4, "orden": [21, 25, 22] }. El front ignora los ids que no conoce.
+- channels:reordered a user:id de cada integrante. Payload { "idComunidad": 4, "orden": [21, 25, 22] }, filtrado a sus canales visibles.
 
 Mensajes de canal:
 
@@ -629,6 +629,33 @@ Para no repetir las reglas de permisos en cada feature.
 ---
 
 ## Errores nuevos
+
+Nota de T-22: las notificaciones de eliminacion y orden se envian por usuario
+para evitar difundir IDs de canales privados a quienes no tienen VER. Los
+nombres de eventos y las formas del payload se mantienen. La orden enviada por
+un administrador a PUT sigue incluyendo todos los canales de la comunidad.
+
+### Estado de implementacion de canales tras T-22
+
+Estan implementados listado, creacion, detalle, actualizacion, ordenamiento y
+eliminacion. La evaluacion de permisos existente se reutiliza desde
+getChannelPermissions(idCanal, idUsuario); devuelve [] si no existe o no hay
+membresia. Configurar habilitaciones mediante GET/PUT /channels/:id/access
+corresponde a T-23. La interfaz corresponde a T-24; suscripciones e historial y
+mensajeria corresponden a T-25/T-26/T-27.
+
+Las escrituras de canales adquieren FOR UPDATE sobre la comunidad dentro de una
+transaccion. Esto coordina creacion, orden, modificacion y eliminacion entre
+procesos. withCommunityChannelsLock(idComunidad, operation) queda disponible
+para que T-23 y el envio de mensajes de T-26 compartan el mismo bloqueo y no
+compitan con cambios de tipo o eliminaciones.
+
+El cambio de TEXTO a VOZ/VIDEO se rechaza si existe cualquier mensaje, incluidos
+los eliminados logicamente. Eliminar el canal aplica las cascadas del modelo.
+
+requireRole admite un cuarto argumento db opcional para verificar permisos con
+el cliente de una transaccion, conservando el comportamiento de los llamados
+anteriores que no lo utilizan. No hay nueva migracion ni dependencia.
 
 - COMMUNITY_NOT_FOUND (404): communities.
 - NOT_MEMBER (403): communities.

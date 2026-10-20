@@ -384,7 +384,15 @@ test('eliminación lógica por el autor, auditoría y evento sin contenido a amb
 test('rechaza mensajes inexistentes, de canales y ya eliminados sin eventos', async () => {
   const chat = await conversation();
   const deleted = await message(chat, 'Eliminado', new Date(), { fechaEliminacion: new Date(), idUsuarioEliminacion: ana.id });
-  const channel = await prisma.mensaje.create({ data: { idAutor: ana.id, idCanal: 10, contenido: 'Canal' } });
+  const comunidad = await prisma.comunidad.create({
+    data: {
+      nombre: 'Canal de prueba T-11',
+      membresias: { create: { idUsuario: ana.id, rol: 'PROPIETARIO' } },
+      canales: { create: { nombre: 'general' } },
+    },
+    select: { canales: { select: { id: true } } },
+  });
+  const channel = await prisma.mensaje.create({ data: { idAutor: ana.id, idCanal: comunidad.canales[0].id, contenido: 'Canal' } });
   const socket = await readySocket(ana);
   const events = capture(socket);
   for (const [idMensaje, code] of [[2147483647, 'MESSAGE_NOT_FOUND'], [channel.id, 'MESSAGE_NOT_FOUND'], [deleted.id, 'MESSAGE_DELETED']]) {

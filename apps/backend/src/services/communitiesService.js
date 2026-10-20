@@ -43,8 +43,8 @@ export function getMembership(idComunidad, idUsuario) {
   });
 }
 
-export async function requireRole(idComunidad, idUsuario, rolMinimo = 'INTEGRANTE') {
-  const comunidad = await prisma.comunidad.findUnique({
+export async function requireRole(idComunidad, idUsuario, rolMinimo = 'INTEGRANTE', db = prisma) {
+  const comunidad = await db.comunidad.findUnique({
     where: { id: idComunidad },
     select: { tipo: true, membresias: { where: { idUsuario }, select: { rol: true } } },
   });
