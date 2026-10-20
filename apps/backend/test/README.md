@@ -6,7 +6,7 @@ Estas pruebas ejercitan las cuatro rutas HTTP con sesiones reales, Prisma y una 
 
 1. Desde la raíz del repositorio, ejecutar `npm ci` y `npm run db:generate -w apps/backend`.
 2. Configurar `TEST_DATABASE_URL` con una conexión **exclusiva de pruebas**, accesible directamente y con permiso para crear schemas. No usar la conexión de producción.
-3. Ejecutar `npm run test:conversations -w apps/backend` y `npm run test:messages -w apps/backend`. Cada suite prepara y elimina su propio schema.
+3. Ejecutar `npm run test:conversations -w apps/backend`, `npm run test:messages -w apps/backend` y `npm run test:communities -w apps/backend`. Cada suite prepara y elimina su propio schema.
 
 Ejemplo en PowerShell, reemplazando la conexión por la de una base de pruebas:
 
@@ -16,7 +16,7 @@ npm run test:conversations -w apps/backend
 Remove-Item Env:TEST_DATABASE_URL
 ```
 
-El test no utiliza `DATABASE_URL` del `.env`. Crea un schema `test_t10_<identificador aleatorio>` o `test_t11_<identificador aleatorio>`, ejecuta allí el SQL de la migración inicial (incluidas sus restricciones e índices), genera cuentas de prueba y elimina únicamente ese schema al finalizar. Si se interrumpe el proceso abruptamente, el schema temporal puede quedar pendiente de limpieza manual. Si se modifica el modelo mediante nuevas migraciones, deberá actualizarse la preparación de este schema de pruebas.
+El test no utiliza `DATABASE_URL` del `.env`. Crea un schema `test_t10_<identificador aleatorio>` o `test_t11_<identificador aleatorio>`, ejecuta allí el SQL de todas las migraciones de `prisma/migrations` en orden (incluidas sus restricciones e índices, ver `migrations.js`), genera cuentas de prueba y elimina únicamente ese schema al finalizar. Si se interrumpe el proceso abruptamente, el schema temporal puede quedar pendiente de limpieza manual. Las migraciones nuevas se suman solas a la preparación del schema.
 
 ## Cobertura
 

@@ -5,7 +5,7 @@ import {
   usuarioPropioSelect,
   usuarioPublicoSelect,
 } from "../utils/selects.js";
-import { uploadAvatar } from "../utils/storage.js";
+import { uploadImage } from "../utils/storage.js";
 import { emitToUser } from "../sockets/emitter.js";
 import { EVENTS } from "../sockets/events.js";
 import { getFriendIds } from "./friendsService.js";
@@ -45,6 +45,10 @@ export async function getUserById(id) {
 }
 
 export async function updateAvatar(id, buffer) {
-  const fotoUrl = await uploadAvatar(buffer, id);
+  const fotoUrl = await uploadImage(buffer, {
+    folder: "dialo/avatars",
+    publicId: `usuario-${id}`,
+    gravity: "face",
+  });
   return updateMe(id, { fotoUrl });
 }
