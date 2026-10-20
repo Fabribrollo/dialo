@@ -16,7 +16,8 @@
     "db:seed": "npm run db:seed -w apps/backend"
   },
   "devDependencies": {
-    "concurrently": "^10.0.5"
+    "concurrently": "^10.0.5",
+    "jsdom": "26.1.0"
   },
   "engines": {
     "node": ">=22"
