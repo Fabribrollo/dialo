@@ -1,4 +1,6 @@
 import { requireSocketUser } from './authenticate.js';
+import { EVENTS } from './events.js';
+import { findInvalidSessionIds } from '../services/authService.js';
 import { getChannelPermissions } from '../services/channelsService.js';
 import { AppError } from '../utils/AppError.js';
 let io = null;
@@ -8,6 +10,7 @@ export const rooms = {
   conversation: (idConversacion) => `conversation:${idConversacion}`,
   community: (idComunidad) => `community:${idComunidad}`,
   channel: (idCanal) => `channel:${idCanal}`,
+  session: (idSesion) => `session:${idSesion}`,
 };
 
 export function initEmitter(server) {
@@ -80,4 +83,26 @@ export function leaveChannel(idCanal, idUsuario) {
 
 export function closeChannel(idCanal) {
   io?.in(rooms.channel(idCanal)).socketsLeave(rooms.channel(idCanal));
+}
+
+// Avisa a las pestanas de la sesion y las desconecta.
+export function endSession(idSesion, motivo) {
+  if (!io) return;
+  io.to(rooms.session(idSesion)).emit(EVENTS.SESSION_ENDED, { motivo });
+  io.in(rooms.session(idSesion)).disconnectSockets();
+}
+
+// Lo mismo para todas las sesiones de un usuario.
+export function endUserSessions(idUsuario, motivo) {
+  if (!io) return;
+  io.to(rooms.user(idUsuario)).emit(EVENTS.SESSION_ENDED, { motivo });
+  io.in(rooms.user(idUsuario)).disconnectSockets();
+}
+
+// Corta los sockets cuya sesion ya no es valida.
+export async function revisarSesiones() {
+  if (!io) return;
+  const sockets = await io.fetchSockets();
+  const ids = [...new Set(sockets.map((socket) => socket.data.auth?.idSesion).filter(Boolean))];
+  for (const idSesion of await findInvalidSessionIds(ids)) endSession(idSesion, 'REVOCADA');
 }

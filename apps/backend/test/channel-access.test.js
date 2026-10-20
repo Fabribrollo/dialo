@@ -225,8 +225,11 @@ test('sockets aplican VER, payload estricto, sesión vigente, unsubscribe idempo
   assert.equal((await ack(client, 'channel:unsubscribe', { idCanal: ch.id })).ok, true);
   assert(!serverSocket(client).rooms.has(`channel:${ch.id}`));
   assert.equal((await ack(client, 'channel:unsubscribe', { idCanal: 2_147_483_647 })).ok, true);
+  // El logout avisa y desconecta el socket.
+  const ended = once(client, 'session:ended'), disconnected = once(client, 'disconnect');
   await request('/auth/logout', { method: 'POST', as: dani });
-  assert.equal((await subscribe(client, ch)).error.code, 'UNAUTHORIZED');
+  assert.deepEqual((await ended)[0], { motivo: 'LOGOUT' });
+  await disconnected; assert.equal(client.connected, false);
 });
 
 test('revocar VER retira ambas pestañas, impide eventos y resuscripción; recuperar acceso no reconecta automáticamente', async () => {

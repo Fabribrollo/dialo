@@ -416,23 +416,17 @@ test('el autor puede corregir o eliminar mensajes anteriores después de perder 
   assert.equal(deleted.ok, true);
 });
 
-test('logout revoca la sesión conectada: cada operación devuelve UNAUTHORIZED y desconecta', async () => {
+test('logout desconecta la sesion conectada sin esperar una operacion del cliente', async () => {
   const chat = await conversation();
   const original = await message(chat, 'Original', new Date());
-  for (const [event, payload] of [
-    ['message:send', { idConversacion: chat.id, contenido: 'No' }],
-    ['message:edit', { idMensaje: original.id, contenido: 'No' }],
-    ['message:delete', { idMensaje: original.id }],
-  ]) {
-    await setSession(ana, { fechaRevocacion: null });
-    const socket = await readySocket(ana);
-    const disconnected = once(socket, 'disconnect');
-    await request('/auth/logout', { method: 'POST', as: ana });
-    const response = await ack(socket, event, payload);
-    assert.equal(response.error.code, 'UNAUTHORIZED');
-    await disconnected;
-    assert.equal(socket.connected, false);
-  }
+  await setSession(ana, { fechaRevocacion: null });
+  const socket = await readySocket(ana);
+  const ended = once(socket, 'session:ended');
+  const disconnected = once(socket, 'disconnect');
+  await request('/auth/logout', { method: 'POST', as: ana });
+  assert.deepEqual((await ended)[0], { motivo: 'LOGOUT' });
+  await disconnected;
+  assert.equal(socket.connected, false);
   const stored = await prisma.mensaje.findUnique({ where: { id: original.id } });
   assert.equal(stored.contenido, 'Original');
   assert.equal(stored.fechaEdicion, null);

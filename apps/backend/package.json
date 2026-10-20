@@ -8,6 +8,7 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "test:conversations": "node --test test/conversations.test.js",
+    "test:sessions": "node --test test/sessions.test.js",
     "test:messages": "node --test test/messages.test.js",
     "test:communities": "node --test test/communities.test.js",
     "test:channel-messages": "node --test test/channel-messages.test.js",

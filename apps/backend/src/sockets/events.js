@@ -30,4 +30,5 @@ export const EVENTS = {
   CHANNEL_ACCESS_LOST: 'channel:access-lost',
   CHANNEL_DELETED: 'channel:deleted',
   CHANNELS_REORDERED: 'channels:reordered',
+  SESSION_ENDED: 'session:ended',
 };

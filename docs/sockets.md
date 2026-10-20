@@ -361,3 +361,27 @@ La cola por comunidad coordina escrituras, cambios de acceso y publicacion
 poscommit en la instancia actual. Varias instancias de API requieren adapter y
 coordinacion de eventos compartida. T-15 conserva la invalidacion proactiva global;
 T-26 aplica su guard de sesion especificamente al contenido de canales.
+
+---
+
+## Sesion
+
+### session:ended
+
+Direccion: servidor -> cliente. Room: `session:<idSesion>` (todas las pestanas de esa sesion) o `user:<id>` (todas las sesiones del usuario).
+
+Payload:
+```json
+{ "motivo": "LOGOUT" }
+```
+
+`motivo`: `LOGOUT` | `CONTRASENA_CAMBIADA` | `EXPIRADA` | `REVOCADA`.
+
+Justo despues del evento, el servidor desconecta esos sockets. El front sale de la sesion sin esperar otra accion.
+
+- Logout: solo las pestanas de esa sesion. Las otras sesiones del usuario siguen activas.
+- Restablecer la contrasena: todas las sesiones anteriores del usuario.
+- Vencimiento: cada socket se corta cuando vence su sesion, sin esperar un mensaje del cliente.
+- Barrido: cada 60 segundos el servidor corta los sockets cuya sesion ya no es valida por otra causa (motivo `REVOCADA`).
+
+Cada socket guarda solo el id y el vencimiento de su sesion, nunca el token.

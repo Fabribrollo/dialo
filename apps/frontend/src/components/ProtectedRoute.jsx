@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "../hooks/useAuth.js";
+import SesionNoVerificada from "./SesionNoVerificada.jsx";
 import { invitationReturnPath, rememberInvitation } from "../utils-invitations.js";
 
 export default function ProtectedRoute() {
@@ -17,6 +18,7 @@ export default function ProtectedRoute() {
         Cargando sesión…
       </div>
     );
+  if (estado === "error") return <SesionNoVerificada />;
   if (estado === "noLogueado") return <Navigate to="/login" replace state={invitation ? { from: invitation } : undefined} />;
   return <Outlet />;
 }
