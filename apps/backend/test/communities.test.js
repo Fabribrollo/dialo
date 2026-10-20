@@ -128,6 +128,7 @@ before(async () => {
 beforeEach(async () => {
   for (const socket of sockets.splice(0)) socket.disconnect();
   await prisma.comunidad.deleteMany();
+  await prisma.amistad.deleteMany();
 });
 
 after(async () => {
@@ -352,4 +353,218 @@ test('la imagen exige ADMIN o más y un archivo válido', async () => {
   });
   assert.equal(tipoInvalido.status, 400);
   assert.equal((await tipoInvalido.json()).error.code, 'INVALID_FILE');
+});
+
+function invitation(comunidad, extra = {}) {
+  return prisma.invitacion.create({
+    data: { idComunidad: comunidad.id, idCreador: ana.id, codigo: randomUUID().slice(0, 10), ...extra },
+  });
+}
+
+test('aceptar una invitación incorpora una sola vez y consume un solo uso', async () => {
+  const comunidad = await create(ana);
+  const inv = await invitation(comunidad, { usosMaximos: 5 });
+  const socketAna = await socketFor(ana);
+  const socketBeto = await socketFor(beto);
+  await waitInRoom(socketAna, `community:${comunidad.id}`);
+  const ingreso = nextEvent(socketAna, 'community:member-joined');
+  const propia = nextEvent(socketBeto, 'community:new');
+
+  const primera = await request(`/invitations/${inv.codigo}/accept`, { method: 'POST', as: beto });
+  assert.equal(primera.status, 201);
+  assert.equal(primera.body.comunidad.miRol, 'INTEGRANTE');
+  assert.equal(primera.body.comunidad.cantidadIntegrantes, 2);
+  const { integrante } = await ingreso;
+  assert.equal(integrante.usuario.id, beto.id);
+  assert.equal(integrante.rol, 'INTEGRANTE');
+  assert.equal(integrante.usuario.correo, undefined);
+  assert.equal((await propia).comunidad.id, comunidad.id);
+  assert.ok(inRoom(socketBeto, `community:${comunidad.id}`));
+
+  const repetida = await request(`/invitations/${inv.codigo}/accept`, { method: 'POST', as: beto });
+  assert.equal(repetida.status, 200);
+  const dueño = await request(`/invitations/${inv.codigo}/accept`, { method: 'POST', as: ana });
+  assert.equal(dueño.status, 200);
+  assert.equal(dueño.body.comunidad.miRol, 'PROPIETARIO');
+
+  assert.equal((await prisma.invitacion.findUnique({ where: { id: inv.id } })).usos, 1);
+  assert.equal(await prisma.membresia.count({ where: { idComunidad: comunidad.id } }), 2);
+});
+
+test('aceptar revisa que la invitación exista, siga vigente y tenga usos', async () => {
+  const comunidad = await create(ana);
+  const casos = [
+    ['inexistente', 404, 'INVITATION_NOT_FOUND'],
+    [(await invitation(comunidad, { fechaRevocacion: new Date() })).codigo, 410, 'INVITATION_REVOKED'],
+    [(await invitation(comunidad, { fechaExpiracion: new Date(Date.now() - 1000) })).codigo, 410, 'INVITATION_EXPIRED'],
+    [(await invitation(comunidad, { usosMaximos: 2, usos: 2 })).codigo, 410, 'INVITATION_EXHAUSTED'],
+  ];
+  for (const [codigo, status, code] of casos) {
+    const response = await request(`/invitations/${codigo}/accept`, { method: 'POST', as: beto });
+    assert.equal(response.status, status, code);
+    assert.equal(response.body.error.code, code);
+  }
+  assert.equal(await prisma.membresia.count({ where: { idUsuario: beto.id } }), 0);
+});
+
+test('aceptaciones simultáneas no superan el máximo de usos ni duplican al integrante', async () => {
+  const comunidad = await create(ana);
+  const ultima = await invitation(comunidad, { usosMaximos: 1 });
+  const respuestas = await Promise.all([beto, cata].map((as) => request(`/invitations/${ultima.codigo}/accept`, { method: 'POST', as })));
+  assert.deepEqual(respuestas.map((r) => r.status).sort(), [201, 410]);
+  assert.equal((await prisma.invitacion.findUnique({ where: { id: ultima.id } })).usos, 1);
+  assert.equal(await prisma.membresia.count({ where: { idComunidad: comunidad.id } }), 2);
+
+  const otra = await create(ana, { nombre: 'Otra' });
+  const abierta = await invitation(otra);
+  const mismas = await Promise.all([1, 2].map(() => request(`/invitations/${abierta.codigo}/accept`, { method: 'POST', as: beto })));
+  assert.deepEqual(mismas.map((r) => r.status).sort(), [200, 201]);
+  assert.equal((await prisma.invitacion.findUnique({ where: { id: abierta.id } })).usos, 1);
+});
+
+test('solo los integrantes ven la lista, con datos públicos y ordenada por rol', async () => {
+  const comunidad = await create(ana);
+  await addMember(comunidad, cata, 'MODERADOR');
+  await addMember(comunidad, beto);
+
+  const response = await request(`/communities/${comunidad.id}/members`, { as: beto });
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.items.map((i) => [i.usuario.id, i.rol]), [
+    [ana.id, 'PROPIETARIO'],
+    [cata.id, 'MODERADOR'],
+    [beto.id, 'INTEGRANTE'],
+  ]);
+  for (const { usuario } of response.body.items) {
+    assert.equal(usuario.correo, undefined);
+    assert.equal(usuario.hashContrasena, undefined);
+  }
+
+  const ajena = await create(beto);
+  const noIntegrante = await request(`/communities/${ajena.id}/members`, { as: cata });
+  assert.equal(noIntegrante.status, 404);
+});
+
+test('abandonar saca al integrante de la room y del acceso, y el propietario no puede', async () => {
+  const comunidad = await create(ana);
+  await addMember(comunidad, beto);
+  await friendshipOf(ana, beto);
+
+  const propietario = await request(`/communities/${comunidad.id}/leave`, { method: 'POST', as: ana });
+  assert.equal(propietario.status, 409);
+  assert.equal(propietario.body.error.code, 'OWNER_CANNOT_LEAVE');
+
+  const socketAna = await socketFor(ana);
+  const socketBeto = await socketFor(beto);
+  await waitInRoom(socketAna, `community:${comunidad.id}`);
+  await waitInRoom(socketBeto, `community:${comunidad.id}`);
+  const salida = nextEvent(socketAna, 'community:member-left');
+  const propia = nextEvent(socketBeto, 'community:left');
+
+  const response = await request(`/communities/${comunidad.id}/leave`, { method: 'POST', as: beto });
+  assert.equal(response.status, 204);
+  assert.deepEqual(await salida, { idComunidad: comunidad.id, idUsuario: beto.id });
+  assert.deepEqual(await propia, { idComunidad: comunidad.id });
+  assert.equal(inRoom(socketBeto, `community:${comunidad.id}`), false);
+
+  assert.equal((await request(`/communities/${comunidad.id}`, { as: beto })).status, 404);
+  assert.equal((await request(`/communities/${comunidad.id}/members`, { as: beto })).status, 404);
+  assert.equal((await request(`/communities/${comunidad.id}/leave`, { method: 'POST', as: beto })).status, 404);
+  assert.equal(await prisma.amistad.count(), 1);
+  assert.ok(await prisma.membresia.findFirst({ where: { idComunidad: comunidad.id, rol: 'PROPIETARIO' } }));
+});
+
+function friendshipOf(a, b) {
+  return prisma.amistad.create({ data: { idUsuarioA: Math.min(a.id, b.id), idUsuarioB: Math.max(a.id, b.id) } });
+}
+
+test('solo MODERADOR o más crea y lista invitaciones, con códigos no predecibles', async () => {
+  const comunidad = await create(ana);
+  await addMember(comunidad, beto, 'MODERADOR');
+  await addMember(comunidad, cata);
+
+  const integrante = await request(`/communities/${comunidad.id}/invitations`, { method: 'POST', as: cata });
+  assert.equal(integrante.status, 403);
+  assert.equal(integrante.body.error.code, 'INSUFFICIENT_ROLE');
+  const listadoIntegrante = await request(`/communities/${comunidad.id}/invitations`, { as: cata });
+  assert.equal(listadoIntegrante.status, 403);
+
+  const sinLimites = await request(`/communities/${comunidad.id}/invitations`, { method: 'POST', as: beto });
+  assert.equal(sinLimites.status, 201);
+  const { invitacion } = sinLimites.body;
+  assert.equal(invitacion.estado, 'ACTIVA');
+  assert.equal(invitacion.usosMaximos, null);
+  assert.equal(invitacion.fechaExpiracion, null);
+  assert.equal(invitacion.creador.id, beto.id);
+  assert.equal(invitacion.creador.correo, undefined);
+  assert.match(invitacion.codigo, /^[A-Za-z0-9_-]{11}$/);
+
+  const conLimites = await request(`/communities/${comunidad.id}/invitations`, {
+    method: 'POST', as: ana, body: { duracionHoras: 24, usosMaximos: 10 },
+  });
+  assert.equal(conLimites.status, 201);
+  const horas = (new Date(conLimites.body.invitacion.fechaExpiracion) - Date.now()) / 3_600_000;
+  assert.ok(horas > 23.9 && horas <= 24);
+  assert.equal(conLimites.body.invitacion.usosMaximos, 10);
+  assert.notEqual(conLimites.body.invitacion.codigo, invitacion.codigo);
+
+  for (const body of [{ duracionHoras: 2 }, { usosMaximos: 0 }, { usosMaximos: 101 }, { codigo: 'elegido' }]) {
+    const response = await request(`/communities/${comunidad.id}/invitations`, { method: 'POST', as: ana, body });
+    assert.equal(response.status, 400, JSON.stringify(body));
+  }
+
+  const listado = await request(`/communities/${comunidad.id}/invitations`, { as: beto });
+  assert.equal(listado.status, 200);
+  assert.deepEqual(listado.body.items.map((i) => i.id), [conLimites.body.invitacion.id, invitacion.id]);
+
+  const ajena = await create(cata);
+  assert.equal((await request(`/communities/${ajena.id}/invitations`, { as: ana })).status, 404);
+});
+
+test('la vista previa identifica la comunidad sin hacer ingresar ni exponer contenido', async () => {
+  const comunidad = await create(ana);
+  const inv = await invitation(comunidad);
+
+  const response = await request(`/invitations/${inv.codigo}`, { as: beto });
+  assert.equal(response.status, 200);
+  assert.deepEqual(Object.keys(response.body.comunidad).sort(), [
+    'cantidadIntegrantes', 'esIntegrante', 'id', 'imagenUrl', 'nombre', 'tipo',
+  ]);
+  assert.equal(response.body.comunidad.id, comunidad.id);
+  assert.equal(response.body.comunidad.esIntegrante, false);
+  assert.equal(await prisma.membresia.count({ where: { idUsuario: beto.id } }), 0);
+  assert.equal((await prisma.invitacion.findUnique({ where: { id: inv.id } })).usos, 0);
+
+  assert.equal((await request(`/invitations/${inv.codigo}`, { as: ana })).body.comunidad.esIntegrante, true);
+  assert.equal((await request('/invitations/noexiste', { as: beto })).status, 404);
+  assert.equal((await request(`/invitations/${inv.codigo}`)).status, 401);
+});
+
+test('revocar deja la invitación guardada como REVOCADA y bloquea nuevos ingresos', async () => {
+  const comunidad = await create(ana);
+  await addMember(comunidad, cata);
+  const inv = await invitation(comunidad);
+  const ruta = `/communities/${comunidad.id}/invitations/${inv.id}`;
+
+  assert.equal((await request(ruta, { method: 'DELETE', as: cata })).status, 403);
+  assert.equal((await request(ruta, { method: 'DELETE', as: ana })).status, 204);
+  assert.equal((await request(ruta, { method: 'DELETE', as: ana })).status, 204);
+
+  const otra = await create(ana, { nombre: 'Otra' });
+  const deOtra = await request(`/communities/${otra.id}/invitations/${inv.id}`, { method: 'DELETE', as: ana });
+  assert.equal(deOtra.status, 404);
+  assert.equal(deOtra.body.error.code, 'INVITATION_NOT_FOUND');
+
+  const [guardada] = (await request(`/communities/${comunidad.id}/invitations`, { as: ana })).body.items;
+  assert.equal(guardada.estado, 'REVOCADA');
+  for (const path of [`/invitations/${inv.codigo}`, `/invitations/${inv.codigo}/accept`]) {
+    const response = await request(path, { method: path.endsWith('accept') ? 'POST' : 'GET', as: beto });
+    assert.equal(response.status, 410);
+    assert.equal(response.body.error.code, 'INVITATION_REVOKED');
+  }
+
+  const vencida = await invitation(comunidad, { fechaExpiracion: new Date(Date.now() - 1000) });
+  const estados = (await request(`/communities/${comunidad.id}/invitations`, { as: ana })).body.items;
+  assert.equal(estados.find((i) => i.id === vencida.id).estado, 'VENCIDA');
+  assert.equal((await request(`/invitations/${vencida.codigo}`, { as: beto })).body.error.code, 'INVITATION_EXPIRED');
+  assert.equal(await prisma.membresia.count({ where: { idUsuario: beto.id } }), 0);
 });

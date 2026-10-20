@@ -37,3 +37,13 @@ export async function deleteCommunity(req, res) {
   await communitiesService.deleteCommunity(req.validated.params.id, req.user.id);
   res.status(204).end();
 }
+
+export async function listMembers(req, res) {
+  const items = await communitiesService.listMembers(req.validated.params.id, req.user.id);
+  res.json({ items });
+}
+
+export async function leaveCommunity(req, res) {
+  await communitiesService.abandonCommunity(req.validated.params.id, req.user.id);
+  res.status(204).end();
+}
