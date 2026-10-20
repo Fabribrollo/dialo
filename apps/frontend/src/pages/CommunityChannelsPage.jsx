@@ -6,6 +6,9 @@ import { CommunityState, useLostCommunity } from './CommunityPage.jsx';
 import CommunityActionDialog from '../components/communities/CommunityActionDialog.jsx';
 import ChannelForm, { CHANNEL_TYPES } from '../components/channels/ChannelForm.jsx';
 import ChannelAccessForm from '../components/channels/ChannelAccessForm.jsx';
+import ChannelChat from '../components/channel-chat/ChannelChat.jsx';
+import ChannelSelector from '../components/channels/ChannelSelector.jsx';
+import CommunityNav from '../components/communities/CommunityNav.jsx';
 import { deleteChannel, orderChannels } from '../services/channelsService.js';
 
 function ChannelsWorkspace({ comunidad, refreshCommunity }) {
@@ -16,6 +19,7 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
   const selectedId = /^\d+$/.test(param ?? '') ? Number(param) : NaN;
   const selected = list.items.find((c) => c.id === selectedId);
   const canManage = ['PROPIETARIO', 'ADMIN'].includes(comunidad.miRol);
+  const [drafts, setDrafts] = useState({});
   const [mode, setMode] = useState(null), [seed, setSeed] = useState(0), [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
   const alive = useRef(false), pending = useRef(false), seen = useRef(null), currentSelection = useRef(null), trigger = useRef(null);
@@ -57,18 +61,20 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
     if (creating) navigate(`${base}/${canal.id}`);
   }
   return <>
-    <header className="page-heading community-page-heading"><div><h1>Canales</h1><p>{comunidad.nombre}</p></div>
-      <div className="community-actions"><button type="button" className="secondary" disabled={list.refreshing || busy} onClick={refresh}>Actualizar canales</button>
-        {canManage && <Link className="button-link" to={`${base}/nuevo`}>Crear canal</Link>}</div></header>
+    <CommunityNav comunidad={comunidad} />
+    <header className={`page-heading community-page-heading ${selected ? 'channel-compact-heading' : ''}`}><div>{!selected && <h1>Canales</h1>}<p>{comunidad.nombre}</p></div></header>
     {notice && <p role="status" className="community-success">{notice}</p>}
     {error && <p role="alert" className="notice error">{error}</p>}
     {list.error && <p role="alert" className="notice error">{list.error.message} <button type="button" className="secondary" onClick={refresh}>Reintentar canales</button></p>}
-    <div className="channel-workspace">
-      <nav aria-label="Canales de la comunidad" className="channel-navigation">
+    <div className={`channel-workspace ${selected ? 'has-selected-channel' : ''}`}>
+      <ChannelSelector selected={param}>
+        <div className="community-actions channel-catalog-actions"><button type="button" className="secondary" disabled={list.refreshing || busy} onClick={refresh}>Actualizar canales</button>
+          {canManage && <Link className="button-link" to={`${base}/nuevo`}>Crear canal</Link>}</div>
+        <nav aria-label="Canales de la comunidad" className="channel-navigation">
         {list.loading ? <p role="status">Cargando canales…</p> : <>
           {!list.error && list.items.length === 0 && <p>No hay canales disponibles para tu cuenta.</p>}
           <ul className="community-list channel-list">{list.items.map((canal, index) => <li key={canal.id}>
-            <Link to={`${base}/${canal.id}`} aria-current={selectedId === canal.id ? 'page' : undefined} className="channel-link">
+            <Link to={`${base}/${canal.id}`} aria-current={selectedId === canal.id ? 'page' : undefined} className="channel-link" data-type={canal.tipo}>
               <span className="channel-type">{CHANNEL_TYPES[canal.tipo]}</span><strong>{canal.nombre}</strong>
               <span className="community-help">{canal.privado ? 'Privado' : 'Público'}</span>
             </Link>
@@ -78,15 +84,16 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
                 disabled={busy || list.refreshing || index === list.items.length - 1} onClick={() => move(index, 1)}>Bajar</button></div>}
           </li>)}</ul>
         </>}
-      </nav>
-      <section className="channel-panel" aria-label="Detalle del canal">
+      </nav></ChannelSelector>
+      <section className={`channel-panel ${selected?.tipo === 'TEXTO' && !mode ? 'has-channel-chat' : ''}`} aria-label="Detalle del canal">
         {creating ? canManage ? <ChannelForm key={`new-${comunidad.id}`} idComunidad={comunidad.id} onSaved={saved}
           onCancel={() => navigate(base)} onUnavailable={refresh} /> : <p role="alert">Tu rol no permite crear canales.</p> : selected ? <>
-          <header className="channel-detail-heading"><h2>{selected.nombre}</h2><span className="channel-type">{CHANNEL_TYPES[selected.tipo]} · {selected.privado ? 'Privado' : 'Público'}</span></header>
+          <header className="channel-detail-heading"><h1>{selected.nombre}</h1><span className="channel-type">{CHANNEL_TYPES[selected.tipo]} · {selected.privado ? 'Privado' : 'Público'}</span></header>
           <p className="community-help">{selected.tipo === 'TEXTO'
             ? selected.misPermisos.includes('ESCRIBIR') ? 'Tenés permisos de lectura y escritura.' : 'Este canal es de solo lectura para tu cuenta.'
             : 'Las llamadas estarán disponibles en una próxima entrega.'}</p>
-          {selected.tipo === 'TEXTO' && <p className="channel-placeholder">Los mensajes de este canal estarán disponibles en una próxima entrega.</p>}
+          {selected.tipo === 'TEXTO' && !mode && <ChannelChat key={selected.id} canal={selected} draft={drafts[selected.id] ?? ''}
+            setDraft={(value) => setDrafts((old) => ({ ...old, [selected.id]: typeof value === 'function' ? value(old[selected.id] ?? '') : value }))} />}
           {canManage && !mode && <div className="community-actions channel-detail-actions">
             <button ref={editTrigger} type="button" className="secondary" onClick={() => setMode('edit')}>Editar canal</button>
             <button ref={accessTrigger} type="button" className="secondary" onClick={() => setMode('access')}>Permisos</button>

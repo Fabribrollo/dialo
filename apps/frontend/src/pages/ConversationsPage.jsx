@@ -213,7 +213,7 @@ function Chat({ id, draft, setDraft }) {
         </ol>
       </div>
       <form className="composer" onSubmit={send}>
-        <label className="sr-only" htmlFor="nuevo-mensaje">
+        <label htmlFor="nuevo-mensaje">
           Mensaje para {chat.otroUsuario.nombreVisible}
         </label>
         <div className="composer-field">
@@ -247,7 +247,7 @@ function Chat({ id, draft, setDraft }) {
               sending || !connected || !chat.puedeEscribir || !draft.trim()
             }
           >
-            <Icon name="send" />
+            Enviar <Icon name="send" />
           </button>
         </div>
         <div className="composer-hint">
@@ -291,10 +291,11 @@ export default function ConversationsPage() {
         aria-label="Lista de conversaciones"
       >
         <div className="sidebar-title">
-          <h1>
+          <div><h1>
             Conversaciones<span>{items.length}</span>
           </h1>
-          <p>Mensajes privados</p>
+          <p>Mensajes privados</p></div>
+          <Link className="new-chat" to="/amigos"><Icon name="people" /> Ver amigos</Link>
         </div>
         <label className="sr-only" htmlFor="filtrar-chats">
           Buscar conversación
@@ -363,9 +364,6 @@ export default function ConversationsPage() {
           ) && (
             <p className="sidebar-empty">No encontramos esa conversación.</p>
           )}
-        <Link className="new-chat secondary" to="/amigos">
-          <Icon name="people" /> Ver amigos
-        </Link>
       </aside>
       {valid ? (
         <Chat

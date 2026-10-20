@@ -12,11 +12,11 @@ export default function AuthLayout() {
         </Link>
         <div className="auth-copy">
           <h1>
-            Mensajería
+            Comunidades
             <br />
-            <span>privada.</span>
+            <span>y conversaciones.</span>
           </h1>
-          <p>Conversaciones, contactos y gestión de tu cuenta en Dialo.</p>
+          <p>Mensajes privados, canales y contactos en un mismo lugar.</p>
         </div>
       </section>
       <section className="auth-form">

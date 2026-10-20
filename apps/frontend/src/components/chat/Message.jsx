@@ -4,6 +4,8 @@ export default function Message({
   mensaje,
   autor,
   own,
+  canEdit = own,
+  canDelete = own,
   onEdit,
   onDelete,
   connected,
@@ -43,8 +45,8 @@ export default function Message({
           </time>
         </div>
         {mensaje.eliminado ? (
-          <p className="message-deleted">Mensaje eliminado</p>
-        ) : editing ? (
+          <p className="message-deleted">{mensaje.eliminadoPorModerador ? 'Mensaje eliminado por moderación' : 'Mensaje eliminado'}</p>
+        ) : editing && canEdit ? (
           <form onSubmit={save} className="message-edit">
             <label className="sr-only" htmlFor={`editar-${mensaje.id}`}>
               Editar mensaje
@@ -84,9 +86,9 @@ export default function Message({
         {mensaje.fechaEdicion && !mensaje.eliminado && (
           <small className="edited">editado</small>
         )}
-        {own && !mensaje.eliminado && !editing && (
+        {(canEdit || canDelete) && !mensaje.eliminado && !(editing && canEdit) && (
           <div className="message-actions">
-            <button
+            {canEdit && <button
               type="button"
               className="text-button"
               disabled={!connected}
@@ -97,16 +99,16 @@ export default function Message({
               aria-label={`Editar mensaje de ${new Date(mensaje.fechaCreacion).toLocaleString("es-AR")}`}
             >
               Editar
-            </button>
-            <button
+            </button>}
+            {canDelete && <button
               type="button"
               className="text-button danger"
               disabled={!connected}
-              onClick={() => onDelete(mensaje.id)}
+              onClick={(e) => onDelete(mensaje.id, e.currentTarget)}
               aria-label={`Eliminar mensaje de ${new Date(mensaje.fechaCreacion).toLocaleString("es-AR")}`}
             >
               Eliminar
-            </button>
+            </button>}
           </div>
         )}
       </div>

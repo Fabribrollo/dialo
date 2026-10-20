@@ -8,6 +8,7 @@ import CommunityFormPage from '../pages/CommunityFormPage.jsx';
 import * as service from '../services/communitiesService.js';
 import { useSocket } from '../hooks/useSocket.js';
 
+vi.mock('../components/communities/CommunityDashboard.jsx', async () => { const { Link } = await import('react-router'); return { default: ({ comunidad }) => <><Link to={`/comunidades/${comunidad.id}/canales`}>Ver canales</Link><Link to={`/comunidades/${comunidad.id}/integrantes`}>Ver integrantes</Link></> }; });
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));
 vi.mock('../services/communitiesService.js', () => ({
   getCommunities: vi.fn(), getCommunity: vi.fn(), createCommunity: vi.fn(),

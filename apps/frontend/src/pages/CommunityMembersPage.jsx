@@ -1,3 +1,4 @@
+import CommunityNav from '../components/communities/CommunityNav.jsx';
 import { useEffect } from 'react';
 import { Link, useParams } from 'react-router';
 import { useCommunity } from '../hooks/useCommunity.js';
@@ -26,6 +27,7 @@ export default function CommunityMembersPage() {
   return <section className="page-container communities-page">
     <Link className="community-back" to={detail.valid ? `/comunidades/${id}` : '/comunidades'}>← Volver a la comunidad</Link>
     {!detail.comunidad ? <CommunityState {...detail} /> : <>
+      <CommunityNav comunidad={detail.comunidad} />
       <header className="page-heading community-page-heading"><div><h1>Integrantes</h1><p>{detail.comunidad.nombre}</p></div>
         <button className="secondary" disabled={list.refreshing} onClick={() => { detail.reload(); list.reload(); }}>Actualizar</button></header>
       {detail.error && <p role="alert" className="notice error">No se pudo actualizar la comunidad. {detail.error.message}</p>}
