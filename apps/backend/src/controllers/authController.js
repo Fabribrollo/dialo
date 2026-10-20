@@ -1,5 +1,6 @@
 import { SESSION_COOKIE, sessionCookieOptions } from '../config/cookies.js';
 import * as authService from '../services/authService.js';
+import { endSession, endUserSessions } from '../sockets/emitter.js';
 
 function setSessionCookie(res, token) {
   res.cookie(SESSION_COOKIE, token, sessionCookieOptions);
@@ -19,7 +20,8 @@ export async function login(req, res) {
 }
 
 export async function logout(req, res) {
-  await authService.logout(req.cookies?.[SESSION_COOKIE]);
+  const idSesion = await authService.logout(req.cookies?.[SESSION_COOKIE]);
+  if (idSesion) endSession(idSesion, 'LOGOUT');
   res.clearCookie(SESSION_COOKIE, sessionCookieOptions);
   res.status(204).end();
 }
@@ -31,6 +33,7 @@ export async function forgotPassword(req, res) {
 
 export async function resetPassword(req, res) {
   const { token, contrasena } = req.validated.body;
-  await authService.resetPassword(token, contrasena);
+  const idUsuario = await authService.resetPassword(token, contrasena);
+  endUserSessions(idUsuario, 'CONTRASENA_CAMBIADA');
   res.status(204).end();
 }

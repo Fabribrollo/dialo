@@ -110,9 +110,11 @@ try {
   assert.equal(history.body.items[0].eliminado, true);
   const detail = await http(`/conversations/${chatId}`, { as: a });
   assert.equal(detail.body.conversacion.puedeEscribir, false);
+  const ended = arrival(clients[0], 'session:ended');
   await http('/auth/logout', { as: a, method: 'POST' });
-  const expired = await ack(clients[0], 'message:delete', { idMensaje: messageId });
-  assert.equal(expired.error.code, 'UNAUTHORIZED');
+  assert.deepEqual(await ended, { motivo: 'LOGOUT' });
+  for (let n = 0; n < 40 && clients[0].connected; n++) await new Promise((r) => setTimeout(r, 50));
+  assert.equal(clients[0].connected, false);
   assert.deepEqual(foreignEvents, []);
   console.log('T-11 OK: envío, edición, eliminación, varias pestañas, permisos, amistad, historial y logout.');
   console.log(`Conversación de prueba: ${chatId}. Usuarios de prueba: ${accounts.map((a) => a.nombreUsuario).join(', ')}.`);

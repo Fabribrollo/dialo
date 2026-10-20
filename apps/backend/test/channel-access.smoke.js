@@ -118,7 +118,8 @@ try {
   assert.equal((await join(clients[2])).error.code, 'CHANNEL_NOT_FOUND');
   assert.equal((await request(accessPath, { as: a })).data.acceso.habilitaciones.length, 0);
   assert.equal((await request('/auth/logout', { method: 'POST', as: c })).status, 204);
-  assert.equal((await join(clients[3])).error.code, 'UNAUTHORIZED');
+  for (let n = 0; n < 40 && clients[3].connected; n++) await new Promise((r) => setTimeout(r, 50));
+  assert.equal(clients[3].connected, false);
   console.log('T-23 OK: configuración, validación, solo lectura, unión rol/usuario, permisos de voz, revocación y recuperación en varias pestañas, concurrencia, abandono y sesión.');
 } catch (error) { console.error(`T-23 FALLÓ: ${error.message}`); process.exitCode = 1; }
 finally {

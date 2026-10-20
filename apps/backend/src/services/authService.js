@@ -11,24 +11,40 @@ const RESET_DURATION_MS = 60 * 60 * 1000;
 
 const authUserSelect = { id: true, nombreUsuario: true, nombreVisible: true };
 
+const sesionVigente = () => ({ fechaRevocacion: null, fechaExpiracion: { gt: new Date() } });
+
 export async function findAuthUserById(id, db = prisma) {
   if (!Number.isInteger(id) || id <= 0) return null;
   return db.usuario.findUnique({ where: { id }, select: authUserSelect });
 }
 
-export async function findAuthUserBySessionToken(token, db = prisma) {
+export async function findSessionByToken(token, db = prisma) {
   if (!token) return null;
+  return db.sesion.findUnique({
+    where: { hashToken: hashToken(token), ...sesionVigente() },
+    select: { id: true, fechaExpiracion: true, usuario: { select: authUserSelect } },
+  });
+}
 
+export async function findAuthUserBySessionToken(token, db = prisma) {
+  return (await findSessionByToken(token, db))?.usuario ?? null;
+}
+
+export async function findAuthUserBySessionId(idSesion, db = prisma) {
+  if (!Number.isInteger(idSesion)) return null;
   const sesion = await db.sesion.findUnique({
-    where: {
-      hashToken: hashToken(token),
-      fechaRevocacion: null,
-      fechaExpiracion: { gt: new Date() },
-    },
+    where: { id: idSesion, ...sesionVigente() },
     select: { usuario: { select: authUserSelect } },
   });
-
   return sesion?.usuario ?? null;
+}
+
+// Ids de la lista que ya no tienen una sesion vigente.
+export async function findInvalidSessionIds(ids) {
+  if (!ids.length) return [];
+  const vigentes = await prisma.sesion.findMany({ where: { id: { in: ids }, ...sesionVigente() }, select: { id: true } });
+  const idsVigentes = new Set(vigentes.map((sesion) => sesion.id));
+  return ids.filter((id) => !idsVigentes.has(id));
 }
 
 export async function createSession(idUsuario) {
@@ -79,12 +95,15 @@ export async function login(identificador, contrasena) {
   return { usuario, token: await createSession(usuario.id) };
 }
 
+// Devuelve el id de la sesion revocada, o null si no habia una vigente.
 export async function logout(token) {
-  if (!token) return;
+  const sesion = await findSessionByToken(token);
+  if (!sesion) return null;
   await prisma.sesion.updateMany({
-    where: { hashToken: hashToken(token), fechaRevocacion: null },
+    where: { id: sesion.id, fechaRevocacion: null },
     data: { fechaRevocacion: new Date() },
   });
+  return sesion.id;
 }
 
 export async function requestPasswordReset(correo) {
@@ -128,4 +147,6 @@ export async function resetPassword(token, contrasena) {
       data: { fechaRevocacion: ahora },
     });
   });
+
+  return recuperacion.idUsuario;
 }

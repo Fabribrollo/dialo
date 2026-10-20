@@ -1,6 +1,6 @@
 import { env } from '../config/env.js';
 import { SESSION_COOKIE } from '../config/cookies.js';
-import { findAuthUserById, findAuthUserBySessionToken } from '../services/authService.js';
+import { findAuthUserById, findAuthUserBySessionId, findSessionByToken } from '../services/authService.js';
 import { AppError } from '../utils/AppError.js';
 
 function readCookie(header, name) {
@@ -12,25 +12,30 @@ function readCookie(header, name) {
   return null;
 }
 
+const unauthorized = () => Object.assign(new Error('UNAUTHORIZED'), { data: { code: 'UNAUTHORIZED' } });
+
 export async function authenticateSocket(socket, next) {
   try {
     const devUserId = env.isProduction ? null : socket.handshake.auth?.devUserId;
 
-    const user = devUserId
-      ? await findAuthUserById(Number(devUserId))
-      : await findAuthUserBySessionToken(readCookie(socket.handshake.headers.cookie, SESSION_COOKIE));
+    if (devUserId) {
+      const user = await findAuthUserById(Number(devUserId));
+      if (!user) return next(unauthorized());
+      socket.data.user = user;
+      socket.data.auth = { devUserId: Number(devUserId) };
+      return next();
+    }
 
-    if (!user) return next(Object.assign(new Error('UNAUTHORIZED'), { data: { code: 'UNAUTHORIZED' } }));
+    const sesion = await findSessionByToken(readCookie(socket.handshake.headers.cookie, SESSION_COOKIE));
+    if (!sesion) return next(unauthorized());
 
-    socket.data.user = user;
-    // Credencial conservada solo en el servidor, nunca en un ack/evento.
-    socket.data.auth = devUserId
-      ? { devUserId: Number(devUserId) }
-      : { token: readCookie(socket.handshake.headers.cookie, SESSION_COOKIE) };
+    socket.data.user = sesion.usuario;
+    // Se guarda el id de la sesion, nunca el token.
+    socket.data.auth = { idSesion: sesion.id, fechaExpiracion: sesion.fechaExpiracion };
     next();
   } catch (error) {
     if (!(error instanceof URIError)) console.error(error);
-    next(Object.assign(new Error('UNAUTHORIZED'), { data: { code: 'UNAUTHORIZED' } }));
+    next(unauthorized());
   }
 }
 
@@ -38,7 +43,7 @@ export async function requireSocketUser(socket, db) {
   const auth = socket.data.auth;
   const user = !env.isProduction && auth?.devUserId
     ? await findAuthUserById(auth.devUserId, db)
-    : await findAuthUserBySessionToken(auth?.token, db);
+    : await findAuthUserBySessionId(auth?.idSesion, db);
   if (!user || user.id !== socket.data.user?.id) {
     throw new AppError(401, 'UNAUTHORIZED', 'La sesión no es válida o venció');
   }

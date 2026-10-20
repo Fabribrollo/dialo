@@ -238,9 +238,9 @@ test('abandonar impide nuevas operaciones y entregas sin reconectar', async () =
   await request(`/communities/${c.id}/leave`, { method: 'POST', as: dani }); await send(a, ch);
   assert.equal((await send(d, ch)).error.code, 'CHANNEL_NOT_FOUND'); await flush(a, d); assert.deepEqual(messageEvents(logs), []);
 });
-test('logout del emisor invalida operaciones de canal y desconecta la sesión', async () => {
+test('logout del emisor desconecta la sesion sin esperar otra operacion', async () => {
   const c = await community(), ch = await create(c), d = await subscribe(dani, ch);
-  await request('/auth/logout', { method: 'POST', as: dani }); assert.equal((await send(d, ch)).error.code, 'UNAUTHORIZED');
+  await request('/auth/logout', { method: 'POST', as: dani });
   await waitDisconnected(d); assert.equal(await prisma.mensaje.count({ where: { idCanal: ch.id } }), 0);
 });
 async function waitDisconnected(socket) { for (let n = 0; n < 30 && socket.connected; n++) await new Promise((r) => setTimeout(r, 10)); assert.equal(socket.connected, false); }
@@ -264,9 +264,11 @@ test('sesión revocada mientras espera la cola no persiste un envío', async () 
   let release, entered; const gate = new Promise((r) => { release = r; }); const started = new Promise((r) => { entered = r; });
   const hold = withCommunityChannelsLock(c.id, async () => true, undefined, async () => { entered(); await gate; });
   await started;
-  const sending = send(d, ch); await new Promise((r) => setTimeout(r, 30));
+  // El logout desconecta el socket: el ack puede no llegar.
+  const sending = send(d, ch).catch(() => null); await new Promise((r) => setTimeout(r, 30));
   try { await request('/auth/logout', { method: 'POST', as: dani }); } finally { release(); }
-  await hold; assert.equal((await sending).error.code, 'UNAUTHORIZED'); assert.equal(await prisma.mensaje.count({ where: { idCanal: ch.id } }), 0);
+  await hold; const reply = await sending; if (reply) assert.equal(reply.error.code, 'UNAUTHORIZED');
+  assert.equal(await prisma.mensaje.count({ where: { idCanal: ch.id } }), 0);
 });
 test('dos eliminaciones concurrentes producen un solo evento y auditoría definitiva', async () => {
   const c = await community(), ch = await create(c), a = await subscribe(ana, ch), mod = await subscribe(cata, ch), m = await stored(ch), logs = capture(a);

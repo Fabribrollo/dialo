@@ -2,7 +2,7 @@
 
 Eventos de comunidades y canales (Entrega 50%): ver [comunidades.md](./comunidades.md#eventos-de-socket).
 
-Contrato implementado hasta T-27, complementario a [api.md](api.md) y [comunidades.md](comunidades.md). Las garantías pendientes de T-15 se distinguen de las ya implementadas.
+Contrato implementado hasta T-27, complementario a [api.md](api.md) y [comunidades.md](comunidades.md). Incluye la invalidacion de sesiones de T-15.
 
 ---
 
@@ -18,15 +18,16 @@ Contrato implementado hasta T-27, complementario a [api.md](api.md) y [comunidad
 ### Conexión
 
 1. El front abre **una sola** conexión después del login (`SocketContext`) y la cierra en el logout. El cliente usa `VITE_SOCKET_URL` (vacío: origen actual) y `withCredentials: true`. En desarrollo Vite redirige `/socket.io`; en un despliegue con API separada se configura su origen y CORS.
-2. La cookie `dialo_sid` viaja en el handshake. `authenticateSocket` reutiliza `findAuthUserBySessionToken`, igual que la autenticación HTTP, y guarda en `socket.data.user` la misma forma que `req.user`.
-3. Sin sesión válida, la conexión se rechaza con el error `UNAUTHORIZED`. `ConversationsProvider` recibe `connect_error` y vuelve a consultar la identidad por HTTP. El manejo diferenciado de errores de red/servidor sigue pendiente en T-15.
+2. La cookie `dialo_sid` viaja en el handshake. `authenticateSocket` busca la sesion con `findSessionByToken` y guarda en `socket.data.user` la misma forma que `req.user`. El socket guarda solo el id y el vencimiento de la sesion, nunca el token.
+3. Sin sesión válida, la conexión se rechaza con el error `UNAUTHORIZED`. `ConversationsProvider` recibe `connect_error` y vuelve a consultar la identidad por HTTP. El front solo cierra la sesion ante un 401; ante una falla de red o del servidor ofrece reintentar.
    - **Solo en desarrollo** (`NODE_ENV` distinto de `production`): si el handshake trae `auth: { devUserId }`, el middleware usa ese usuario sin pedir cookie. Es el equivalente del header HTTP `x-dev-user-id` de `authenticate`. El frontend lo habilita en desarrollo mediante `VITE_DEV_USER_ID`; dejarlo vacío para probar sesiones reales.
 4. Al conectarse, el servidor une el socket a:
    - `user:<id>` — su room personal.
+   - `session:<idSesion>` — todas las pestanas de esa sesion.
    - `conversation:<id>` — una por cada conversación del usuario.
    - `community:<id>` — una por cada membresía vigente.
    - No se une automáticamente a `channel:<id>`; requiere `channel:subscribe` con Ver.
-5. Antes de cada operación de mensajes se vuelve a comprobar la sesión en la base. Si fue revocada o venció, se responde ack `UNAUTHORIZED` y se desconecta ese socket, retirándolo de sus rooms. En canales también se revalida cada sesión receptora antes de entregar mensajes. No hay vencimiento programado ni desconexión proactiva global de sesiones inactivas: queda pendiente T-15. En particular, la emisión privada a rooms todavía no revalida las sesiones receptoras. En desarrollo también se vuelve a comprobar la existencia del usuario de prueba.
+5. Antes de cada operación de mensajes se vuelve a comprobar la sesión en la base. Si fue revocada o venció, se responde ack `UNAUTHORIZED` y se desconecta ese socket, retirándolo de sus rooms. En canales también se revalida cada sesión receptora antes de entregar mensajes. Ademas, el logout, el cambio de contrasena y el vencimiento desconectan los sockets en el momento, y un barrido cada 60 segundos corta las sesiones revocadas por otro camino (ver `session:ended`). En desarrollo también se vuelve a comprobar la existencia del usuario de prueba.
 6. El primer evento puede enviarse al conectar: sus handlers esperan la inicialización de rooms antes de procesarlo. Las reconexiones recuperan las rooms de conversaciones existentes, incluso si ya no hay amistad.
 
 ### Rooms
@@ -320,6 +321,7 @@ export const EVENTS = {
   CHANNEL_ACCESS_LOST: 'channel:access-lost',
   CHANNEL_DELETED: 'channel:deleted',
   CHANNELS_REORDERED: 'channels:reordered',
+  SESSION_ENDED: 'session:ended',
 };
 ```
 
@@ -383,6 +385,26 @@ La cola por comunidad coordina escrituras, cambios de acceso y publicacion
 poscommit en la instancia actual. Varias instancias de API requieren adapter y
 coordinacion de eventos compartida. T-15 tiene pendiente la invalidacion proactiva global;
 T-26 aplica su guard de sesion especificamente al contenido de canales.
+
+## Sesion
+
+### session:ended
+
+Direccion: servidor -> cliente. Room: `session:<idSesion>` (todas las pestanas de esa sesion) o `user:<id>` (todas las sesiones del usuario).
+
+Payload:
+```json
+{ "motivo": "LOGOUT" }
+```
+
+`motivo`: `LOGOUT` | `CONTRASENA_CAMBIADA` | `EXPIRADA` | `REVOCADA`.
+
+Justo despues del evento, el servidor desconecta esos sockets. El front sale de la sesion sin esperar otra accion.
+
+- Logout: solo las pestanas de esa sesion. Las otras sesiones del usuario siguen activas.
+- Restablecer la contrasena: todas las sesiones anteriores del usuario.
+- Vencimiento: cada socket se corta cuando vence su sesion, sin esperar un mensaje del cliente.
+- Barrido: cada 60 segundos el servidor corta los sockets cuya sesion ya no es valida por otra causa (motivo `REVOCADA`).
 
 ## Límites actuales
 
