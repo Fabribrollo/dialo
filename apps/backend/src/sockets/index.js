@@ -6,11 +6,17 @@ import { registerConversationHandlers } from './conversationsSocket.js';
 async function joinRooms(socket) {
   const { id } = socket.data.user;
   await socket.join(rooms.user(id));
-  const conversaciones = await prisma.conversacionPrivada.findMany({
-    where: { OR: [{ idUsuarioA: id }, { idUsuarioB: id }] },
-    select: { id: true },
-  });
-  await socket.join(conversaciones.map((c) => rooms.conversation(c.id)));
+  const [conversaciones, membresias] = await Promise.all([
+    prisma.conversacionPrivada.findMany({
+      where: { OR: [{ idUsuarioA: id }, { idUsuarioB: id }] },
+      select: { id: true },
+    }),
+    prisma.membresia.findMany({ where: { idUsuario: id }, select: { idComunidad: true } }),
+  ]);
+  await socket.join([
+    ...conversaciones.map((c) => rooms.conversation(c.id)),
+    ...membresias.map((m) => rooms.community(m.idComunidad)),
+  ]);
 }
 
 export function initSockets(io) {

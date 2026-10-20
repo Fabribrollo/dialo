@@ -2,11 +2,11 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { PrismaClient } from '@prisma/client';
 import { Server } from 'socket.io';
 import { io as connectSocket } from 'socket.io-client';
+import { applyMigrations } from './migrations.js';
 
 // Nunca se toma DATABASE_URL del .env: las pruebas requieren una conexión explícita
 // y crean/eliminan únicamente un schema nuevo, exclusivo de esta ejecución.
@@ -106,16 +106,7 @@ async function socketFor(user) {
 
 before(async () => {
   await admin.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
-  // Ejecutamos el SQL inicial real, incluidas restricciones e índices que Prisma
-  // db push no representa. Esta migración contiene sentencias simples sin
-  // procedimientos ni bloques SQL con separadores internos.
-  const initialSql = await readFile(new URL('../prisma/migrations/20261005170305_init/migration.sql', import.meta.url), 'utf8');
-  await admin.$transaction(async (tx) => {
-    await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
-    for (const statement of initialSql.split(';').map((s) => s.trim()).filter(Boolean)) {
-      await tx.$executeRawUnsafe(statement);
-    }
-  }, { timeout: 30000 });
+  await applyMigrations(admin, schema);
 
   ({ prisma } = await import('../src/prisma/client.js'));
   const { app } = await import('../src/app.js');

@@ -11,4 +11,7 @@ export const EVENTS = {
   FRIEND_REJECTED: 'friend:rejected',
   FRIEND_REMOVED: 'friend:removed',
   USER_UPDATED: 'user:updated',
+  COMMUNITY_NEW: 'community:new',
+  COMMUNITY_UPDATED: 'community:updated',
+  COMMUNITY_DELETED: 'community:deleted',
 };
