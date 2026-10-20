@@ -1,8 +1,15 @@
-import { Navigate, Outlet } from "react-router";
+import { useEffect } from "react";
+import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "../hooks/useAuth.js";
+import { invitationReturnPath, rememberInvitation } from "../utils-invitations.js";
 
 export default function ProtectedRoute() {
   const { estado } = useAuth();
+  const { pathname } = useLocation();
+  const invitation = invitationReturnPath(pathname);
+  useEffect(() => {
+    if (estado === 'noLogueado' && invitation) rememberInvitation(invitation);
+  }, [estado, invitation]);
 
   if (estado === "cargando")
     return (
@@ -10,6 +17,6 @@ export default function ProtectedRoute() {
         Cargando sesión…
       </div>
     );
-  if (estado === "noLogueado") return <Navigate to="/login" replace />;
+  if (estado === "noLogueado") return <Navigate to="/login" replace state={invitation ? { from: invitation } : undefined} />;
   return <Outlet />;
 }

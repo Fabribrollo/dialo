@@ -114,3 +114,44 @@ completar sus rutas de backend antes de exponerlos en pantalla.
 
 No modifica el schema, las dependencias, el archivo de entorno ni la identidad de
 desarrollo. Las pruebas frontend se ejecutan con `npm run test -w apps/frontend`.
+
+## Invitaciones e integrantes (T-21)
+
+Se agregan `/comunidades/:id/invitaciones`, `/comunidades/:id/integrantes` y
+`/invitacion/:codigo`. El detalle de comunidad ofrece acceso a integrantes y,
+para MODERADOR/ADMIN/PROPIETARIO, administración de invitaciones.
+
+Las invitaciones admiten 1 hora, 24 horas, 7 días o ningún vencimiento; el máximo
+de usos puede ser de 1 a 100 o sin límite. La UI diferencia estado activo,
+revocado, vencido y agotado. El enlace usa el origen actual de la app. Si falla
+el portapapeles, se selecciona el texto para copiarlo manualmente, sin informar
+una copia exitosa. Revocar requiere confirmación y no expulsa a integrantes.
+
+La vista previa exige sesión según el contrato del backend. ProtectedRoute
+conserva únicamente un destino interno validado de invitación en el router y
+sessionStorage; GuestRoute lo recupera después de login/registro. Los enlaces
+entre ambos formularios conservan el destino y la recarga lo recupera. Nunca se
+aceptan URLs externas como destino. Al volver a la invitación se limpia ese dato.
+
+Consultar la vista previa no genera membresías. Aceptar llama a la API y rechazar
+solo vuelve al listado. Una aceptación se bloquea mientras está pendiente; ack y
+community:new se unifican por ID. Si llega el evento de ingreso pero se pierde
+la respuesta HTTP, la interfaz reconoce la membresía sin volver a aceptar.
+
+La lista de integrantes muestra identidad pública, disponibilidad y rol. Se
+recupera con HTTP ante eventos de membresía, reconexión, foco o actualización
+manual. Consume user:updated cuando el backend lo entrega; no amplía sus
+destinatarios, que actualmente son el usuario y sus amigos.
+
+Los integrantes no propietarios pueden abandonar con confirmación. El evento
+community:left cierra las vistas de otras pestañas y retira la comunidad del
+listado. El propietario no recibe una acción de abandono. Operaciones tardías
+no deben mezclar listas ni redirigir una página que el usuario ya abandonó.
+
+El backend no define eventos de creación/revocación de invitaciones. Esos
+cambios se recuperan al volver al foco, reconectar o pulsar Actualizar; el
+servidor vuelve a validar la invitación al aceptar. No se agregaron eventos
+inexistentes ni cambios de schema o dependencias.
+
+La administración completa de roles, los canales y el explorador público no
+forman parte de T-21. Se conserva la presentación sencilla hasta T-27.

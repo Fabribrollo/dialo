@@ -80,6 +80,13 @@ export function CommunitiesProvider({ children }) {
     Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler));
     return () => Object.entries(handlers).forEach(([event, handler]) => socket.off(event, handler));
   }, [socket, invalidate, remember, forget, reload]);
+  useEffect(() => {
+    const refresh = () => { invalidate(); reload(); };
+    const visible = () => { if (document.visibilityState === 'visible') refresh(); };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', visible);
+    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', visible); };
+  }, [invalidate, reload]);
 
   return <Context.Provider value={{ items, loading, error, revision, removed, reload, remember, forget }}>
     {children}

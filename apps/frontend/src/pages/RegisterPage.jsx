@@ -1,10 +1,13 @@
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import FormField from '../components/FormField.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useSubmit } from '../hooks/useSubmit.js';
+import { invitationReturnPath, pendingInvitation } from '../utils-invitations.js';
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const location = useLocation();
+  const from = invitationReturnPath(location.state?.from) || pendingInvitation();
   const { submit, enviando, error, errorDe } = useSubmit(register);
 
   function onSubmit(event) {
@@ -15,6 +18,7 @@ export default function RegisterPage() {
   return (
     <form className="card" onSubmit={onSubmit}>
       <h1>Crear cuenta</h1>
+      {from && <p className="community-help">Creá tu cuenta para consultar la invitación.</p>}
       {error && (
         <p role="alert" className="form-error">
           {error.message}
@@ -39,7 +43,7 @@ export default function RegisterPage() {
       />
       <button disabled={enviando}>Registrarme</button>
       <p>
-        ¿Ya tenés cuenta? <Link to="/login">Iniciá sesión</Link>
+        ¿Ya tenés cuenta? <Link to="/login" state={from ? { from } : undefined}>Iniciá sesión</Link>
       </p>
     </form>
   );
