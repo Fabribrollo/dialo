@@ -3,9 +3,12 @@ import { authenticate } from '../middlewares/authenticate.js';
 import { validate } from '../middlewares/validate.js';
 import { channelAccessSchema, channelIdParamsSchema, updateChannelSchema } from '../validations/channelsValidation.js';
 import { getChannel, updateChannel, deleteChannel, getChannelAccess, replaceChannelAccess } from '../controllers/channelsController.js';
+import { listMessages } from '../controllers/channelMessagesController.js';
+import { messagesQuerySchema } from '../validations/conversationsValidation.js';
 
 const router = Router();
 router.use(authenticate);
+router.get('/:id/messages', validate({ params: channelIdParamsSchema, query: messagesQuerySchema.strict() }), listMessages);
 router.get('/:id/access', validate({ params: channelIdParamsSchema }), getChannelAccess);
 router.put('/:id/access', validate({ params: channelIdParamsSchema, body: channelAccessSchema }), replaceChannelAccess);
 router.get('/:id', validate({ params: channelIdParamsSchema }), getChannel);

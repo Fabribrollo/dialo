@@ -3,7 +3,7 @@ import { areFriends, getFriendIds } from './friendsService.js';
 import { emitToUser, joinConversation } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
 import { AppError } from '../utils/AppError.js';
-import { mensajeSelect, toMensaje } from '../utils/messages.js';
+import { mensajeSelect, olderMessagesWhere, toMensaje } from '../utils/messages.js';
 import { toUsuarioPublico, usuarioPublicoSelect } from '../utils/selects.js';
 
 const conversacionSelect = {
@@ -131,12 +131,7 @@ export async function listMessages(idConversacion, idUsuario, { cursor, limit })
         { campo: 'cursor', message: 'Indicá un mensaje existente de esta conversación' },
       ]);
     }
-    anteriores = {
-      OR: [
-        { fechaCreacion: { lt: referencia.fechaCreacion } },
-        { fechaCreacion: referencia.fechaCreacion, id: { lt: referencia.id } },
-      ],
-    };
+    anteriores = olderMessagesWhere(referencia);
   }
 
   const mensajes = await prisma.mensaje.findMany({

@@ -10,6 +10,8 @@
     "test:conversations": "node --test test/conversations.test.js",
     "test:messages": "node --test test/messages.test.js",
     "test:communities": "node --test test/communities.test.js",
+    "test:channel-messages": "node --test test/channel-messages.test.js",
+    "smoke:channel-messages": "node test/channel-messages.smoke.js",
     "test:channels": "node --test test/channels.test.js",
     "test:channel-access": "node --test test/channel-permissions.test.js test/channel-access.test.js",
     "smoke:channel-access": "node test/channel-access.smoke.js",
