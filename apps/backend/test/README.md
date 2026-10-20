@@ -1,5 +1,45 @@
 # Pruebas de conversaciones privadas (T-10 y T-11)
 
+## Canales (T-22)
+
+`npm run test:channels -w apps/backend` requiere TEST_DATABASE_URL exclusiva de
+pruebas. Crea y elimina solamente un schema `test_t22_<id aleatorio>`, aplica
+todas las migraciones y ejecuta la API y sockets con sesiones reales.
+
+La suite usa cinco conexiones por defecto para verificar solicitudes
+concurrentes. Si TEST_DATABASE_URL fija connection_limit, se respeta ese valor.
+Para validar bloqueos entre conexiones usar PostgreSQL real con al menos cinco
+conexiones disponibles; PGlite multiplica conexiones sobre una sola y no
+acredita ese escenario. No configurar la base del equipo como base de pruebas.
+
+```powershell
+$env:TEST_DATABASE_URL = "postgresql://USUARIO:CONTRASENA@HOST/BASE_DE_PRUEBAS?sslmode=require"
+npm run test:channels -w apps/backend
+Remove-Item Env:TEST_DATABASE_URL
+```
+
+La cobertura incluye autenticacion, roles, DTO publico, permisos por tipo/rol/
+integrante, filtrado privado, CRUD, validacion, cambios de tipo con contenido,
+cascadas, orden completo/estable, concurrencia y eventos con varias pestanas.
+Tambien simula sockets ya unidos a una room para comprobar su retiro al perder
+VER o al eliminar el canal. La suscripcion de cliente se implementa en T-26.
+
+Con la app ya ejecutandose, `npm run smoke:channels -w apps/backend` verifica el
+recorrido contra el servidor real (localhost:3000 por defecto o
+DIALO_TEST_API_URL). Crea tres cuentas t22_*, una comunidad privada e invitacion
+de prueba y canales de los tres tipos. Comprueba CRUD, persistencia, permisos,
+orden, creaciones y reordenamientos concurrentes, eventos, varias pestanas y abandono. Al finalizar
+elimina unicamente su comunidad y revoca sus sesiones; las cuentas de prueba
+permanecen. Si falla la limpieza, informa el ID de la comunidad pendiente.
+
+No modifica comunidades, cuentas o conversaciones preexistentes. No ejecuta
+migraciones ni el seed y no requiere credenciales de usuarios reales. La
+restriccion de cambio de tipo con mensajes se prueba en la suite aislada; el
+smoke no inserta mensajes de canal porque T-26 todavia no existe.
+
+La fixture de T-11 para un mensaje de canal crea ahora un canal valido, en vez de
+usar un ID arbitrario que viola la FK agregada en T-14.
+
 Estas pruebas ejercitan las cuatro rutas HTTP con sesiones reales, Prisma y una base compatible con PostgreSQL. También verifican el evento `conversation:new` mediante clientes Socket.IO.
 
 ## Ejecución

@@ -19,6 +19,8 @@ import {
   updateCommunitySchema,
 } from '../validations/communitiesValidation.js';
 import { createInvitationSchema, invitationIdParamsSchema } from '../validations/invitationsValidation.js';
+import { listChannels, createChannel, reorderChannels } from '../controllers/channelsController.js';
+import { createChannelSchema, orderChannelsSchema } from '../validations/channelsValidation.js';
 
 const router = Router();
 
@@ -35,5 +37,8 @@ router.post('/:id/leave', validate({ params: communityIdParamsSchema }), leaveCo
 router.post('/:id/invitations', validate({ params: communityIdParamsSchema, body: createInvitationSchema }), createInvitation);
 router.get('/:id/invitations', validate({ params: communityIdParamsSchema }), listInvitations);
 router.delete('/:id/invitations/:idInvitacion', validate({ params: invitationIdParamsSchema }), revokeInvitation);
+router.get('/:id/channels', validate({ params: communityIdParamsSchema }), listChannels);
+router.post('/:id/channels', validate({ params: communityIdParamsSchema, body: createChannelSchema }), createChannel);
+router.put('/:id/channels/order', validate({ params: communityIdParamsSchema, body: orderChannelsSchema }), reorderChannels);
 
 export default router;

@@ -10,6 +10,8 @@
     "test:conversations": "node --test test/conversations.test.js",
     "test:messages": "node --test test/messages.test.js",
     "test:communities": "node --test test/communities.test.js",
+    "test:channels": "node --test test/channels.test.js",
+    "smoke:channels": "node test/channels.smoke.js",
     "smoke:messages": "node test/messages.smoke.js",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
