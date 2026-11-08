@@ -42,14 +42,14 @@ Ambos tipos se pueden crear y editar. El listado `GET /api/communities` solo dev
 
 Estas rutas de T-13 **no están implementadas** y no deben usarse como API disponible:
 
-| Propuesta | Estado |
-| --- | --- |
-| `GET /api/communities/explore` | Explorador público pendiente |
-| `GET /api/communities/:id/preview` | Previa pública directa pendiente; la previa por invitación sí existe |
-| `POST /api/communities/:id/join` | Ingreso directo a públicas pendiente |
-| `POST /api/communities/:id/transfer` | Transferencia pendiente |
-| `PATCH /api/communities/:id/members/:idUsuario` | Cambio de roles pendiente, dentro de la administración futura |
-| Expulsión y roles personalizados | Fuera de la implementación actual |
+| Propuesta                                       | Estado                                                               |
+| ----------------------------------------------- | -------------------------------------------------------------------- |
+| `GET /api/communities/explore`                  | Explorador público pendiente                                         |
+| `GET /api/communities/:id/preview`              | Previa pública directa pendiente; la previa por invitación sí existe |
+| `POST /api/communities/:id/join`                | Ingreso directo a públicas pendiente                                 |
+| `POST /api/communities/:id/transfer`            | Transferencia pendiente                                              |
+| `PATCH /api/communities/:id/members/:idUsuario` | Cambio de roles pendiente, dentro de la administración futura        |
+| Expulsión y roles personalizados                | Fuera de la implementación actual                                    |
 
 Tampoco existe el evento `community:member-updated`. Las futuras operaciones deberán conservar la jerarquía y coordinar cambios de permisos/rooms; esta guía no las presenta como garantías actuales.
 
@@ -642,7 +642,6 @@ anteriores que no lo utilizan. No hay nueva migracion ni dependencia.
 - CANNOT_DELETE_MESSAGE (403): mensajes de canal (socket).
 - Se reusan MESSAGE_NOT_FOUND, NOT_AUTHOR y MESSAGE_DELETED.
 
-
 ### Autorizacion compartida y configuracion de acceso (T-23)
 
 GET/PUT /api/channels/:id/access exige ADMIN o PROPIETARIO. PUT reemplaza
@@ -684,7 +683,6 @@ Los endpoints de cambio de rol/expulsion pertenecen a F-09 y aun no existen.
 Cuando se agreguen deben compartir el bloqueo y recalcular audiencias, retirando
 las rooms correspondientes. No hay migraciones ni dependencias nuevas en T-23.
 
-
 ### Historial de canales implementado (T-25)
 
 GET /api/channels/:id/messages esta implementado para TEXTO. Requiere sesion,
@@ -720,7 +718,6 @@ compartida con el historial privado sin modificar su orden ni contrato.
 services/channelMessagesService.js exporta listChannelMessages.
 
 El historial es HTTP; envío/edición/eliminación están implementados por socket en T-26 y la interfaz en T-27. Las pruebas de paginación insertan fixtures en una base exclusiva; el smoke específico de T-25 conserva su alcance de canales vacíos. El smoke T-26 sí prueba paginación con mensajes reales.
-
 
 ### Mensajeria en tiempo real implementada (T-26)
 
@@ -778,3 +775,14 @@ guardado: el cliente debe reconciliar historial y deduplicar ack/evento por ID.
 No existe una clave de idempotencia de comandos en el contrato actual.
 
 La interfaz integrada de T-27 consume estos eventos y el historial de T-25. La validación reproducible del backend se describe en [test/README.md](../apps/backend/test/README.md); no declarar completa T-15 por las comprobaciones específicas de canales.
+
+## Roles personalizados (modelo de datos)
+
+Base de F-09. El modelo esta listo; las rutas para administrarlos llegan en T-29 y T-30, y su efecto en los permisos de canal en T-31.
+
+- Cada comunidad puede tener sus propios roles (`rol_personalizado`). El nombre es unico dentro de la comunidad sin distinguir mayusculas, no puede estar vacio y no puede repetir un rol base (PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE).
+- Un integrante puede tener varios roles personalizados (`membresia_rol`) ademas de su rol base. El rol base y la autoridad de PROPIETARIO, ADMIN, MODERADOR e INTEGRANTE no cambian.
+- Un rol personalizado puede tener permisos en un canal (`canal_rol_personalizado`): los mismos permisos de canal (VER, ESCRIBIR, HABLAR, TRANSMITIR), con al menos uno.
+- Los permisos de roles base siguen en `canal_rol` (solo MODERADOR e INTEGRANTE) y los individuales en `canal_usuario`. Las habilitaciones anteriores se conservan.
+- La base impide asignar un rol de otra comunidad, asignarlo a alguien que no es integrante y habilitarlo en un canal de otra comunidad.
+- Eliminar un rol borra sus asignaciones y habilitaciones; no toca integrantes, canales ni mensajes. Dejar la comunidad borra los roles personalizados de esa membresia.

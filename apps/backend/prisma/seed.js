@@ -61,7 +61,7 @@ async function crearComunidadPrivada(u) {
       const general = await crearCanal({ nombre: "general", posicion: 0 });
 
       // Solo lectura para integrantes; los moderadores escriben.
-      await crearCanal({
+      const anuncios = await crearCanal({
         nombre: "anuncios",
         posicion: 1,
         privado: true,
@@ -96,6 +96,40 @@ async function crearComunidadPrivada(u) {
           idUsuario: u.dario,
           permisos: ["VER", "ESCRIBIR"],
         },
+      });
+
+      // Roles personalizados: Eva entra a proyecto por su rol y Dario escribe en anuncios.
+      const equipo = await tx.rolPersonalizado.create({
+        data: { idComunidad: comunidad.id, nombre: "Equipo de proyecto" },
+      });
+      const anunciantes = await tx.rolPersonalizado.create({
+        data: { idComunidad: comunidad.id, nombre: "Anunciantes" },
+      });
+      await tx.membresiaRol.createMany({
+        data: [
+          { idComunidad: comunidad.id, idUsuario: u.eva, idRol: equipo.id },
+          {
+            idComunidad: comunidad.id,
+            idUsuario: u.dario,
+            idRol: anunciantes.id,
+          },
+        ],
+      });
+      await tx.canalRolPersonalizado.createMany({
+        data: [
+          {
+            idCanal: proyecto.id,
+            idComunidad: comunidad.id,
+            idRol: equipo.id,
+            permisos: ["VER", "ESCRIBIR"],
+          },
+          {
+            idCanal: anuncios.id,
+            idComunidad: comunidad.id,
+            idRol: anunciantes.id,
+            permisos: ["VER", "ESCRIBIR"],
+          },
+        ],
       });
 
       // Voz: se configura, pero las llamadas son de F-10.

@@ -188,6 +188,7 @@ model Comunidad {
   membresias   Membresia[]
   invitaciones Invitacion[]
   canales      Canal[]
+  rolesPersonalizados RolPersonalizado[]
 
   @@index([tipo])
   @@map("comunidad")
@@ -202,6 +203,7 @@ model Membresia {
   comunidad      Comunidad      @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
   usuario        Usuario        @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
   habilitaciones CanalUsuario[]
+  rolesPersonalizados MembresiaRol[]
 
   @@id([idComunidad, idUsuario])
   @@index([idUsuario, fechaIngreso])
@@ -238,6 +240,7 @@ model Canal {
   comunidad             Comunidad      @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
   habilitacionesRol     CanalRol[]
   habilitacionesUsuario CanalUsuario[]
+  habilitacionesRolPersonalizado CanalRolPersonalizado[]
   mensajes              Mensaje[]
 
   @@unique([id, idComunidad])
@@ -268,4 +271,46 @@ model CanalUsuario {
   @@id([idCanal, idUsuario])
   @@index([idComunidad, idUsuario])
   @@map("canal_usuario")
+}
+
+model RolPersonalizado {
+  id            Int      @id @default(autoincrement()) @map("id_rol")
+  idComunidad   Int      @map("id_comunidad")
+  nombre        String   @db.VarChar(32)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+
+  comunidad      Comunidad               @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+  asignaciones   MembresiaRol[]
+  habilitaciones CanalRolPersonalizado[]
+
+  @@unique([id, idComunidad])
+  @@index([idComunidad])
+  @@map("rol_personalizado")
+}
+
+model MembresiaRol {
+  idComunidad Int @map("id_comunidad")
+  idUsuario   Int @map("id_usuario")
+  idRol       Int @map("id_rol")
+
+  membresia Membresia        @relation(fields: [idComunidad, idUsuario], references: [idComunidad, idUsuario], onDelete: Cascade)
+  rol       RolPersonalizado @relation(fields: [idRol, idComunidad], references: [id, idComunidad], onDelete: Cascade)
+
+  @@id([idRol, idUsuario])
+  @@index([idComunidad, idUsuario])
+  @@map("membresia_rol")
+}
+
+model CanalRolPersonalizado {
+  idCanal     Int            @map("id_canal")
+  idComunidad Int            @map("id_comunidad")
+  idRol       Int            @map("id_rol")
+  permisos    PermisoCanal[]
+
+  canal Canal            @relation(fields: [idCanal, idComunidad], references: [id, idComunidad], onDelete: Cascade)
+  rol   RolPersonalizado @relation(fields: [idRol, idComunidad], references: [id, idComunidad], onDelete: Cascade)
+
+  @@id([idCanal, idRol])
+  @@index([idRol])
+  @@map("canal_rol_personalizado")
 }
