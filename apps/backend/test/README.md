@@ -119,3 +119,7 @@ npm run build -w apps/frontend
 ```
 
 El recorrido manual con distintas cuentas, varias pestañas y móvil está en [la guía frontend](../../../docs/frontend.md#recorrido-manual-integrado). La aprobación de estas pruebas no implica que T-15 esté completa ni que se haya medido/optimizado la latencia de la instancia del equipo.
+
+## Modelo de roles personalizados (T-28)
+
+`npm run test:roles-model -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas. Crea un schema `test_t28_<id>`, aplica las migraciones del 50%, carga datos con ese modelo, aplica la migracion de roles y comprueba que se conserven. Tambien prueba roles multiples, duplicados, referencias entre comunidades, nombres reservados, permisos vacios y limpieza al eliminar roles o membresias.
