@@ -1,4 +1,7 @@
 export const EVENTS = {
+  COMMUNITY_ROLE_CREATED: 'community:role-created',
+  COMMUNITY_ROLE_UPDATED: 'community:role-updated',
+  COMMUNITY_ROLE_DELETED: 'community:role-deleted',
   CHANNEL_MESSAGE_SEND: 'channel-message:send',
   CHANNEL_MESSAGE_EDIT: 'channel-message:edit',
   CHANNEL_MESSAGE_DELETE: 'channel-message:delete',

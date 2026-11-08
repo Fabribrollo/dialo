@@ -78,7 +78,7 @@ export async function listChannels(idComunidad, idUsuario) {
 export function audience(canal, miembros) {
   return new Map(miembros.map((m) => [m.idUsuario, effectiveChannelPermissions(canal, m.rol, m.idUsuario)]));
 }
-const getMembers = (tx, idComunidad) => tx.membresia.findMany({ where: { idComunidad }, select: { idUsuario: true, rol: true } });
+export const getChannelMembers = (tx, idComunidad) => tx.membresia.findMany({ where: { idComunidad }, select: { idUsuario: true, rol: true } });
 
 export function publishChannelChange(canal, before, after, event = EVENTS.CHANNEL_UPDATED) {
   for (const [idUsuario, permisos] of before) if (permisos.includes('VER') && !after.get(idUsuario)?.includes('VER')) {
@@ -95,7 +95,7 @@ export async function createChannel(idComunidad, idUsuario, datos) {
     const { rol } = await requireRole(idComunidad, idUsuario, 'ADMIN', tx);
     const last = await tx.canal.aggregate({ where: { idComunidad }, _max: { posicion: true } });
     const canal = await tx.canal.create({ data: { idComunidad, ...datos, posicion: (last._max.posicion ?? -1) + 1 }, select: channelSelect });
-    return { canal, rol, after: audience(canal, await getMembers(tx, idComunidad)) };
+    return { canal, rol, after: audience(canal, await getChannelMembers(tx, idComunidad)) };
   }, undefined, (saved) => publishChannelChange(saved.canal, new Map(), saved.after, EVENTS.CHANNEL_CREATED));
   return toChannel(saved.canal, effectiveChannelPermissions(saved.canal, saved.rol, idUsuario));
 }
@@ -105,7 +105,7 @@ export async function mutateChannel(idCanal, idUsuario, operation, afterCommit) 
   if (!original) throw notFound();
   return withCommunityChannelsLock(original.idComunidad, async (tx) => {
     const context = await requireChannel(tx, idCanal, idUsuario, true);
-    const miembros = await getMembers(tx, original.idComunidad);
+    const miembros = await getChannelMembers(tx, original.idComunidad);
     return operation(tx, context, miembros);
   }, notFound, afterCommit);
 }
@@ -143,7 +143,7 @@ export async function reorderChannels(idComunidad, idUsuario, orden) {
       throw new AppError(400, 'INVALID_ORDER', 'Incluí todos los canales de esta comunidad una sola vez');
     }
     for (const [posicion, id] of orden.entries()) await tx.canal.update({ where: { id }, data: { posicion } });
-    return { canales, miembros: await getMembers(tx, idComunidad) };
+    return { canales, miembros: await getChannelMembers(tx, idComunidad) };
   }, undefined, (saved) => {
     // No difundir IDs de canales privados a integrantes que no pueden verlos.
     for (const member of saved.miembros) {
