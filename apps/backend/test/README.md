@@ -151,3 +151,9 @@ Cubre autenticación de las cinco rutas, CRUD, permisos por rol base, protecció
 ## Asignación y remoción de roles (T-30)
 
 `npm run test:channel-custom-roles -w apps/backend` verifica T-30 y T-31 juntos usando una base exclusiva de pruebas. Cubre actualización de roles vía HTTP, jerarquía, rechazo de IDs de otra comunidad, repetición concurrente, ausencia de eventos para terceros, abandono concurrente y cambios de acceso en varias pestañas. La eliminación por el CRUD de T-29 también se prueba contra el punto de integración de T-31.
+
+## Infraestructura de llamadas (T-34)
+
+`npm run test:media -w apps/backend` no necesita base de datos ni cuenta de LiveKit: usa claves de prueba y un proveedor simulado o un puerto cerrado. Prueba la configuracion vacia, el contenido y la duracion del token, las fuentes segun permisos, la caida del proveedor con error controlado, la firma de los webhooks y que `/api/health` siga respondiendo aunque LiveKit no conteste.
+
+La conectividad real (tres participantes en dos redes) y la medicion de la revocacion se hacen a mano, con `media:token` y `media:sacar`, siguiendo [la guia de llamadas](../../../docs/llamadas.md).

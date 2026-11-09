@@ -76,6 +76,7 @@ No versionar archivos `.env`, cookies ni credenciales. Las variables `VITE_*` se
 | `NODE_ENV` | `production` activa cookies Secure/SameSite=None y deshabilita la autenticación de desarrollo del backend |
 | `RESEND_API_KEY`, `MAIL_FROM` | Envío de recuperación por correo; sin API key no se envía. En desarrollo el enlace también se registra en la consola del backend |
 | `CLOUDINARY_URL` | Credenciales para subir fotos e imágenes; necesarias para usar esas operaciones |
+| `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET` | Servidor de llamadas (LiveKit). Vacias: las llamadas quedan deshabilitadas y el chat funciona igual. Ver [llamadas](docs/llamadas.md) |
 | `VITE_API_URL` | Base de API, incluyendo `/api`; vacío usa `/api` con el proxy de Vite |
 | `VITE_SOCKET_URL` | Origen de Socket.IO, sin `/api`; vacío usa el origen actual |
 | `VITE_DEV_USER_ID` | Identidad de prueba solo en desarrollo; dejar vacío para comprobar sesiones reales |
@@ -111,6 +112,7 @@ En la comunidad privada: Ana es propietaria, Beto administrador, Carla moderador
 - [Comunidades, invitaciones, canales y mensajes](docs/comunidades.md).
 - [Eventos Socket.IO y límites de sesión](docs/sockets.md).
 - [Frontend y recorrido manual](docs/frontend.md).
+- [Llamadas: proveedor, configuracion, contrato y revocacion](docs/llamadas.md).
 - [Suites backend y smoke tests](apps/backend/test/README.md).
 
 La suite frontend usa mocks y no necesita una base. Las suites backend requieren `TEST_DATABASE_URL` exclusiva y crean schemas temporales. Los comandos `smoke:*` actúan sobre la base del servidor en ejecución y dejan cuentas de prueba; revisar su alcance antes de ejecutarlos.

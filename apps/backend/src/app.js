@@ -11,6 +11,7 @@ import conversationsRoutes from './routes/conversationsRoutes.js';
 import communitiesRoutes from './routes/communitiesRoutes.js';
 import invitationsRoutes from './routes/invitationsRoutes.js';
 import channelsRoutes from './routes/channelsRoutes.js';
+import mediaRoutes from './routes/mediaRoutes.js';
 
 export const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/conversations', conversationsRoutes);
 app.use('/api/communities', communitiesRoutes);
 app.use('/api/invitations', invitationsRoutes);
 app.use('/api/channels', channelsRoutes);
+app.use('/api/media', mediaRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

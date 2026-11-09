@@ -7,4 +7,7 @@ export const env = {
   resendApiKey: process.env.RESEND_API_KEY || '',
   mailFrom: process.env.MAIL_FROM || '',
   cloudinaryUrl: process.env.CLOUDINARY_URL || '',
+  livekitUrl: process.env.LIVEKIT_URL || '',
+  livekitApiKey: process.env.LIVEKIT_API_KEY || '',
+  livekitApiSecret: process.env.LIVEKIT_API_SECRET || '',
 };
