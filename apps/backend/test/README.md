@@ -151,3 +151,8 @@ Cubre autenticación de las cinco rutas, CRUD, permisos por rol base, protecció
 ## Asignación y remoción de roles (T-30)
 
 `npm run test:channel-custom-roles -w apps/backend` verifica T-30 y T-31 juntos usando una base exclusiva de pruebas. Cubre actualización de roles vía HTTP, jerarquía, rechazo de IDs de otra comunidad, repetición concurrente, ausencia de eventos para terceros, abandono concurrente y cambios de acceso en varias pestañas. La eliminación por el CRUD de T-29 también se prueba contra el punto de integración de T-31.
+
+
+### Baneos (T-41)
+
+`npm run test:community-bans -w apps/backend` requiere `TEST_DATABASE_URL` de una base exclusiva de pruebas. Crea y elimina su propio esquema `test_t41_*`. Verifica jerarquía, privacidad, roles personalizados sin autoridad, idempotencia, concurrencia con invitaciones, revocación de salas en varias pestañas, persistencia del historial y reingreso después del desbloqueo.

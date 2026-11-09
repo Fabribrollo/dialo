@@ -23,7 +23,7 @@ Guía de la implementación integrada hasta T-27. Los contratos del servidor est
 | `/login`, `/register` | Acceso y registro para visitantes |
 | `/forgot-password`, `/reset-password` | Recuperación de contraseña |
 
-No hay explorador público, ingreso directo, edición de roles, transferencia ni expulsión en esta interfaz. Los canales de voz y video muestran su tipo y configuración, sin llamadas.
+No hay explorador público, ingreso directo ni transferencia de propiedad en esta interfaz. Los canales de voz y video muestran su tipo y configuración, sin llamadas.
 
 ## Presentación actual
 
@@ -156,3 +156,8 @@ En **Canales → Permisos**, propietario y administradores pueden agregar un rol
 Para probar, usá una cuenta con el rol personalizado que no sea propietaria ni administradora. En tres canales privados, habilitá respectivamente Ver y Escribir, solo Ver y ninguna habilitación. Verificá que esa cuenta pueda escribir en el primero, leer en el segundo y no vea el tercero, siempre que no reciba permisos de otra fuente. En canales públicos el rol agrega permisos a los valores por defecto; no puede denegarlos.
 
 Los eventos de edición del canal, cambios del catálogo, salida de integrantes y reconexión invalidan un formulario abierto. Recargar el formulario descarta el borrador y obtiene los datos vigentes. Si el servidor rechaza un rol o integrante que ya no existe, se pide recargar sin anunciar éxito. El reemplazo de acceso usa el contrato existente de T-31; la interfaz detecta cambios notificados, sin un control de versión atómico en el servidor.
+
+
+## Baneo de integrantes (T-41)
+
+En **Integrantes**, propietario, administradores y moderadores ven la acción **Banear** junto a los miembros con un rol base inferior al suyo. La confirmación admite un motivo opcional. **Ver baneos** abre la lista autorizada y permite levantar un baneo con confirmación. Quien pierde acceso vuelve al listado de comunidades desde la pantalla activa y recibe un aviso. Si abre una invitación válida durante el baneo, ve que su acceso está bloqueado; el motivo queda reservado al equipo autorizado.

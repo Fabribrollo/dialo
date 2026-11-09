@@ -121,3 +121,8 @@
 .community-role-dialog fieldset { min-width: 0; border: 0; margin: 0; padding: 0; }
 .community-role-options label { display: flex; align-items: center; gap: 8px; padding: 8px 0; overflow-wrap: anywhere; }
 .community-role-options input { flex: none; width: auto; }
+
+.community-bans { display: grid; gap: .75rem; margin-block: 1rem; }
+.community-bans > button { justify-self: start; }
+.community-bans .community-row-text p { margin: .25rem 0; overflow-wrap: anywhere; }
+.community-role-dialog textarea { display: block; width: 100%; resize: vertical; }

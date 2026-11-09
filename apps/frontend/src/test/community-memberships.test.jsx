@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import CommunitiesLayout from '../context/CommunitiesContext.jsx';
 import CommunityInvitationsPage from '../pages/CommunityInvitationsPage.jsx';
 import CommunityRolesPage from '../pages/CommunityRolesPage.jsx';
+import * as bans from '../services/communityBansService.js';
 import * as roles from '../services/communityRolesService.js';
 import CommunityMembersPage from '../pages/CommunityMembersPage.jsx';
 import CommunityPage from '../pages/CommunityPage.jsx';
@@ -17,6 +18,7 @@ vi.mock('../components/communities/CommunityDashboard.jsx', async () => { const 
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));
 vi.mock('../hooks/useAuth.js', () => ({ useAuth: () => ({ usuario: { id: 1 } }) }));
 vi.mock('../services/communitiesService.js', () => ({ getCommunity: vi.fn(), getCommunities: vi.fn(), getCommunityMembers: vi.fn(), leaveCommunity: vi.fn(), deleteCommunity: vi.fn() }));
+vi.mock('../services/communityBansService.js', () => ({ getCommunityBans: vi.fn(), banCommunityMember: vi.fn(), removeCommunityBan: vi.fn() }));
 vi.mock('../services/communityRolesService.js', () => ({
   getCommunityRoles: vi.fn(), createCommunityRole: vi.fn(), updateCommunityRole: vi.fn(),
   deleteCommunityRole: vi.fn(), updateCommunityMemberRoles: vi.fn(),
@@ -36,6 +38,7 @@ function show(path = '/comunidades/4/invitaciones') {
 }
 beforeEach(() => {
   Object.values(communities).forEach((fn) => fn.mockReset());
+  Object.values(bans).forEach((fn) => fn.mockReset());
   Object.values(roles).forEach((fn) => fn.mockReset());
   roles.getCommunityRoles.mockResolvedValue({ items: [{ id: 7, nombre: 'Diseño' }, { id: 8, nombre: 'Eventos' }] });
   Object.values(invitations).forEach((fn) => fn.mockReset());
@@ -314,4 +317,34 @@ it('actualiza el catálogo por socket y oculta acciones cuando se pierde autorid
   fire('community:member-updated', { idComunidad: 4, integrante: { ...member, rol: 'INTEGRANTE' } });
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Crear rol' })).not.toBeInTheDocument());
   expect(screen.getByText('Diseño actualizado')).toBeInTheDocument();
+});
+
+it('un moderador puede banear a un integrante y levantar el baneo sin restaurar su membresía', async () => {
+  const target = { ...member, usuario: { ...member.usuario, id: 2, nombreVisible: 'Ana', nombreUsuario: 'ana' }, rol: 'INTEGRANTE' };
+  communities.getCommunityMembers.mockResolvedValue({ items: [member, target] });
+  bans.banCommunityMember.mockImplementation(async () => {
+    communities.getCommunityMembers.mockResolvedValue({ items: [member] });
+  });
+  bans.getCommunityBans.mockResolvedValue({ items: [{ usuario: target.usuario, autor: member.usuario, motivo: 'Incumplimiento', fechaCreacion: community.fechaCreacion }] });
+  bans.removeCommunityBan.mockImplementation(async () => { bans.getCommunityBans.mockResolvedValue({ items: [] }); });
+  show('/comunidades/4/integrantes');
+  const button = await screen.findByRole('button', { name: 'Banear a Ana' });
+  expect(screen.queryByRole('button', { name: 'Banear a Valen' })).not.toBeInTheDocument();
+  expect(bans.getCommunityBans).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }));
+  expect(bans.banCommunityMember).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  fireEvent.change(screen.getByLabelText('Motivo (opcional)'), { target: { value: ' Incumplimiento ' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar baneo' }));
+  await screen.findByText('El integrante fue baneado.');
+  expect(bans.banCommunityMember).toHaveBeenCalledExactlyOnceWith(4, 2, 'Incumplimiento');
+  expect(screen.queryByRole('button', { name: 'Banear a Ana' })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Ver baneos' }));
+  await screen.findByText('Motivo: Incumplimiento');
+  fireEvent.click(screen.getByRole('button', { name: 'Levantar baneo de Ana' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar desbloqueo' }));
+  await screen.findByText('Se levantó el baneo.');
+  expect(bans.removeCommunityBan).toHaveBeenCalledExactlyOnceWith(4, 2);
+  expect(screen.queryByRole('button', { name: 'Banear a Ana' })).not.toBeInTheDocument();
 });

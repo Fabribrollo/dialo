@@ -45,8 +45,8 @@ export function toIntegrante(membresia) {
   return { usuario: toUsuarioPublico(membresia.usuario), rol: membresia.rol, fechaIngreso: membresia.fechaIngreso, rolesPersonalizados: membresia.rolesPersonalizados.map(({ rol }) => rol) };
 }
 
-export function getMembership(idComunidad, idUsuario) {
-  return prisma.membresia.findUnique({
+export function getMembership(idComunidad, idUsuario, db = prisma) {
+  return db.membresia.findUnique({
     where: { idComunidad_idUsuario: { idComunidad, idUsuario } },
     select: { rol: true },
   });
@@ -116,9 +116,9 @@ export async function createCommunity(idUsuario, { nombre, tipo }) {
   return comunidad;
 }
 
-export async function getCommunity(idComunidad, idUsuario) {
-  const { rol } = await requireRole(idComunidad, idUsuario);
-  const comunidad = await prisma.comunidad.findUnique({ where: { id: idComunidad }, select: comunidadSelect });
+export async function getCommunity(idComunidad, idUsuario, db = prisma) {
+  const { rol } = await requireRole(idComunidad, idUsuario, 'INTEGRANTE', db);
+  const comunidad = await db.comunidad.findUnique({ where: { id: idComunidad }, select: comunidadSelect });
   if (!comunidad) throw new AppError(404, 'COMMUNITY_NOT_FOUND', 'La comunidad no existe');
   return toComunidad(comunidad, rol);
 }
@@ -173,13 +173,11 @@ export async function addMember(idComunidad, idUsuario, tx = prisma) {
   return toIntegrante(membresia);
 }
 
-export async function announceJoin(idComunidad, integrante) {
+export function announceJoin(idComunidad, integrante, comunidad) {
   const idUsuario = integrante.usuario.id;
   joinCommunity(idComunidad, [idUsuario]);
   emitToCommunity(idComunidad, EVENTS.COMMUNITY_MEMBER_JOINED, { idComunidad, integrante });
-  const comunidad = await getCommunity(idComunidad, idUsuario);
   emitToUser(idUsuario, EVENTS.COMMUNITY_NEW, { comunidad });
-  return comunidad;
 }
 
 export async function abandonCommunity(idComunidad, idUsuario) {

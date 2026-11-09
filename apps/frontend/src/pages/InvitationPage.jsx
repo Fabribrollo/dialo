@@ -11,6 +11,7 @@ const ERRORS = {
   INVITATION_NOT_FOUND: 'La invitación no existe o el enlace es incorrecto.',
   INVITATION_REVOKED: 'La invitación fue revocada. Pedí un enlace nuevo a la comunidad.',
   INVITATION_EXPIRED: 'La invitación venció. Pedí un enlace nuevo a la comunidad.',
+  COMMUNITY_BANNED: 'Tu acceso a esta comunidad está bloqueado.',
   INVITATION_EXHAUSTED: 'La invitación alcanzó su máximo de usos. Pedí un enlace nuevo a la comunidad.',
   COMMUNITY_NOT_FOUND: 'La comunidad ya no está disponible.',
 };

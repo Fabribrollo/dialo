@@ -1,10 +1,10 @@
 # Contrato de API — Dialo
 
-Contrato de T-27, ampliado con el catálogo de roles personalizados T-29. Mantener este archivo junto con rutas, validaciones y servicios cuando cambie el comportamiento. Las limitaciones pendientes se indican expresamente.
+Contrato de T-27, ampliado con roles personalizados y baneo de integrantes. Mantener este archivo junto con rutas, validaciones y servicios cuando cambie el comportamiento. Las limitaciones pendientes se indican expresamente.
 
 Eventos en tiempo real: ver [sockets.md](./sockets.md).
 
-Comunidades, invitaciones, canales y mensajes de canal (Entrega 50%): ver [comunidades.md](./comunidades.md).
+Comunidades, invitaciones, canales, mensajes y moderación: ver [comunidades.md](./comunidades.md).
 
 ---
 
