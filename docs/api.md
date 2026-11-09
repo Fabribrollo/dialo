@@ -595,4 +595,4 @@ Estas funciones ya tienen implementación y se reutilizan entre los servicios.
 
 ## Roles personalizados (F-09/T-29)
 
-CRUD bajo `/api/communities/:id/roles`, con detalle, PATCH y DELETE en `/:idRol`. El contrato completo, permisos, DTO y errores están en [comunidades.md — Catálogo de roles personalizados](comunidades.md#catálogo-de-roles-personalizados-t-29). Las consultas están disponibles para integrantes y las mutaciones solo para ADMIN/PROPIETARIO. No confundir CRUD del catálogo con asignación (T-30) o permisos efectivos (T-31), todavía pendientes.
+CRUD bajo `/api/communities/:id/roles`, con detalle, PATCH y DELETE en `/:idRol`. El contrato completo, permisos, DTO y errores están en [comunidades.md — Catálogo de roles personalizados](comunidades.md#catálogo-de-roles-personalizados-t-29). Las consultas están disponibles para integrantes y las mutaciones solo para ADMIN/PROPIETARIO. La asignación y los permisos efectivos se documentan en [comunidades.md — Roles de integrantes](comunidades.md#roles-de-integrantes-t-30).

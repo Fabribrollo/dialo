@@ -1,3 +1,4 @@
+import { updateMemberRoles as saveMemberRoles } from '../services/communityMemberRolesService.js';
 import * as communitiesService from '../services/communitiesService.js';
 
 export async function listCommunities(req, res) {
@@ -46,4 +47,10 @@ export async function listMembers(req, res) {
 export async function leaveCommunity(req, res) {
   await communitiesService.abandonCommunity(req.validated.params.id, req.user.id);
   res.status(204).end();
+}
+
+
+export async function updateMemberRoles(req, res) {
+  const { id, idUsuario } = req.validated.params;
+  res.json({ integrante: await saveMemberRoles(id, idUsuario, req.user.id, req.validated.body) });
 }

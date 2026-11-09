@@ -28,6 +28,7 @@ export const EVENTS = {
   COMMUNITY_LEFT: 'community:left',
   COMMUNITY_MEMBER_JOINED: 'community:member-joined',
   COMMUNITY_MEMBER_LEFT: 'community:member-left',
+  COMMUNITY_MEMBER_UPDATED: 'community:member-updated',
   CHANNEL_CREATED: 'channel:created',
   CHANNEL_UPDATED: 'channel:updated',
   CHANNEL_ACCESS_LOST: 'channel:access-lost',

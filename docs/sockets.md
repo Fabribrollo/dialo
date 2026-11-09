@@ -408,7 +408,7 @@ Justo despues del evento, el servidor desconecta esos sockets. El front sale de 
 
 ## Límites actuales
 
-No existe `community:member-updated`: el cambio de roles y la transferencia todavía no tienen rutas/eventos implementados. Crear/revocar invitaciones tampoco emite un evento específico; el frontend reconsulta al actualizar, reconectar o volver al foco. `user:updated` se entrega al usuario y sus amigos, no a toda la comunidad.
+La transferencia de propiedad todavía no tiene ruta/evento implementado. Crear/revocar invitaciones tampoco emite un evento específico; el frontend reconsulta al actualizar, reconectar o volver al foco. `user:updated` se entrega al usuario y sus amigos, no a toda la comunidad.
 
 La emisión de mensajes de canal revalida destinatarios secuencialmente y el ack espera la publicación; no se promete una latencia determinada ni se declara optimizada. La configuración actual usa una instancia de API. Varias instancias requieren un adapter y coordinación de eventos, además del bloqueo SQL del estado.
 
@@ -426,3 +426,7 @@ Servidor → cliente, room `community:<id>`, después del commit:
 Todas las pestañas de los integrantes reciben los cambios; errores y transacciones rechazadas no generan estos eventos. No se difunden asignaciones, grants ni canales privados en sus payloads. Eliminar reevalúa los canales afectados con el pipeline compartido de acceso y publica `channel:updated` únicamente a quienes pueden verlos, o `channel:access-lost` si corresponde. El evaluador de T-31 suma roles base, roles personalizados y habilitaciones individuales.
 
 El consumidor debe reconciliar el catálogo mediante GET al reconectar y actualizar por ID; no hay replay ni garantía de entrega exactamente una vez frente a cortes. No hay nuevas suscripciones ni comandos de cliente para este CRUD. La interfaz de administración llega en T-32/T-33.
+
+### Cambios de roles de integrantes (T-30)
+
+`community:member-updated` se emite a `community:<id>` con `{ idComunidad, integrante }`. El integrante incluye el rol base y las referencias públicas de roles personalizados. Se publica después del commit y de los eventos de acceso de T-31; una mutación rechazada o sin cambios no publica el evento. No contiene permisos ni identificadores de canales privados.

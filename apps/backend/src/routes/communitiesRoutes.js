@@ -8,6 +8,7 @@ import {
   listMembers,
   updateCommunity,
   updateCommunityImage,
+  updateMemberRoles,
 } from '../controllers/communitiesController.js';
 import { createInvitation, listInvitations, revokeInvitation } from '../controllers/invitationsController.js';
 import { authenticate } from '../middlewares/authenticate.js';
@@ -15,6 +16,8 @@ import { parseImage } from '../middlewares/parseImage.js';
 import { validate } from '../middlewares/validate.js';
 import {
   communityIdParamsSchema,
+  communityMemberParamsSchema,
+  updateMemberRolesSchema,
   createCommunitySchema,
   updateCommunitySchema,
 } from '../validations/communitiesValidation.js';
@@ -35,6 +38,7 @@ router.patch('/:id', validate({ params: communityIdParamsSchema, body: updateCom
 router.post('/:id/imagen', validate({ params: communityIdParamsSchema }), parseImage('imagen'), updateCommunityImage);
 router.delete('/:id', validate({ params: communityIdParamsSchema }), deleteCommunity);
 router.get('/:id/members', validate({ params: communityIdParamsSchema }), listMembers);
+router.patch('/:id/members/:idUsuario', validate({ params: communityMemberParamsSchema, body: updateMemberRolesSchema }), updateMemberRoles);
 router.post('/:id/leave', validate({ params: communityIdParamsSchema }), leaveCommunity);
 router.post('/:id/invitations', validate({ params: communityIdParamsSchema, body: createInvitationSchema }), createInvitation);
 router.get('/:id/invitations', validate({ params: communityIdParamsSchema }), listInvitations);

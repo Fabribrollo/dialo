@@ -136,12 +136,15 @@ export function publishAccessDiff(before, after) {
 
 // Para cambios de roles, asignaciones o membresias (T-29, T-30, T-41): compara los accesos
 // antes y despues bajo el bloqueo de la comunidad y publica las diferencias despues del commit.
-export async function withCommunityAccessChange(idComunidad, operation, missing) {
+export async function withCommunityAccessChange(idComunidad, operation, missing, afterCommit) {
   const saved = await withCommunityChannelsLock(idComunidad, async (tx) => {
     const before = await communityAccess(tx, idComunidad);
     const result = await operation(tx);
     return { result, before, after: await communityAccess(tx, idComunidad) };
-  }, missing, (saved) => publishAccessDiff(saved.before, saved.after));
+  }, missing, async (saved) => {
+    publishAccessDiff(saved.before, saved.after);
+    await afterCommit?.(saved.result);
+  });
   return saved.result;
 }
 

@@ -24,7 +24,7 @@ process.env.CLOUDINARY_URL = '';
 const admin = new PrismaClient({ datasourceUrl: databaseUrl });
 let prisma, io, server, baseUrl, channels, ana, dani, eli;
 const sockets = [];
-const events = ['channel:updated', 'channel:access-lost'];
+const events = ['channel:updated', 'channel:access-lost', 'community:member-updated'];
 
 async function request(path, { method = 'GET', body, as } = {}) {
   const response = await fetch(`${baseUrl}/api${path}`, {
@@ -73,7 +73,12 @@ async function escenario() {
 }
 const acceso = (canal, habilitaciones) => request(`/channels/${canal.id}/access`, { method: 'PUT', as: ana, body: { privado: true, habilitaciones } });
 const asignar = (c, user, rol) => channels.withCommunityAccessChange(c.id, (tx) => tx.membresiaRol.create({ data: { idComunidad: c.id, idUsuario: user.id, idRol: rol.id } }));
-const quitar = (c, user, rol) => channels.withCommunityAccessChange(c.id, (tx) => tx.membresiaRol.delete({ where: { idRol_idUsuario: { idRol: rol.id, idUsuario: user.id } } }));
+const cambiar = (c, user, body, as = ana) => request(`/communities/${c.id}/members/${user.id}`, { method: 'PATCH', as, body });
+async function setRoles(c, user, idsRoles) {
+  const result = await cambiar(c, user, { idsRoles });
+  assert.equal(result.status, 200, JSON.stringify(result.body));
+  return result.body.integrante;
+}
 
 before(async () => {
   await admin.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
@@ -149,12 +154,12 @@ test('un rol personalizado da acceso igual por REST y por Socket.IO, y nunca a u
 test('dos roles suman permisos; al quitar uno quedan los de la otra fuente y se bloquea la escritura', async () => {
   const { c, canal, lectores, editores } = await escenario();
   await acceso(canal, [{ idRol: lectores.id, permisos: ['VER'] }, { idRol: editores.id, permisos: ['VER', 'ESCRIBIR'] }]);
-  await asignar(c, dani, lectores); await asignar(c, dani, editores);
+  await setRoles(c, dani, [lectores.id, editores.id]);
   const tabs = [await socketFor(dani), await socketFor(dani)], logs = tabs.map(capture);
   for (const tab of tabs) assert.deepEqual((await ack(tab, 'channel:subscribe', { idCanal: canal.id })).data.canal.misPermisos, ['VER', 'ESCRIBIR']);
   assert.equal((await ack(tabs[0], 'channel-message:send', { idCanal: canal.id, contenido: 'Antes' })).ok, true);
 
-  await quitar(c, dani, editores);
+  await setRoles(c, dani, [lectores.id]);
   await flush(...tabs);
   for (const log of logs) {
     assert.deepEqual(log.filter((e) => e.event === 'channel:updated').map((e) => e.data.canal.misPermisos), [['VER']]);
@@ -172,7 +177,7 @@ test('perder el ultimo rol con VER retira las suscripciones de todas las pestana
   const tabs = [await socketFor(dani), await socketFor(dani)], logs = tabs.map(capture);
   for (const tab of tabs) assert.equal((await ack(tab, 'channel:subscribe', { idCanal: canal.id })).ok, true);
 
-  await quitar(c, dani, lectores);
+  await setRoles(c, dani, []);
   await flush(...tabs);
   for (const [n, tab] of tabs.entries()) {
     assert(logs[n].some((e) => e.event === 'channel:access-lost' && e.data.idCanal === canal.id));
@@ -191,7 +196,7 @@ test('eliminar un rol revoca el acceso que daba y avisa al punto de integracion'
   try {
     const tab = await socketFor(dani), log = capture(tab);
     await ack(tab, 'channel:subscribe', { idCanal: canal.id });
-    await channels.withCommunityAccessChange(c.id, (tx) => tx.rolPersonalizado.delete({ where: { id: lectores.id } }));
+    assert.equal((await request(`/communities/${c.id}/roles/${lectores.id}`, { method: 'DELETE', as: ana })).status, 204);
     await flush(tab);
     assert(log.some((e) => e.event === 'channel:access-lost'));
     assert.deepEqual(recibidos, [{ idComunidad: c.id, idCanal: canal.id, idUsuario: dani.id, antes: ['VER'], despues: [] }]);
@@ -202,4 +207,57 @@ test('el rol base y la autoridad de propietario no cambian con roles personaliza
   const { canal } = await escenario();
   assert.deepEqual((await request(`/channels/${canal.id}`, { as: ana })).body.canal.misPermisos, ['VER', 'ESCRIBIR']);
   assert.equal((await request(`/channels/${canal.id}`, { as: dani })).status, 404);
+});
+
+
+test('T-30: actualiza el catálogo de roles del integrante y repetir la solicitud no duplica eventos', async () => {
+  const { c, lectores, editores } = await escenario();
+  const tabs = [await socketFor(dani), await socketFor(dani)], logs = tabs.map(capture);
+  const other = await socketFor(eli), otherLog = capture(other);
+  const ids = [lectores.id, editores.id];
+  const results = await Promise.all([setRoles(c, dani, ids), setRoles(c, dani, [...ids].reverse())]);
+  assert.deepEqual(results[0], results[1]);
+  assert.deepEqual(results[0].rolesPersonalizados.map((r) => r.id), ids);
+  const items = (await request(`/communities/${c.id}/members`, { as: dani })).body.items;
+  assert.deepEqual(items.find((m) => m.usuario.id === dani.id), results[0]);
+  await flush(...tabs, other);
+  for (const log of logs) {
+    const changes = log.filter((event) => event.event === 'community:member-updated');
+    assert.deepEqual(changes.map(({ data }) => data), [{ idComunidad: c.id, integrante: results[0] }]);
+  }
+  assert.deepEqual(otherLog, []);
+});
+
+test('T-30: protege jerarquía, destino y atomicidad de roles base y personalizados', async () => {
+  const { c, lectores } = await escenario();
+  const foreign = await escenario();
+  assert.equal((await cambiar(c, dani, { rol: 'ADMIN', idsRoles: [foreign.lectores.id] })).status, 404);
+  assert.equal((await cambiar(c, dani, { idsRoles: [lectores.id, lectores.id] })).status, 400);
+  assert.equal((await cambiar(c, dani, {})).status, 400);
+  assert.equal((await cambiar(c, dani, { rol: 'PROPIETARIO' })).status, 400);
+  assert.equal((await cambiar(c, ana, { idsRoles: [lectores.id] })).status, 403);
+  assert.equal((await cambiar(c, eli, { idsRoles: [] })).status, 404);
+  assert.equal((await cambiar(c, dani, { rol: 'ADMIN' }, dani)).status, 403);
+  assert.equal((await cambiar(c, dani, { idsRoles: [] }, eli)).status, 404);
+  const before = await prisma.membresia.findUnique({ where: { idComunidad_idUsuario: { idComunidad: c.id, idUsuario: dani.id } } });
+  assert.equal(before.rol, 'INTEGRANTE');
+  assert.equal((await cambiar(c, dani, { rol: 'ADMIN' })).status, 200);
+  await prisma.membresia.create({ data: { idComunidad: c.id, idUsuario: eli.id } });
+  assert.equal((await cambiar(c, eli, { rol: 'ADMIN' }, dani)).status, 403);
+  assert.equal((await cambiar(c, eli, { rol: 'MODERADOR', idsRoles: [lectores.id] }, dani)).body.integrante.rol, 'MODERADOR');
+  assert.equal((await cambiar(c, eli, { rol: 'INTEGRANTE' }, dani)).body.integrante.rolesPersonalizados[0].id, lectores.id);
+  await cambiar(c, eli, { rol: 'ADMIN' });
+  assert.equal((await cambiar(c, eli, { idsRoles: [] }, dani)).status, 403);
+});
+
+test('T-30: abandonar en paralelo no deja asignaciones huérfanas ni recrea membresías', async () => {
+  const { c, lectores } = await escenario();
+  const [change, leave] = await Promise.all([
+    cambiar(c, dani, { idsRoles: [lectores.id] }),
+    request(`/communities/${c.id}/leave`, { method: 'POST', as: dani }),
+  ]);
+  assert.ok([200, 404].includes(change.status));
+  assert.equal(leave.status, 204);
+  assert.equal(await prisma.membresiaRol.count({ where: { idComunidad: c.id, idUsuario: dani.id } }), 0);
+  assert.equal(await prisma.membresia.count({ where: { idComunidad: c.id, idUsuario: dani.id } }), 0);
 });

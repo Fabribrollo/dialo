@@ -89,6 +89,7 @@ export function useChannelMessages(id, idComunidad) {
       [EVENTS.CHANNEL_DELETED]: unavailable, [EVENTS.CHANNEL_UPDATED]: changed,
       [EVENTS.COMMUNITY_DELETED]: left, [EVENTS.COMMUNITY_LEFT]: left,
       [EVENTS.COMMUNITY_MEMBER_JOINED]: memberChange, [EVENTS.COMMUNITY_MEMBER_LEFT]: memberChange,
+      [EVENTS.COMMUNITY_MEMBER_UPDATED]: memberChange,
       [EVENTS.USER_UPDATED]: reload };
     if (socket) Object.entries(handlers).forEach(([name, handler]) => socket.on(name, handler));
     const focus = () => reload();
