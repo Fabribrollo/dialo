@@ -1,6 +1,6 @@
 # Contrato de API — Dialo
 
-Contrato implementado en `main` hasta T-27. Mantener este archivo junto con rutas, validaciones y servicios cuando cambie el comportamiento. Las limitaciones pendientes se indican expresamente.
+Contrato de T-27, ampliado con el catálogo de roles personalizados T-29. Mantener este archivo junto con rutas, validaciones y servicios cuando cambie el comportamiento. Las limitaciones pendientes se indican expresamente.
 
 Eventos en tiempo real: ver [sockets.md](./sockets.md).
 
@@ -591,3 +591,8 @@ Estas funciones ya tienen implementación y se reutilizan entre los servicios.
 | `MESSAGE_NOT_FOUND` | 404 | conversations (socket) |
 | `NOT_AUTHOR` | 403 | conversations (socket) |
 | `MESSAGE_DELETED` | 409 | conversations (socket) |
+
+
+## Roles personalizados (F-09/T-29)
+
+CRUD bajo `/api/communities/:id/roles`, con detalle, PATCH y DELETE en `/:idRol`. El contrato completo, permisos, DTO y errores están en [comunidades.md — Catálogo de roles personalizados](comunidades.md#catálogo-de-roles-personalizados-t-29). Las consultas están disponibles para integrantes y las mutaciones solo para ADMIN/PROPIETARIO. No confundir CRUD del catálogo con asignación (T-30) o permisos efectivos (T-31), todavía pendientes.
