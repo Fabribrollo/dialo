@@ -162,3 +162,7 @@ Cubre autenticación de las cinco rutas, CRUD, permisos por rol base, protecció
 `npm run test:media -w apps/backend` no necesita base de datos ni cuenta de LiveKit: usa claves de prueba y un proveedor simulado o un puerto cerrado. Prueba la configuracion vacia, el contenido y la duracion del token, las fuentes segun permisos, la caida del proveedor con error controlado, la firma de los webhooks y que `/api/health` siga respondiendo aunque LiveKit no conteste.
 
 La conectividad real (tres participantes en dos redes) y la medicion de la revocacion se hacen a mano, con `media:token` y `media:sacar`, siguiendo [la guia de llamadas](../../../docs/llamadas.md).
+
+## Ingreso y autorizacion de llamadas (T-35)
+
+`npm run test:calls -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t35_<id>`. LiveKit se simula: los tokens se firman de verdad y las llamadas al servidor se registran. Prueba el ingreso con VER, las fuentes del token segun HABLAR y TRANSMITIR, el rechazo sin VER, en canales de texto y de otra comunidad, LiveKit no configurado, eventos con ingreso falso o repetidos, la salida idempotente, una llamada activa por usuario, sesion cerrada o permiso perdido antes de conectar y la reconciliacion con lo que hay en LiveKit.

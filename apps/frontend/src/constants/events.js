@@ -36,4 +36,6 @@ export const EVENTS = {
   CHANNEL_DELETED: 'channel:deleted',
   CHANNELS_REORDERED: 'channels:reordered',
   SESSION_ENDED: 'session:ended',
+  CALL_PARTICIPANT_JOINED: 'call:participant-joined',
+  CALL_PARTICIPANT_LEFT: 'call:participant-left',
 };

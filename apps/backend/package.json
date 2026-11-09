@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "test:conversations": "node --test test/conversations.test.js",
     "test:media": "node --test test/media.test.js",
+    "test:calls": "node --test test/calls.test.js",
     "media:token": "node scripts/media-token.js",
     "media:sacar": "node scripts/media-sacar.js",
     "test:community-bans": "node --test test/community-bans.test.js",

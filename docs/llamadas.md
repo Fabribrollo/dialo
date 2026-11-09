@@ -72,6 +72,33 @@ Errores:
 - `503 MEDIA_UNAVAILABLE`: LiveKit no configurado o caido. El chat sigue funcionando.
 - `401 INVALID_WEBHOOK`: evento sin firma valida; se descarta.
 
+### Ingreso, salida y participantes (T-35)
+
+POST /api/channels/:id/call/join
+Auth: si. VER en el canal, que tiene que ser VOZ o VIDEO.
+El servidor arma la identidad y la sala, registra un ingreso nuevo (invalida el anterior) y emite un token con las fuentes que permiten los permisos actuales.
+200: { "llamada": { "url": "wss://...", "token": "...", "sala": "canal-21", "expiraEn": 600, "misPermisos": ["VER", "HABLAR"] } }
+Errores:
+
+- 404 CHANNEL_NOT_FOUND: no existe o no tiene VER.
+- 400 NOT_A_CALL_CHANNEL: es un canal de TEXTO.
+- 409 ALREADY_IN_CALL: ya esta conectado en otro canal. details[0].idCanal indica cual.
+- 503 MEDIA_UNAVAILABLE: LiveKit no configurado o caido.
+
+POST /api/channels/:id/call/leave
+Auth: si. Sale de la llamada de ese canal y se lo saca de la sala. Repetirlo tambien responde 204.
+204.
+
+GET /api/channels/:id/call/participants
+Auth: si. VER.
+Solo conexiones activas confirmadas por LiveKit, sin duplicados ni tokens, ordenadas por hora de ingreso.
+200: { "items": [{ "usuario": UsuarioPublico, "desde": "2026-11-10T12:00:00.000Z" }] }
+
+Socket: a quienes estan suscriptos al canal (`channel:subscribe`) les llegan
+`call:participant-joined` { idCanal, participante } y `call:participant-left` { idCanal, idUsuario }.
+
+Un participante queda registrado en `participante_llamada` (una fila por usuario). Pasa a conectado recien cuando llega el evento `participant_joined` con su ingreso; si el ingreso no coincide, la sesion ya no es valida o perdio VER, el servidor lo saca de la sala. Las autorizaciones que no se usan antes de que venza el token (10 minutos) se borran. Cada 60 segundos se compara la base con LiveKit: se quitan las conexiones que ya no existen y se saca a quien este en una sala sin un ingreso valido.
+
 ### Eventos del proveedor
 
 LiveKit avisa a `POST /api/media/webhook` cuando alguien entra o sale. El backend verifica la firma con la clave antes de usar el evento y lo pasa a los oyentes registrados con `onMediaEvent` (T-35 los usa para mantener los participantes reales).
