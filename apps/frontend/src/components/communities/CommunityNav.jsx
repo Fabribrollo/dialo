@@ -5,6 +5,7 @@ export default function CommunityNav({ comunidad }) {
     <NavLink to={base} end>Resumen</NavLink>
     <NavLink to={`${base}/canales`}>Canales</NavLink>
     <NavLink to={`${base}/integrantes`}>Integrantes</NavLink>
+    <NavLink to={`${base}/roles`}>Roles</NavLink>
     {['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(comunidad.miRol) && <NavLink to={`${base}/invitaciones`}>Invitaciones</NavLink>}
   </nav>;
 }

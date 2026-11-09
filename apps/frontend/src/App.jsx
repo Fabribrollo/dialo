@@ -16,6 +16,7 @@ import CommunitiesLayout from "./context/CommunitiesContext.jsx";
 import CommunitiesPage from "./pages/CommunitiesPage.jsx";
 import CommunityPage from "./pages/CommunityPage.jsx";
 import CommunityFormPage from "./pages/CommunityFormPage.jsx";
+import CommunityRolesPage from "./pages/CommunityRolesPage.jsx";
 import CommunityMembersPage from "./pages/CommunityMembersPage.jsx";
 import CommunityInvitationsPage from "./pages/CommunityInvitationsPage.jsx";
 import InvitationPage from "./pages/InvitationPage.jsx";
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="nueva" element={<CommunityFormPage />} />
               <Route path=":id" element={<CommunityPage />} />
               <Route path=":id/editar" element={<CommunityFormPage />} />
+              <Route path=":id/roles" element={<CommunityRolesPage />} />
               <Route path=":id/integrantes" element={<CommunityMembersPage />} />
               <Route path=":id/invitaciones" element={<CommunityInvitationsPage />} />
               <Route path=":id/canales" element={<CommunityChannelsPage />} />

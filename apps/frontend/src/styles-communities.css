@@ -108,3 +108,16 @@
   .community-overview h1 { font-size: 25px; }
   .community-back { font-size: 14px; margin-bottom: 18px; }
 }
+
+/* Catálogo y asignación de roles */
+.community-role-tags { list-style: none; padding: 0; margin: 6px 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.community-role-tags li { border: 1px solid var(--line); border-radius: 4px; padding: 3px 7px; font-size: .85rem; overflow-wrap: anywhere; }
+.community-member-roles { min-width: 0; }
+.community-member-roles .community-role { padding-left: 0; text-align: left; }
+.community-role-row { justify-content: space-between; }
+.community-role-row strong { min-width: 0; overflow-wrap: anywhere; }
+.community-role-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.community-role-dialog { max-height: 85dvh; overflow: auto; }
+.community-role-dialog fieldset { min-width: 0; border: 0; margin: 0; padding: 0; }
+.community-role-options label { display: flex; align-items: center; gap: 8px; padding: 8px 0; overflow-wrap: anywhere; }
+.community-role-options input { flex: none; width: auto; }
