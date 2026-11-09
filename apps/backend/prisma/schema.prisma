@@ -80,6 +80,8 @@ model Usuario {
   mensajesEscritos     Mensaje[]             @relation("MensajeAutor")
   mensajesEliminados   Mensaje[]             @relation("MensajeEliminadoPor")
   membresias           Membresia[]
+  baneosRecibidos      ComunidadBaneo[] @relation("UsuarioBaneado")
+  baneosAplicados      ComunidadBaneo[] @relation("AutorBaneo")
   invitacionesCreadas  Invitacion[]          @relation("InvitacionCreador")
 
   @@map("usuario")
@@ -189,9 +191,28 @@ model Comunidad {
   invitaciones Invitacion[]
   canales      Canal[]
   rolesPersonalizados RolPersonalizado[]
+  baneos ComunidadBaneo[]
 
   @@index([tipo])
   @@map("comunidad")
+}
+
+model ComunidadBaneo {
+  idComunidad   Int          @map("id_comunidad")
+  idUsuario     Int          @map("id_usuario")
+  idAutor       Int?         @map("id_autor")
+  rolAnterior   RolComunidad @map("rol_anterior")
+  motivo        String?      @db.VarChar(300)
+  fechaCreacion DateTime     @default(now()) @map("fecha_creacion")
+
+  comunidad Comunidad @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+  usuario   Usuario   @relation("UsuarioBaneado", fields: [idUsuario], references: [id], onDelete: Cascade)
+  autor     Usuario?  @relation("AutorBaneo", fields: [idAutor], references: [id], onDelete: SetNull)
+
+  @@id([idComunidad, idUsuario])
+  @@index([idUsuario])
+  @@index([idAutor])
+  @@map("comunidad_baneo")
 }
 
 model Membresia {

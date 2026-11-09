@@ -11,6 +11,7 @@
     "test:media": "node --test test/media.test.js",
     "media:token": "node scripts/media-token.js",
     "media:sacar": "node scripts/media-sacar.js",
+    "test:community-bans": "node --test test/community-bans.test.js",
     "test:roles": "node --test test/roles-validation.test.js test/roles.test.js",
     "test:roles-model": "node --test test/roles-model.test.js",
     "test:channel-custom-roles": "node --test test/channel-custom-roles.test.js",

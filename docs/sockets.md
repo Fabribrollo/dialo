@@ -430,3 +430,10 @@ El consumidor debe reconciliar el catálogo mediante GET al reconectar y actuali
 ### Cambios de roles de integrantes (T-30)
 
 `community:member-updated` se emite a `community:<id>` con `{ idComunidad, integrante }`. El integrante incluye el rol base y las referencias públicas de roles personalizados. Se publica después del commit y de los eventos de acceso de T-31; una mutación rechazada o sin cambios no publica el evento. No contiene permisos ni identificadores de canales privados.
+
+
+## Baneo de integrantes (T-41)
+
+Tras confirmar el baneo, el backend retira las pestañas del usuario de las salas de la comunidad y sus canales. Reutiliza `community:left` para avisarle que perdió acceso y `community:member-left` para actualizar la lista del resto. Los canales afectados aplican `channel:access-lost` y notifican al mecanismo existente de cambios de acceso. El socket sigue conectado para el resto de la app.
+
+El evento `community:bans-changed` envía solo `{ idComunidad }` a quienes pueden gestionar el baneo, para que refresquen la lista por HTTP. No se transmite el motivo ni se devuelve la membresía al levantar el baneo.

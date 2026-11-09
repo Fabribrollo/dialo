@@ -1,5 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { prisma } from '../prisma/client.js';
+import { requireNotBanned } from '../utils/communityBans.js';
+import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 import { AppError } from '../utils/AppError.js';
 import { toUsuarioPublico, usuarioPublicoSelect } from '../utils/selects.js';
 import {
@@ -60,35 +62,33 @@ async function requireValidInvitation(codigo) {
 
 export async function acceptInvitation(codigo, idUsuario) {
   const { id, idComunidad } = await requireValidInvitation(codigo);
-  if (await getMembership(idComunidad, idUsuario)) {
-    return { comunidad: await getCommunity(idComunidad, idUsuario), created: false };
-  }
-
-  let integrante;
-  try {
-    integrante = await prisma.$transaction(async (tx) => {
-      const nuevo = await addMember(idComunidad, idUsuario, tx);
-      const { count } = await tx.invitacion.updateMany({
-        where: {
-          id,
-          fechaRevocacion: null,
-          OR: [{ fechaExpiracion: null }, { fechaExpiracion: { gt: new Date() } }],
-          AND: { OR: [{ usosMaximos: null }, { usos: { lt: prisma.invitacion.fields.usosMaximos } }] },
-        },
-        data: { usos: { increment: 1 } },
-      });
-      if (count === 0) {
-        const actual = await tx.invitacion.findUnique({ where: { id } });
-        throw invitationError(actual) ?? new AppError(410, 'INVITATION_EXHAUSTED', 'La invitación ya no tiene usos disponibles');
-      }
-      return nuevo;
+  const saved = await withCommunityChannelsLock(idComunidad, async (tx) => {
+    const actual = await tx.invitacion.findUnique({ where: { id } });
+    const error = invitationError(actual);
+    if (error) throw error;
+    await requireNotBanned(tx, idComunidad, idUsuario);
+    if (await getMembership(idComunidad, idUsuario, tx)) {
+      return { comunidad: await getCommunity(idComunidad, idUsuario, tx), created: false };
+    }
+    const integrante = await addMember(idComunidad, idUsuario, tx);
+    const { count } = await tx.invitacion.updateMany({
+      where: {
+        id,
+        fechaRevocacion: null,
+        OR: [{ fechaExpiracion: null }, { fechaExpiracion: { gt: new Date() } }],
+        AND: { OR: [{ usosMaximos: null }, { usos: { lt: prisma.invitacion.fields.usosMaximos } }] },
+      },
+      data: { usos: { increment: 1 } },
     });
-  } catch (error) {
-    if (error.code !== 'P2002') throw error;
-    return { comunidad: await getCommunity(idComunidad, idUsuario), created: false };
-  }
-
-  return { comunidad: await announceJoin(idComunidad, integrante), created: true };
+    if (!count) {
+      const current = await tx.invitacion.findUnique({ where: { id } });
+      throw invitationError(current) ?? new AppError(410, 'INVITATION_EXHAUSTED', 'La invitación ya no tiene usos disponibles');
+    }
+    return { integrante, comunidad: await getCommunity(idComunidad, idUsuario, tx), created: true };
+  }, () => invitationError(null), ({ integrante, comunidad }) => {
+    if (integrante) announceJoin(idComunidad, integrante, comunidad);
+  });
+  return { comunidad: saved.comunidad, created: saved.created };
 }
 
 export async function createInvitation(idComunidad, idUsuario, { duracionHoras = null, usosMaximos = null }) {
@@ -129,5 +129,6 @@ export async function revokeInvitation(idComunidad, idUsuario, idInvitacion) {
 
 export async function previewInvitation(codigo, idUsuario) {
   const { idComunidad } = await requireValidInvitation(codigo);
+  await requireNotBanned(prisma, idComunidad, idUsuario);
   return getCommunityPreview(idComunidad, idUsuario);
 }

@@ -13,7 +13,7 @@ React + Vite · Express · Prisma · PostgreSQL (Neon) · Socket.IO.
 - Canales con ordenamiento, acceso por rol/usuario, historial y mensajería con moderación.
 - Interfaz integrada con navegación lateral en escritorio y navegación inferior en móvil.
 
-Voz y video permiten configurar canales, pero todavía no hay llamadas. No están implementados el explorador público, el ingreso directo, la transferencia de propiedad ni la interfaz/asignación de roles o expulsiones. El catálogo de roles personalizados tiene CRUD HTTP en T-29; sus permisos efectivos quedan para T-31. La invalidación proactiva global de sockets y el manejo de errores de autenticación siguen pendientes en [T-15](https://github.com/Fabribrollo/dialo/issues/65). Los controles de sesión específicos de canales no reemplazan esa tarea.
+Voz y video permiten configurar canales, pero todavía no hay llamadas. Siguen pendientes el explorador público, el ingreso directo y la transferencia de propiedad. El catálogo, la asignación y los permisos de roles personalizados se gestionan desde la comunidad. Desde **Integrantes**, el equipo de moderación puede banear a usuarios de menor rango y levantar baneos. T-15 invalida las sesiones activas de sockets cuando corresponde.
 
 ## Estructura
 

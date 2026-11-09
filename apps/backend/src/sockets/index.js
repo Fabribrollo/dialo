@@ -2,6 +2,7 @@ import { requireSocketUser, authenticateSocket } from './authenticate.js';
 import { initEmitter, revisarSesiones, rooms } from './emitter.js';
 import { EVENTS } from './events.js';
 import { prisma } from '../prisma/client.js';
+import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 import { AppError } from '../utils/AppError.js';
 import { registerConversationHandlers } from './conversationsSocket.js';
 import { registerChannelHandlers } from './channelsSocket.js';
@@ -22,10 +23,14 @@ async function joinRooms(socket) {
     }),
     prisma.membresia.findMany({ where: { idUsuario: id }, select: { idComunidad: true } }),
   ]);
-  await socket.join([
-    ...conversaciones.map((c) => rooms.conversation(c.id)),
-    ...membresias.map((m) => rooms.community(m.idComunidad)),
-  ]);
+  await socket.join(conversaciones.map((c) => rooms.conversation(c.id)));
+  for (const { idComunidad } of membresias) {
+    // La membresía pudo desaparecer entre la lectura y el ingreso a la sala.
+    await withCommunityChannelsLock(idComunidad, (tx) => tx.membresia.count({ where: { idComunidad, idUsuario: id } }),
+      () => new AppError(404, 'COMMUNITY_NOT_FOUND', 'La comunidad no existe'),
+      (isMember) => { if (isMember && socket.connected) return socket.join(rooms.community(idComunidad)); },
+    ).catch((error) => { if (error.code !== 'COMMUNITY_NOT_FOUND') throw error; });
+  }
   // La sesion pudo revocarse mientras se conectaba.
   await requireSocketUser(socket);
 }

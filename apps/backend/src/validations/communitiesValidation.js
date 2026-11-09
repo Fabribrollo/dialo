@@ -28,3 +28,5 @@ export const updateMemberRolesSchema = z.strictObject({
   idsRoles: z.array(memberRoleId).max(50)
     .refine((ids) => new Set(ids).size === ids.length, 'No repitas roles').optional(),
 }).refine((body) => body.rol !== undefined || body.idsRoles !== undefined, 'Indicá el rol base o los roles personalizados');
+
+export const banMemberSchema = z.object({ motivo: z.string().trim().min(1).max(300).optional() }).strict();
