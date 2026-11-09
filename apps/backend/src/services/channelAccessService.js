@@ -15,11 +15,19 @@ async function toAccess(db, canal) {
     select: { idUsuario: true, usuario: { select: usuarioPublicoSelect } },
   }) : [];
   const users = new Map(members.map((m) => [m.idUsuario, toUsuarioPublico(m.usuario)]));
+  const roleGrants = canal.habilitacionesRolPersonalizado ?? [];
+  const roles = roleGrants.length ? await db.rolPersonalizado.findMany({
+    where: { id: { in: roleGrants.map((g) => g.idRol) } }, select: { id: true, nombre: true },
+  }) : [];
+  const roleNames = new Map(roles.map((r) => [r.id, r.nombre]));
   return {
     privado: canal.privado,
     habilitaciones: [
       ...[...canal.habilitacionesRol].sort((a, b) => a.rol.localeCompare(b.rol))
         .map((g) => ({ rol: g.rol, permisos: normalize(g.permisos) })),
+      ...roleGrants.filter((g) => roleNames.has(g.idRol))
+        .sort((a, b) => roleNames.get(a.idRol).localeCompare(roleNames.get(b.idRol)))
+        .map((g) => ({ rolPersonalizado: { id: g.idRol, nombre: roleNames.get(g.idRol) }, permisos: normalize(g.permisos) })),
       ...[...grants].sort((a, b) => a.idUsuario - b.idUsuario)
         .filter((g) => users.has(g.idUsuario))
         .map((g) => ({ usuario: users.get(g.idUsuario), permisos: normalize(g.permisos) })),
@@ -42,9 +50,15 @@ export async function replaceChannelAccess(idCanal, idUsuario, { privado, habili
     if (individual.some((g) => !memberIds.has(g.idUsuario))) {
       throw new AppError(404, 'MEMBER_NOT_FOUND', 'Algún usuario no es integrante de esta comunidad');
     }
+    const custom = habilitaciones.filter((g) => g.idRol !== undefined);
+    if (custom.length) {
+      const validos = await tx.rolPersonalizado.count({ where: { idComunidad: previous.idComunidad, id: { in: custom.map((g) => g.idRol) } } });
+      if (validos !== custom.length) throw new AppError(404, 'ROLE_NOT_FOUND', 'Algun rol no existe en esta comunidad');
+    }
     // Reemplazo completo, atómico y coordinado con las demás escrituras del canal.
     await tx.canalRol.deleteMany({ where: { idCanal } });
     await tx.canalUsuario.deleteMany({ where: { idCanal } });
+    await tx.canalRolPersonalizado.deleteMany({ where: { idCanal } });
     // Una lista vacía no concede ni deniega: equivale a omitir la habilitación.
     // La base exige al menos un permiso en cada fila guardada.
     const roles = habilitaciones.filter((g) => g.rol && g.permisos.length);
@@ -54,6 +68,10 @@ export async function replaceChannelAccess(idCanal, idUsuario, { privado, habili
     const nonempty = individual.filter((g) => g.permisos.length);
     if (nonempty.length) await tx.canalUsuario.createMany({
       data: nonempty.map((g) => ({ idCanal, idComunidad: previous.idComunidad, idUsuario: g.idUsuario, permisos: normalize(g.permisos) })),
+    });
+    const customNonempty = custom.filter((g) => g.permisos.length);
+    if (customNonempty.length) await tx.canalRolPersonalizado.createMany({
+      data: customNonempty.map((g) => ({ idCanal, idComunidad: previous.idComunidad, idRol: g.idRol, permisos: normalize(g.permisos) })),
     });
     const canal = await tx.canal.update({ where: { id: idCanal }, data: { privado }, select: channelSelect });
     return { canal, before: audience(previous, miembros), after: audience(canal, miembros), acceso: await toAccess(tx, canal) };

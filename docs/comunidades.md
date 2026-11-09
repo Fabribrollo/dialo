@@ -79,6 +79,8 @@ La moderación exige jerarquía estrictamente superior al rol actual del autor d
 
 Cualquier permiso implica VER: si se guarda ESCRIBIR sin VER, el servidor agrega VER.
 
+Matriz por tipo de canal: VER para acceder y recibir; ESCRIBIR solo en TEXTO; HABLAR (microfono) y TRANSMITIR (camara y pantalla) solo en VOZ y VIDEO.
+
 Como se calculan los permisos de un integrante en un canal:
 
 1. Si es PROPIETARIO o ADMIN: todos los permisos del tipo de canal.
@@ -86,11 +88,13 @@ Como se calculan los permisos de un integrante en un canal:
    - TEXTO: VER y ESCRIBIR.
    - VOZ y VIDEO: VER y HABLAR.
 3. Si el canal es privado, empieza sin permisos.
-4. Se suman los permisos de la habilitacion de su rol (si existe) y de la habilitacion de su usuario (si existe).
+4. Se suman los permisos de la habilitacion de su rol base (si existe), de cada uno de sus roles personalizados y de la habilitacion de su usuario (si existe).
 5. Se descartan los permisos que no aplican al tipo de canal (por ejemplo ESCRIBIR en un canal de voz).
 
 Ejemplo de conflicto: si el rol da VER y la habilitacion del usuario da VER y ESCRIBIR, queda VER y ESCRIBIR.
 Para hacer un canal de solo lectura: canal privado con la habilitacion INTEGRANTE: [VER].
+Si un integrante pierde un rol, conserva solo los permisos que le sigan llegando por otra fuente.
+Quien no tiene membresia (porque abandono o fue baneado) no tiene ningun permiso, aunque existan habilitaciones viejas.
 
 Moderar no es un permiso configurable en esta entrega: lo tiene quien es MODERADOR o mas y tiene VER en el canal.
 
@@ -190,12 +194,13 @@ Solo la ven ADMIN o mas.
   "habilitaciones": [
     { "rol": "MODERADOR", "permisos": ["VER", "ESCRIBIR"] },
     { "rol": "INTEGRANTE", "permisos": ["VER"] },
+    { "rolPersonalizado": { "id": 3, "nombre": "Editores" }, "permisos": ["VER", "ESCRIBIR"] },
     { "usuario": "UsuarioPublico", "permisos": ["VER", "ESCRIBIR"] }
   ]
 }
 ```
 
-Cada habilitacion tiene rol o usuario, nunca los dos. Solo se admiten los roles MODERADOR e INTEGRANTE (los demas ya tienen todo).
+Cada habilitacion tiene rol, rolPersonalizado o usuario, nunca mas de uno. Solo se admiten los roles MODERADOR e INTEGRANTE (los demas ya tienen todo).
 
 ### MensajeCanal
 
@@ -431,12 +436,13 @@ Body:
   "privado": true,
   "habilitaciones": [
     { "rol": "INTEGRANTE", "permisos": ["VER"] },
+    { "idRol": 3, "permisos": ["VER", "ESCRIBIR"] },
     { "idUsuario": 7, "permisos": ["VER", "ESCRIBIR"] }
   ]
 }
 ```
 
-En el body los usuarios van con idUsuario; en la respuesta vuelven como usuario (UsuarioPublico).
+En el body los usuarios van con idUsuario y los roles personalizados con idRol; en la respuesta vuelven como usuario (UsuarioPublico) y rolPersonalizado ({ id, nombre }).
 200: { "acceso": ConfiguracionAcceso }
 Socket: igual que PATCH (channel:updated y channel:access-lost).
 Errores:
@@ -445,6 +451,7 @@ Errores:
 - 403 INSUFFICIENT_ROLE.
 - 404 CHANNEL_NOT_FOUND.
 - 404 MEMBER_NOT_FOUND: algun idUsuario no es integrante.
+- 404 ROLE_NOT_FOUND: algun idRol no es de esta comunidad.
 
 ---
 
@@ -778,7 +785,7 @@ La interfaz integrada de T-27 consume estos eventos y el historial de T-25. La v
 
 ## Roles personalizados (modelo de datos)
 
-Base de F-09. El modelo esta listo; las rutas para administrarlos llegan en T-29 y T-30, y su efecto en los permisos de canal en T-31.
+Base de F-09. Las rutas para administrarlos llegan en T-29 y T-30. Desde T-31 sus habilitaciones se suman a los permisos de canal.
 
 - Cada comunidad puede tener sus propios roles (`rol_personalizado`). El nombre es unico dentro de la comunidad sin distinguir mayusculas, no puede estar vacio y no puede repetir un rol base (PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE).
 - Un integrante puede tener varios roles personalizados (`membresia_rol`) ademas de su rol base. El rol base y la autoridad de PROPIETARIO, ADMIN, MODERADOR e INTEGRANTE no cambian.
@@ -786,3 +793,12 @@ Base de F-09. El modelo esta listo; las rutas para administrarlos llegan en T-29
 - Los permisos de roles base siguen en `canal_rol` (solo MODERADOR e INTEGRANTE) y los individuales en `canal_usuario`. Las habilitaciones anteriores se conservan.
 - La base impide asignar un rol de otra comunidad, asignarlo a alguien que no es integrante y habilitarlo en un canal de otra comunidad.
 - Eliminar un rol borra sus asignaciones y habilitaciones; no toca integrantes, canales ni mensajes. Dejar la comunidad borra los roles personalizados de esa membresia.
+
+### Recalculo de accesos
+
+Toda operacion que cambie roles personalizados, sus asignaciones o membresias (T-29, T-30, T-41) se hace con `withCommunityAccessChange(idComunidad, operacion)` de `channelsService.js`. Toma el bloqueo de la comunidad, compara los permisos de cada integrante en cada canal antes y despues, y despues del commit:
+
+- quien pierde VER sale de la room del canal y recibe `channel:access-lost`;
+- quien cambia de permisos pero sigue con VER recibe `channel:updated` con sus `misPermisos` nuevos.
+
+`onChannelAccessChange(listener)` recibe la lista de cambios ({ idComunidad, idCanal, idUsuario, antes, despues }) despues de cada cambio de acceso. Es el punto de integracion para cortar fuentes multimedia en T-40.

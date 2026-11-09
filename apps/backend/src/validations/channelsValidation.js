@@ -13,11 +13,12 @@ const permisos = z.array(z.enum(['VER', 'ESCRIBIR', 'HABLAR', 'TRANSMITIR']))
 const habilitacion = z.union([
   z.strictObject({ rol: z.enum(['MODERADOR', 'INTEGRANTE']), permisos }),
   z.strictObject({ idUsuario: id, permisos }),
+  z.strictObject({ idRol: id, permisos }),
 ]);
 export const channelAccessSchema = z.strictObject({
   privado: z.boolean(),
   habilitaciones: z.array(habilitacion).max(50).refine((values) => {
-    const keys = values.map((value) => value.rol ? `rol:${value.rol}` : `user:${value.idUsuario}`);
+    const keys = values.map((value) => value.rol ? `rol:${value.rol}` : value.idRol ? `rolp:${value.idRol}` : `user:${value.idUsuario}`);
     return new Set(keys).size === keys.length;
   }, 'No repitas roles ni integrantes'),
 });

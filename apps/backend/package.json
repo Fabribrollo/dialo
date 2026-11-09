@@ -9,6 +9,7 @@
     "start": "node src/index.js",
     "test:conversations": "node --test test/conversations.test.js",
     "test:roles-model": "node --test test/roles-model.test.js",
+    "test:channel-custom-roles": "node --test test/channel-custom-roles.test.js",
     "test:sessions": "node --test test/sessions.test.js",
     "test:messages": "node --test test/messages.test.js",
     "test:communities": "node --test test/communities.test.js",

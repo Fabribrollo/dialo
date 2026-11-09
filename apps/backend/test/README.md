@@ -123,3 +123,7 @@ El recorrido manual con distintas cuentas, varias pestañas y móvil está en [l
 ## Modelo de roles personalizados (T-28)
 
 `npm run test:roles-model -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas. Crea un schema `test_t28_<id>`, aplica las migraciones del 50%, carga datos con ese modelo, aplica la migracion de roles y comprueba que se conserven. Tambien prueba roles multiples, duplicados, referencias entre comunidades, nombres reservados, permisos vacios y limpieza al eliminar roles o membresias.
+
+## Permisos de roles personalizados (T-31)
+
+`npm run test:channel-custom-roles -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t31_<id>`. Prueba la suma de permisos de rol base, roles personalizados y habilitacion individual, la configuracion de acceso con idRol, roles de otra comunidad, la misma decision en REST y Socket.IO, la perdida de ESCRIBIR conservando la lectura, la perdida de VER en varias pestanas y el aviso a `onChannelAccessChange`. Mientras no existan las rutas de T-29 y T-30, los roles se crean y asignan directo en la base dentro de `withCommunityAccessChange`.
