@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSocket } from '../../hooks/useSocket.js';
+import { EVENTS } from '../../constants/events.js';
+import { getCommunityRoles } from '../../services/communityRolesService.js';
 import FormField from '../FormField.jsx';
 import { getCommunityMembers } from '../../services/communitiesService.js';
 import { getChannelAccess, replaceChannelAccess } from '../../services/channelsService.js';
@@ -7,16 +10,28 @@ const LABELS = { VER: 'Ver', ESCRIBIR: 'Escribir', HABLAR: 'Hablar', TRANSMITIR:
 const keyFor = (grant) => grant.rol ? `rol:${grant.rol}` : grant.rolPersonalizado ? `custom:${grant.rolPersonalizado.id}` : `user:${grant.usuario.id}`;
 
 export default function ChannelAccessForm({ canal, version, onSaved, onCancel, onReload, onUnavailable }) {
+  const socket = useSocket();
+  const [roles, setRoles] = useState([]), [roleTarget, setRoleTarget] = useState('');
   const [config, setConfig] = useState(null), [members, setMembers] = useState([]), [grants, setGrants] = useState({});
   const [privado, setPrivado] = useState(false), [target, setTarget] = useState('');
   const [error, setError] = useState(''), [busy, setBusy] = useState(false), [attempt, setAttempt] = useState(0), [stale, setStale] = useState(false);
   const initialVersion = useRef(version), pending = useRef(false), alive = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
+    if (!socket) return;
+    const invalidate = ({ idComunidad }) => {
+      if (idComunidad === canal.idComunidad) setStale(true);
+    };
+    const events = [EVENTS.COMMUNITY_ROLE_CREATED, EVENTS.COMMUNITY_ROLE_UPDATED, EVENTS.COMMUNITY_ROLE_DELETED, EVENTS.COMMUNITY_MEMBER_LEFT];
+    events.forEach((event) => socket.on(event, invalidate));
+    return () => events.forEach((event) => socket.off(event, invalidate));
+  }, [socket, canal.idComunidad]);
+  useEffect(() => {
     let active = true;
     setError(''); setConfig(null);
-    Promise.all([getChannelAccess(canal.id), getCommunityMembers(canal.idComunidad)]).then(([{ acceso }, { items }]) => {
+    Promise.all([getChannelAccess(canal.id), getCommunityMembers(canal.idComunidad), getCommunityRoles(canal.idComunidad)]).then(([{ acceso }, { items }, { items: catalog }]) => {
       if (!active) return;
+      setRoles(catalog);
       setConfig(acceso); setPrivado(acceso.privado); setMembers(items);
       setGrants(Object.fromEntries(acceso.habilitaciones.map((g) => [keyFor(g), { ...g, permisos: g.permisos }])));
     }).catch((e) => { if (active) { setError(e.message); if ([403, 404].includes(e.status)) onUnavailable(); } });
@@ -24,6 +39,7 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
   }, [canal.id, canal.idComunidad, attempt]); // onUnavailable no interviene en la carga.
   useEffect(() => { if (initialVersion.current !== version && !pending.current) setStale(true); }, [version, busy]);
   const allowed = canal.tipo === 'TEXTO' ? ['VER', 'ESCRIBIR'] : ['VER', 'HABLAR', 'TRANSMITIR'];
+  const custom = Object.entries(grants).filter(([key]) => key.startsWith('custom:'));
   const individual = Object.entries(grants).filter(([key]) => key.startsWith('user:'));
   function toggle(key, permission, checked) {
     setGrants((old) => {
@@ -44,7 +60,7 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
         <input type="checkbox" aria-label={`${label}: ${LABELS[permission]}`} checked={grant?.permisos.includes(permission) ?? false}
           onChange={(e) => toggle(key, permission, e.target.checked)} />{LABELS[permission]}</label>)}</div>
       {extra.length > 0 && <p className="community-help">También conserva permisos para otros tipos: {extra.map((p) => LABELS[p]).join(', ')}.</p>}
-      {key.startsWith('user:') && <button type="button" className="secondary" onClick={() => setGrants((old) => {
+      {!key.startsWith('rol:') && <button type="button" className="secondary" onClick={() => setGrants((old) => {
         const next = { ...old }; delete next[key]; return next;
       })}>Quitar habilitación de {label}</button>}
     </fieldset>;
@@ -62,8 +78,10 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
       if (alive.current) onSaved();
     } catch (e) {
       if (alive.current) {
-        setError(e.code === 'MEMBER_NOT_FOUND' ? 'Un integrante ya no pertenece a la comunidad. Recargá el formulario para actualizar la lista.' : e.message);
-        if (e.code === 'MEMBER_NOT_FOUND') setStale(true);
+        const changed = ['MEMBER_NOT_FOUND', 'ROLE_NOT_FOUND'].includes(e.code) || e.status === 409;
+        setError(e.code === 'MEMBER_NOT_FOUND' ? 'Un integrante ya no pertenece a la comunidad. Recargá el formulario para actualizar la lista.'
+          : changed ? 'Las habilitaciones cambiaron. Recargá el formulario para consultar la configuración vigente.' : e.message);
+        if (changed) setStale(true);
         else if ([403, 404].includes(e.status)) onUnavailable();
       }
     } finally { pending.current = false; if (alive.current) setBusy(false); }
@@ -73,7 +91,7 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
     {stale && <p role="alert" className="notice error">La configuración pudo cambiar. Recargá el formulario antes de guardar.
       <button type="button" className="secondary" onClick={onReload}>Recargar formulario</button></p>}
     {error && <p role="alert" className="notice error">{error} {!config && <button type="button" className="secondary" onClick={() => setAttempt((n) => n + 1)}>Reintentar permisos</button>}</p>}
-    {!config && !error && <p role="status">Cargando permisos e integrantes…</p>}
+    {!config && !error && <p role="status">Cargando permisos, roles e integrantes…</p>}
     {config && <fieldset disabled={busy || stale} className="channel-access-fields">
       <label className="channel-checkbox"><input type="checkbox" checked={privado} onChange={(e) => setPrivado(e.target.checked)} /> Canal privado</label>
       <p className="community-help">{privado ? 'Solo tendrán acceso los roles e integrantes habilitados.' : canal.tipo === 'TEXTO'
@@ -81,9 +99,21 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
         : 'Todos los integrantes pueden ver y hablar. Las habilitaciones agregan permisos; no los restringen.'}</p>
       <p className="community-help">Propietario y administradores siempre tienen acceso completo. Para un canal de solo lectura, elegí privado y habilitá únicamente Ver.</p>
       <h3>Por rol</h3>
-      {Object.entries(grants).filter(([key]) => key.startsWith('custom:')).map(([key, grant]) =>
-        <p key={key} className="community-help">{grant.rolPersonalizado.nombre}: {grant.permisos.map((p) => LABELS[p]).join(', ')}.</p>)}
       {row('rol:MODERADOR', 'Moderadores')}{row('rol:INTEGRANTE', 'Integrantes')}
+      <h3>Por rol personalizado</h3>
+      {custom.map(([key, grant]) => row(key, grant.rolPersonalizado.nombre))}
+      {roles.length ? <div className="channel-add-member">
+        <FormField as="select" label="Rol personalizado a habilitar" value={roleTarget} onChange={(e) => setRoleTarget(e.target.value)}>
+          <option value="">Elegir rol</option>
+          {roles.filter((role) => !grants[`custom:${role.id}`])
+            .map((role) => <option key={role.id} value={role.id}>{role.nombre}</option>)}
+        </FormField>
+        <button type="button" className="secondary" disabled={!roleTarget} onClick={() => {
+          const role = roles.find((item) => String(item.id) === roleTarget);
+          if (role) setGrants((old) => ({ ...old, [`custom:${role.id}`]: { rolPersonalizado: role, permisos: ['VER'] } }));
+          setRoleTarget('');
+        }}>Agregar rol</button>
+      </div> : <p className="community-help">No hay roles personalizados. Podés crearlos desde la pestaña Roles.</p>}
       <h3>Por integrante</h3>
       {individual.map(([key, grant]) => row(key, `${grant.usuario.nombreVisible} (@${grant.usuario.nombreUsuario})`))}
       <div className="channel-add-member">
