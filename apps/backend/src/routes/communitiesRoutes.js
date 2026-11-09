@@ -21,10 +21,12 @@ import {
 import { createInvitationSchema, invitationIdParamsSchema } from '../validations/invitationsValidation.js';
 import { listChannels, createChannel, reorderChannels } from '../controllers/channelsController.js';
 import { createChannelSchema, orderChannelsSchema } from '../validations/channelsValidation.js';
+import rolesRoutes from './rolesRoutes.js';
 
 const router = Router();
 
 router.use(authenticate);
+router.use('/:id/roles', rolesRoutes);
 
 router.get('/', listCommunities);
 router.post('/', validate({ body: createCommunitySchema }), createCommunity);

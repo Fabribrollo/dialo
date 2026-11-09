@@ -63,7 +63,7 @@ Estas suites no acreditan la desconexión proactiva global pendiente en T-15. En
 
 ### Comunidades e invitaciones
 
-La suite comprueba creación atómica con propietario/canal general, listado y detalle por membresía, edición e imagen, eliminación y cascadas, permisos y DTO públicos. Cubre integrantes, abandono, eventos, invitaciones con usos/vencimiento/revocación, previa sin ingreso, aceptación y concurrencia sin superar usos. Los roles necesarios se preparan en fixtures: esto no acredita endpoints de administración de roles o transferencia, que todavía no existen.
+La suite comprueba creación atómica con propietario/canal general, listado y detalle por membresía, edición e imagen, eliminación y cascadas, permisos y DTO públicos. Cubre integrantes, abandono, eventos, invitaciones con usos/vencimiento/revocación, previa sin ingreso, aceptación y concurrencia sin superar usos. Los roles necesarios se preparan en fixtures: esto no acredita asignación por API ni transferencia. El CRUD del catálogo se valida por separado en T-29.
 
 ### Canales y acceso
 
@@ -124,6 +124,25 @@ El recorrido manual con distintas cuentas, varias pestañas y móvil está en [l
 
 `npm run test:roles-model -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas. Crea un schema `test_t28_<id>`, aplica las migraciones del 50%, carga datos con ese modelo, aplica la migracion de roles y comprueba que se conserven. Tambien prueba roles multiples, duplicados, referencias entre comunidades, nombres reservados, permisos vacios y limpieza al eliminar roles o membresias.
 
+### Roles personalizados: CRUD (T-29)
+
+Con `TEST_DATABASE_URL` apuntando a una PostgreSQL exclusiva de pruebas:
+
+```sh
+npm run db:generate -w apps/backend
+npm run test:roles -w apps/backend
+```
+
+La suite crea un schema aleatorio `test_t29_*`, aplica las tres migraciones y elimina únicamente ese schema al terminar. Levanta su propia API en un puerto libre: no necesita `npm run dev`, credenciales de correo ni Cloudinary. No usar la base compartida del equipo. Una interrupción forzada puede dejar el schema de prueba pendiente de limpieza.
+
+Sin base, solo validaciones:
+
+```sh
+node --test apps/backend/test/roles-validation.test.js
+```
+
+Cubre autenticación de las cinco rutas, CRUD, permisos por rol base, protección de nombres/IDs/campos, aislamiento entre comunidades, unicidad con mayúsculas y concurrencia, cascadas sin borrar datos anteriores, eventos en varias pestañas y ausencia de difusión a terceros/canales privados. Prueba carreras entre actualizar/eliminar y borrar comunidad/crear rol. No acredita asignación por API, UI ni el evaluador de T-31.
+
 ## Permisos de roles personalizados (T-31)
 
-`npm run test:channel-custom-roles -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t31_<id>`. Prueba la suma de permisos de rol base, roles personalizados y habilitacion individual, la configuracion de acceso con idRol, roles de otra comunidad, la misma decision en REST y Socket.IO, la perdida de ESCRIBIR conservando la lectura, la perdida de VER en varias pestanas y el aviso a `onChannelAccessChange`. Mientras no existan las rutas de T-29 y T-30, los roles se crean y asignan directo en la base dentro de `withCommunityAccessChange`.
+`npm run test:channel-custom-roles -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t31_<id>`. Prueba la suma de permisos de rol base, roles personalizados y habilitacion individual, la configuracion de acceso con idRol, roles de otra comunidad, la misma decision en REST y Socket.IO, la perdida de ESCRIBIR conservando la lectura, la perdida de VER en varias pestanas y el aviso a `onChannelAccessChange`. Los escenarios prueban el evaluador con asignaciones preparadas dentro de `withCommunityAccessChange`.

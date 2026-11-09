@@ -1,4 +1,5 @@
 const UNIQUE_CONFLICTS = {
+  RolPersonalizado: { code: 'ROLE_NAME_TAKEN', message: 'Ya existe un rol con ese nombre en esta comunidad' },
   SolicitudAmistad: { code: 'REQUEST_EXISTS', message: 'Ya hay una solicitud pendiente entre ustedes' },
   Amistad: { code: 'ALREADY_FRIENDS', message: 'Ya son amigos' },
   ConversacionPrivada: { code: 'CONVERSATION_EXISTS', message: 'La conversación ya existe' },

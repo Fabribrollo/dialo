@@ -1,6 +1,6 @@
 # Contrato de comunidades y canales - Dialo (Entrega 50%)
 
-Contrato implementado hasta T-27. Las propuestas originales de T-13 que todavía no tienen código están separadas en el apartado de pendientes.
+Contrato de T-27 con el modelo T-28 y el CRUD de roles personalizados T-29. Las propuestas originales de T-13 que todavía no tienen código están separadas en el apartado de pendientes.
 Cubre F-05 (comunidades), F-06 (invitaciones e integrantes), F-07 (canales y acceso) y F-08 (mensajes en canales).
 Usa las convenciones de [api.md](api.md) y [sockets.md](sockets.md): rutas bajo `/api`, camelCase, formato de error compartido e historiales paginados por cursor. Los listados de comunidades, integrantes, canales e invitaciones no están paginados. Todas estas rutas requieren sesión y responden `401 UNAUTHORIZED` sin ella.
 En los ejemplos, `Comunidad`, `Canal`, `Integrante` y otros nombres representan objetos de las formas compartidas, no valores JSON literales.
@@ -11,7 +11,7 @@ El chat privado (conversations y eventos message:\*) no cambia.
 ## Decisiones
 
 - Tipos de comunidad: PUBLICA y PRIVADA.
-- Roles base: PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE. Uno por integrante. Los roles personalizados quedan para F-09.
+- Roles base: PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE. Uno por integrante. Los roles personalizados tienen modelo y CRUD en F-09 (T-28/T-29); asignación y permisos efectivos quedan para T-30/T-31.
 - Hay un solo propietario por comunidad. No puede abandonarla; actualmente puede eliminarla. Transferir la propiedad sigue pendiente.
 - Crear una comunidad es una transaccion: comunidad + membresia PROPIETARIO del creador + canal de texto "general".
 - Eliminar una comunidad: solo el propietario. Borra en cascada canales, mensajes de canal, membresias e invitaciones.
@@ -49,7 +49,7 @@ Estas rutas de T-13 **no están implementadas** y no deben usarse como API dispo
 | `POST /api/communities/:id/join`                | Ingreso directo a públicas pendiente                                 |
 | `POST /api/communities/:id/transfer`            | Transferencia pendiente                                              |
 | `PATCH /api/communities/:id/members/:idUsuario` | Cambio de roles pendiente, dentro de la administración futura        |
-| Expulsión y roles personalizados                | Fuera de la implementación actual                                    |
+| Expulsión, asignación de roles y permisos de roles personalizados | Pendientes; el catálogo de roles ya tiene CRUD en T-29 |
 
 Tampoco existe el evento `community:member-updated`. Las futuras operaciones deberán conservar la jerarquía y coordinar cambios de permisos/rooms; esta guía no las presenta como garantías actuales.
 
@@ -785,7 +785,7 @@ La interfaz integrada de T-27 consume estos eventos y el historial de T-25. La v
 
 ## Roles personalizados (modelo de datos)
 
-Base de F-09. Las rutas para administrarlos llegan en T-29 y T-30. Desde T-31 sus habilitaciones se suman a los permisos de canal.
+Base de F-09. Modelo T-28, catálogo T-29 y cálculo de acceso T-31. La asignación mediante API corresponde a T-30.
 
 - Cada comunidad puede tener sus propios roles (`rol_personalizado`). El nombre es unico dentro de la comunidad sin distinguir mayusculas, no puede estar vacio y no puede repetir un rol base (PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE).
 - Un integrante puede tener varios roles personalizados (`membresia_rol`) ademas de su rol base. El rol base y la autoridad de PROPIETARIO, ADMIN, MODERADOR e INTEGRANTE no cambian.
@@ -793,6 +793,26 @@ Base de F-09. Las rutas para administrarlos llegan en T-29 y T-30. Desde T-31 su
 - Los permisos de roles base siguen en `canal_rol` (solo MODERADOR e INTEGRANTE) y los individuales en `canal_usuario`. Las habilitaciones anteriores se conservan.
 - La base impide asignar un rol de otra comunidad, asignarlo a alguien que no es integrante y habilitarlo en un canal de otra comunidad.
 - Eliminar un rol borra sus asignaciones y habilitaciones; no toca integrantes, canales ni mensajes. Dejar la comunidad borra los roles personalizados de esa membresia.
+
+## Catálogo de roles personalizados (T-29)
+
+Todas las rutas requieren sesión. Un integrante puede listar y consultar los metadatos públicos del catálogo. Solo ADMIN y PROPIETARIO pueden crear, renombrar o eliminar roles; MODERADOR no administra roles. Para externos: comunidad privada/inexistente responde `404 COMMUNITY_NOT_FOUND`; una pública sin membresía responde `403 NOT_MEMBER`.
+
+| Método | Ruta | Respuesta |
+|---|---|---|
+| GET | `/api/communities/:id/roles` | `200 { items: RolPersonalizado[] }` |
+| POST | `/api/communities/:id/roles` | `201 { rol: RolPersonalizado }` |
+| GET | `/api/communities/:id/roles/:idRol` | `200 { rol: RolPersonalizado }` |
+| PATCH | `/api/communities/:id/roles/:idRol` | `200 { rol: RolPersonalizado }` |
+| DELETE | `/api/communities/:id/roles/:idRol` | `204`, sin body |
+
+`RolPersonalizado`: `{ id, idComunidad, nombre, fechaCreacion }`. No incluye integrantes asignados, permisos ni IDs de canales. El listado no está paginado y ordena por nombre e ID.
+
+POST/PATCH reciben únicamente `{ "nombre": "Equipo" }`: 1–32 caracteres, sin espacios en los extremos ni nombres base (sin distinguir mayúsculas). Los campos desconocidos, cuerpos vacíos e IDs inválidos devuelven `400 VALIDATION_ERROR`. Las restricciones SQL mantienen unicidad por comunidad: duplicado al crear o renombrar devuelve `409 ROLE_NAME_TAKEN`. Un rol inexistente o perteneciente a otra comunidad devuelve `404 ROLE_NOT_FOUND` después de autorizar al solicitante. Los roles base no son recursos de este catálogo y no se pueden renombrar ni eliminar mediante estas rutas.
+
+Las operaciones usan `withCommunityChannelsLock` y vuelven a comprobar autoridad dentro de la transacción. Borrar un rol limpia sus asignaciones y grants mediante las cascadas de T-28 sin borrar membresías, mensajes o grants de usuario/rol base. Dos mutaciones concurrentes se serializan por comunidad; repetir DELETE devuelve 404 y no emite otro evento.
+
+Crear, renombrar y eliminar publican `community:role-created`, `community:role-updated` y `community:role-deleted` después del commit. El evento de catálogo no expone relaciones privadas. Al eliminar se calculan audiencias antes/después y se reutiliza `publishChannelChange` para los canales afectados. El evaluador compartido de T-31 incluye los roles personalizados. Reconsultar tras reconectar: los eventos no son un historial durable.
 
 ### Recalculo de accesos
 
