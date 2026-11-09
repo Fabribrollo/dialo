@@ -138,3 +138,13 @@ Los controles incluyen etiquetas, foco visible, teclado, estados y enlace para s
 14. Cerrar sesión limpia la pestaña actual. Los escenarios de desconexión proactiva de otras sesiones y de falla inicial de red deben validarse como parte de T-15 cuando se integre.
 
 La latencia de mensajes observada en la instancia del equipo sigue pendiente de medición; no se declara optimizada por el rediseño visual. Los retoques visuales posteriores quedan fuera de esta revisión documental.
+
+## Administración de roles e integrantes (F-09/T-32)
+
+Desde una comunidad, **Roles** muestra los roles base protegidos y el catálogo personalizado. Propietario y administradores pueden crear, renombrar o eliminar roles personalizados. La confirmación de borrado explica que se revocan sus asignaciones y habilitaciones por canal, sin expulsar integrantes.
+
+En **Integrantes**, cada persona muestra su rol base y sus roles personalizados. **Editar roles** aparece únicamente para integrantes de menor jerarquía y nunca para la cuenta propia. El propietario puede otorgar Administrador; un administrador puede otorgar Moderador o Integrante. El formulario permite seleccionar varios roles personalizados o quitar todos. El backend sigue validando las operaciones.
+
+El catálogo usa las rutas de T-29 y el editor envía `PATCH /api/communities/:id/members/:idUsuario` de T-30. Envía solo los campos editados; `idsRoles: []` quita todas las asignaciones personalizadas. Los eventos de catálogo y membresía, la reconexión y el regreso a la pestaña reconsultan los datos. Si el estado cargado cambia mientras se edita, se bloquea el guardado hasta volver a abrir el formulario. Los errores conservan el borrador y la confirmación aparece después de la respuesta exitosa.
+
+Para probar: crear, renombrar y eliminar un rol; asignar dos roles y después quitar ambos; verificar que un administrador no pueda promover a Administrador, editar a un par ni editarse. En dos pestañas, cambiar los roles desde una y comprobar que la otra recargue la lista y bloquee un editor abierto con datos viejos. Los permisos personalizados por canal se administrarán en T-33.

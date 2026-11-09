@@ -77,6 +77,9 @@ export function CommunitiesProvider({ children }) {
       [EVENTS.COMMUNITY_MEMBER_JOINED]: refresh,
       [EVENTS.COMMUNITY_MEMBER_LEFT]: refresh,
       [EVENTS.COMMUNITY_MEMBER_UPDATED]: refresh,
+      [EVENTS.COMMUNITY_ROLE_CREATED]: invalidate,
+      [EVENTS.COMMUNITY_ROLE_UPDATED]: invalidate,
+      [EVENTS.COMMUNITY_ROLE_DELETED]: invalidate,
     };
     Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler));
     return () => Object.entries(handlers).forEach(([event, handler]) => socket.off(event, handler));
