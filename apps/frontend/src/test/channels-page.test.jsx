@@ -7,6 +7,7 @@ import CommunityChannelsPage from '../pages/CommunityChannelsPage.jsx';
 import CommunityPage from '../pages/CommunityPage.jsx';
 import CommunitiesPage from '../pages/CommunitiesPage.jsx';
 import * as communities from '../services/communitiesService.js';
+import { getCommunityRoles } from '../services/communityRolesService.js';
 import * as channels from '../services/channelsService.js';
 import { useSocket } from '../hooks/useSocket.js';
 
@@ -16,6 +17,7 @@ vi.mock('../components/channels/ChannelSelector.jsx', () => ({ default: ({ child
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));
 vi.mock('../hooks/useAuth.js', () => ({ useAuth: () => ({ usuario: { id: 1 } }) }));
 vi.mock('../services/communitiesService.js', () => ({ getCommunity: vi.fn(), getCommunities: vi.fn(), getCommunityMembers: vi.fn(), deleteCommunity: vi.fn(), leaveCommunity: vi.fn() }));
+vi.mock('../services/communityRolesService.js', () => ({ getCommunityRoles: vi.fn() }));
 vi.mock('../services/channelsService.js', () => ({ getChannels: vi.fn(), createChannel: vi.fn(), updateChannel: vi.fn(), deleteChannel: vi.fn(), orderChannels: vi.fn(), getChannelAccess: vi.fn(), replaceChannelAccess: vi.fn() }));
 const community = { id: 4, nombre: 'Club', tipo: 'PRIVADA', miRol: 'PROPIETARIO', cantidadIntegrantes: 2, fechaCreacion: '2026-10-19T12:00:00Z' };
 const text = { id: 1, idComunidad: 4, nombre: 'general', tipo: 'TEXTO', privado: false, posicion: 0, misPermisos: ['VER', 'ESCRIBIR'] };
@@ -38,6 +40,7 @@ beforeEach(() => {
   Object.values(communities).forEach((fn) => fn.mockReset()); Object.values(channels).forEach((fn) => fn.mockReset());
   communities.getCommunity.mockResolvedValue({ comunidad: community }); communities.getCommunities.mockResolvedValue({ items: [community] });
   communities.getCommunityMembers.mockResolvedValue({ items: [member] });
+  getCommunityRoles.mockReset().mockResolvedValue({ items: [{ id: 9, nombre: 'Diseño' }] });
   items = [text, voice, video];
   channels.getChannels.mockImplementation(async () => ({ items: [...items] }));
   channels.createChannel.mockImplementation(async (_id, data) => { const canal = { ...text, ...data, id: 8, posicion: 3 }; items = [...items, canal]; return { canal }; });
@@ -259,4 +262,62 @@ it('conserva habilitaciones de roles personalizados al guardar el formulario exi
   expect(channels.replaceChannelAccess).toHaveBeenCalledWith(1, {
     privado: true, habilitaciones: [{ idRol: 9, permisos: ['VER'] }],
   });
+});
+
+it('agrega un rol personalizado de escritura sin reemplazar las demás habilitaciones', async () => {
+  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [
+    { rol: 'MODERADOR', permisos: ['VER'] },
+    { usuario: member.usuario, permisos: ['VER'] },
+  ] } });
+  show(); const save = await openAccess();
+  fireEvent.change(screen.getByLabelText('Rol personalizado a habilitar'), { target: { value: '9' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Agregar rol' }));
+  expect(screen.getByLabelText('Diseño: Ver')).toBeChecked();
+  expect(screen.queryByLabelText('Diseño: Hablar')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByLabelText('Diseño: Escribir'));
+  fireEvent.click(save);
+  await screen.findByText('Permisos guardados.');
+  expect(channels.replaceChannelAccess).toHaveBeenCalledWith(1, { privado: true, habilitaciones: [
+    { rol: 'MODERADOR', permisos: ['VER'] }, { idUsuario: 7, permisos: ['VER'] },
+    { idRol: 9, permisos: ['VER', 'ESCRIBIR'] },
+  ] });
+});
+
+it('edita y puede quitar un rol personalizado en voz', async () => {
+  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [
+    { rolPersonalizado: { id: 9, nombre: 'Diseño' }, permisos: ['VER', 'HABLAR'] },
+    { rol: 'INTEGRANTE', permisos: ['VER'] },
+  ] } });
+  show('/comunidades/4/canales/2'); const save = await openAccess();
+  expect(screen.getByLabelText('Diseño: Hablar')).toBeChecked();
+  expect(screen.getByLabelText('Diseño: Transmitir cámara o pantalla')).not.toBeChecked();
+  expect(screen.queryByLabelText('Diseño: Escribir')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Quitar habilitación de Diseño' }));
+  fireEvent.click(save);
+  await screen.findByText('Permisos guardados.');
+  expect(channels.replaceChannelAccess).toHaveBeenCalledWith(2, { privado: true, habilitaciones: [
+    { rol: 'INTEGRANTE', permisos: ['VER'] },
+  ] });
+});
+
+it('bloquea un borrador al eliminarse un rol de la comunidad y recarga la configuración vigente', async () => {
+  show(); const save = await openAccess();
+  emit('community:role-deleted', { idComunidad: 5, idRol: 9 });
+  expect(save).toBeEnabled();
+  getCommunityRoles.mockResolvedValue({ items: [] });
+  emit('community:role-deleted', { idComunidad: 4, idRol: 9 });
+  expect(save).toBeDisabled();
+  fireEvent.submit(save.closest('form'));
+  expect(channels.replaceChannelAccess).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Recargar formulario' }));
+  expect(await screen.findByText(/No hay roles personalizados/)).toBeInTheDocument();
+});
+
+it('un rol borrado durante el guardado conserva el editor y exige recargar', async () => {
+  channels.replaceChannelAccess.mockRejectedValue(fail(404, 'ROLE_NOT_FOUND'));
+  show(); const save = await openAccess();
+  fireEvent.click(save);
+  expect(await screen.findByText(/Las habilitaciones cambiaron/)).toBeInTheDocument();
+  expect(save).toBeDisabled();
+  expect(screen.queryByText('Permisos guardados.')).not.toBeInTheDocument();
 });
