@@ -31,10 +31,18 @@ function toComunidad(comunidad, miRol) {
   };
 }
 
-const integranteSelect = { rol: true, fechaIngreso: true, usuario: { select: usuarioPublicoSelect } };
+export const integranteSelect = {
+  rol: true,
+  fechaIngreso: true,
+  usuario: { select: usuarioPublicoSelect },
+  rolesPersonalizados: {
+    orderBy: { idRol: 'asc' },
+    select: { rol: { select: { id: true, nombre: true } } },
+  },
+};
 
 export function toIntegrante(membresia) {
-  return { usuario: toUsuarioPublico(membresia.usuario), rol: membresia.rol, fechaIngreso: membresia.fechaIngreso };
+  return { usuario: toUsuarioPublico(membresia.usuario), rol: membresia.rol, fechaIngreso: membresia.fechaIngreso, rolesPersonalizados: membresia.rolesPersonalizados.map(({ rol }) => rol) };
 }
 
 export function getMembership(idComunidad, idUsuario) {

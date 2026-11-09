@@ -76,6 +76,7 @@ export function CommunitiesProvider({ children }) {
       [EVENTS.COMMUNITY_LEFT]: ({ idComunidad }) => { forget(idComunidad); reload(); },
       [EVENTS.COMMUNITY_MEMBER_JOINED]: refresh,
       [EVENTS.COMMUNITY_MEMBER_LEFT]: refresh,
+      [EVENTS.COMMUNITY_MEMBER_UPDATED]: refresh,
     };
     Object.entries(handlers).forEach(([event, handler]) => socket.on(event, handler));
     return () => Object.entries(handlers).forEach(([event, handler]) => socket.off(event, handler));

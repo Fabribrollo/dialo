@@ -146,3 +146,8 @@ Cubre autenticación de las cinco rutas, CRUD, permisos por rol base, protecció
 ## Permisos de roles personalizados (T-31)
 
 `npm run test:channel-custom-roles -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t31_<id>`. Prueba la suma de permisos de rol base, roles personalizados y habilitacion individual, la configuracion de acceso con idRol, roles de otra comunidad, la misma decision en REST y Socket.IO, la perdida de ESCRIBIR conservando la lectura, la perdida de VER en varias pestanas y el aviso a `onChannelAccessChange`. Los escenarios prueban el evaluador con asignaciones preparadas dentro de `withCommunityAccessChange`.
+
+
+## Asignación y remoción de roles (T-30)
+
+`npm run test:channel-custom-roles -w apps/backend` verifica T-30 y T-31 juntos usando una base exclusiva de pruebas. Cubre actualización de roles vía HTTP, jerarquía, rechazo de IDs de otra comunidad, repetición concurrente, ausencia de eventos para terceros, abandono concurrente y cambios de acceso en varias pestañas. La eliminación por el CRUD de T-29 también se prueba contra el punto de integración de T-31.

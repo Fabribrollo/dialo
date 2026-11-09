@@ -1,6 +1,6 @@
 # Contrato de comunidades y canales - Dialo (Entrega 50%)
 
-Contrato de T-27 con el modelo T-28 y el CRUD de roles personalizados T-29. Las propuestas originales de T-13 que todavía no tienen código están separadas en el apartado de pendientes.
+Contrato de comunidades y canales, actualizado con roles y accesos de T-28 a T-31. Las propuestas originales de T-13 que todavía no tienen código están separadas en el apartado de pendientes.
 Cubre F-05 (comunidades), F-06 (invitaciones e integrantes), F-07 (canales y acceso) y F-08 (mensajes en canales).
 Usa las convenciones de [api.md](api.md) y [sockets.md](sockets.md): rutas bajo `/api`, camelCase, formato de error compartido e historiales paginados por cursor. Los listados de comunidades, integrantes, canales e invitaciones no están paginados. Todas estas rutas requieren sesión y responden `401 UNAUTHORIZED` sin ella.
 En los ejemplos, `Comunidad`, `Canal`, `Integrante` y otros nombres representan objetos de las formas compartidas, no valores JSON literales.
@@ -11,7 +11,7 @@ El chat privado (conversations y eventos message:\*) no cambia.
 ## Decisiones
 
 - Tipos de comunidad: PUBLICA y PRIVADA.
-- Roles base: PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE. Uno por integrante. Los roles personalizados tienen modelo y CRUD en F-09 (T-28/T-29); asignación y permisos efectivos quedan para T-30/T-31.
+- Roles base: PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE. Uno por integrante. Los roles personalizados se administran en T-29, se asignan en T-30 y se aplican a los permisos de canal en T-31.
 - Hay un solo propietario por comunidad. No puede abandonarla; actualmente puede eliminarla. Transferir la propiedad sigue pendiente.
 - Crear una comunidad es una transaccion: comunidad + membresia PROPIETARIO del creador + canal de texto "general".
 - Eliminar una comunidad: solo el propietario. Borra en cascada canales, mensajes de canal, membresias e invitaciones.
@@ -48,10 +48,9 @@ Estas rutas de T-13 **no están implementadas** y no deben usarse como API dispo
 | `GET /api/communities/:id/preview`              | Previa pública directa pendiente; la previa por invitación sí existe |
 | `POST /api/communities/:id/join`                | Ingreso directo a públicas pendiente                                 |
 | `POST /api/communities/:id/transfer`            | Transferencia pendiente                                              |
-| `PATCH /api/communities/:id/members/:idUsuario` | Cambio de roles pendiente, dentro de la administración futura        |
-| Expulsión, asignación de roles y permisos de roles personalizados | Pendientes; el catálogo de roles ya tiene CRUD en T-29 |
+| Expulsión | Pendiente en T-41 |
 
-Tampoco existe el evento `community:member-updated`. Las futuras operaciones deberán conservar la jerarquía y coordinar cambios de permisos/rooms; esta guía no las presenta como garantías actuales.
+Los cambios de roles de integrantes emiten `community:member-updated`; transferencia y baneo quedan fuera de T-30.
 
 ---
 
@@ -816,9 +815,18 @@ Crear, renombrar y eliminar publican `community:role-created`, `community:role-u
 
 ### Recalculo de accesos
 
-Toda operacion que cambie roles personalizados, sus asignaciones o membresias (T-29, T-30, T-41) se hace con `withCommunityAccessChange(idComunidad, operacion)` de `channelsService.js`. Toma el bloqueo de la comunidad, compara los permisos de cada integrante en cada canal antes y despues, y despues del commit:
+La asignación y el cambio de roles base de T-30 usan `withCommunityAccessChange(idComunidad, operacion)` de `channelsService.js`. Toma el bloqueo de la comunidad, compara los permisos de cada integrante en cada canal antes y despues, y despues del commit:
 
 - quien pierde VER sale de la room del canal y recibe `channel:access-lost`;
 - quien cambia de permisos pero sigue con VER recibe `channel:updated` con sus `misPermisos` nuevos.
 
 `onChannelAccessChange(listener)` recibe la lista de cambios ({ idComunidad, idCanal, idUsuario, antes, despues }) despues de cada cambio de acceso. Es el punto de integracion para cortar fuentes multimedia en T-40.
+
+
+## Roles de integrantes (T-30)
+
+`PATCH /api/communities/:id/members/:idUsuario` recibe `{ "rol": "MODERADOR", "idsRoles": [2, 3] }` y devuelve `200 { integrante }`. Al menos uno de los campos es obligatorio. Omitir `rol` o `idsRoles` conserva el valor anterior; `idsRoles: []` quita todas las asignaciones personalizadas. La lista reemplaza las asignaciones del integrante de forma atómica, admite hasta 50 IDs distintos y solo roles de esa comunidad. Repetir el mismo estado, incluso con la lista en otro orden, no duplica relaciones ni eventos.
+
+Solo propietario y administradores pueden cambiar roles de integrantes de menor jerarquía que la suya. Solo el propietario puede otorgar ADMIN. No se puede modificar al propietario, a uno mismo ni otorgar PROPIETARIO. Un rol personalizado no concede autoridad administrativa. El cuerpo inválido responde `400 VALIDATION_ERROR`; falta de autoridad, `403 INSUFFICIENT_ROLE`; un integrante o un rol inexistente en la comunidad, `404 MEMBER_NOT_FOUND` o `404 ROLE_NOT_FOUND`. Se conserva el control de visibilidad de la comunidad.
+
+El listado de integrantes y el DTO `Integrante` incluyen `rolesPersonalizados: [{ id, nombre }]`, sin habilitaciones de canales. La mutación se serializa con abandono, cambios de acceso y borrado mediante el bloqueo de comunidad. Después del commit se publican las diferencias de acceso de T-31 y luego `community:member-updated`. Las pantallas de administración de integrantes y de permisos personalizados corresponden a T-32/T-33.
