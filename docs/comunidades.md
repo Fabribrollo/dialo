@@ -48,7 +48,7 @@ Estas rutas de T-13 **no están implementadas** y no deben usarse como API dispo
 | `GET /api/communities/:id/preview`              | Previa pública directa pendiente; la previa por invitación sí existe |
 | `POST /api/communities/:id/join`                | Ingreso directo a públicas pendiente                                 |
 | `POST /api/communities/:id/transfer`            | Transferencia pendiente                                              |
-| Expulsión | Pendiente en T-41 |
+| Baneo y desbloqueo | T-41, según la jerarquía de roles base |
 
 Los cambios de roles de integrantes emiten `community:member-updated`; transferencia y baneo quedan fuera de T-30.
 
@@ -685,7 +685,7 @@ sus permisos actualizados. Recuperar VER permite resuscribirse sin reconectar;
 no une automaticamente ninguna pestana. Los mensajes revalidan
 permiso/sesión en cada operación y entrega; la pertenencia a una room no es autorizacion.
 
-Los endpoints de cambio de rol/expulsion pertenecen a F-09 y aun no existen.
+Los roles personalizados se asignan con la ruta de integrantes documentada en T-30. Para bloquear el reingreso, usá el baneo de T-41.
 Cuando se agreguen deben compartir el bloqueo y recalcular audiencias, retirando
 las rooms correspondientes. No hay migraciones ni dependencias nuevas en T-23.
 
@@ -830,3 +830,18 @@ La asignación y el cambio de roles base de T-30 usan `withCommunityAccessChange
 Solo propietario y administradores pueden cambiar roles de integrantes de menor jerarquía que la suya. Solo el propietario puede otorgar ADMIN. No se puede modificar al propietario, a uno mismo ni otorgar PROPIETARIO. Un rol personalizado no concede autoridad administrativa. El cuerpo inválido responde `400 VALIDATION_ERROR`; falta de autoridad, `403 INSUFFICIENT_ROLE`; un integrante o un rol inexistente en la comunidad, `404 MEMBER_NOT_FOUND` o `404 ROLE_NOT_FOUND`. Se conserva el control de visibilidad de la comunidad.
 
 El listado de integrantes y el DTO `Integrante` incluyen `rolesPersonalizados: [{ id, nombre }]`, sin habilitaciones de canales. La mutación se serializa con abandono, cambios de acceso y borrado mediante el bloqueo de comunidad. Después del commit se publican las diferencias de acceso de T-31 y luego `community:member-updated`. Las pantallas de administración de integrantes y de permisos personalizados corresponden a T-32/T-33.
+
+
+## Baneo de integrantes (F-09/T-41)
+
+El baneo se aplica a una sola comunidad. Se guarda por comunidad y usuario, con fecha, autor, rol base previo y un motivo opcional. La jerarquía base es Propietario > Admin > Moderador > Integrante. A partir de moderador solo se pueden gestionar baneos de roles inferiores; nadie se puede banear a sí mismo. Los roles personalizados no conceden esa facultad.
+
+| Método y ruta (requieren sesión) | Resultado |
+| --- | --- |
+| `GET /api/communities/:id/bans` | `200 { items }`, limitado a los roles previos que puede gestionar quien consulta. Cada elemento incluye `usuario`, `autor` (o `null`), `rolAnterior`, `motivo` (o `null`) y `fechaCreacion`. |
+| `PUT /api/communities/:id/bans/:idUsuario` | `204`. Acepta `{}` o `{ "motivo": "texto de hasta 300 caracteres" }`. Repetir un baneo permitido conserva el autor, la fecha y el motivo originales. |
+| `DELETE /api/communities/:id/bans/:idUsuario` | `204`. Levanta un baneo permitido. Repetirlo sin un baneo activo no cambia el estado. |
+
+Se responde con `403 BAN_HIERARCHY` si el objetivo es propio o tiene un rango protegido, y con `404 MEMBER_NOT_FOUND` al intentar banear a alguien que no integra esa comunidad y no tiene un baneo activo. Las reglas existentes de sesión, membresía y privacidad también aplican a las tres rutas.
+
+Banear retira la membresía, sus roles personalizados y sus habilitaciones individuales de canal. Los mensajes previos y el resto de la cuenta se conservan. Una invitación válida devuelve `403 COMMUNITY_BANNED` al usuario baneado, incluso en la vista previa, sin revelar el motivo ni consumir usos. Levantar el baneo permite aceptar una invitación válida: no restaura la membresía, los roles ni los permisos anteriores. Revocar un enlace sigue siendo una acción aparte y no retira a nadie.

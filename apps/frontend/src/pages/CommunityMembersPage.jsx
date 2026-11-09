@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth.js';
 import { getCommunityMembers } from '../services/communitiesService.js';
 import { getCommunityRoles } from '../services/communityRolesService.js';
 import MemberRolesDialog, { canManageMember } from '../components/communities/MemberRolesDialog.jsx';
+import CommunityBans, { BanMemberDialog, canBanMember, canManageBans } from '../components/communities/CommunityBans.jsx';
 import { EVENTS } from '../constants/events.js';
 import { CommunityState, useLostCommunity } from './CommunityPage.jsx';
 import { COMMUNITY_ROLES } from './CommunitiesPage.jsx';
@@ -22,8 +23,10 @@ export default function CommunityMembersPage() {
   const actor = detail.comunidad?.miRol;
   const catalog = useCommunityCollection(id, getCommunityRoles, ['ADMIN', 'PROPIETARIO'].includes(actor));
   const [editing, setEditing] = useState(null), [notice, setNotice] = useState(null);
+  const [banning, setBanning] = useState(null);
   const trigger = useRef(null), heading = useRef(null);
   const active = editing?.id === id ? editing.member : null;
+  const banTarget = banning?.id === id ? banning.member : null;
   useLostCommunity(detail.lost);
   useEffect(() => {
     if (!socket) return;
@@ -58,10 +61,21 @@ export default function CommunityMembersPage() {
                 setNotice(null);
                 setEditing({ id, member });
               }}>Editar roles</button>}
+            {!list.error && canBanMember(actor, usuario.id, member) && <button type="button" className="secondary"
+              aria-label={`Banear a ${member.usuario.nombreVisible}`} onClick={(e) => {
+                trigger.current = e.currentTarget;
+                setNotice(null);
+                setBanning({ id, member });
+              }}>Banear</button>}
           </div>
         </li>)}</ul>
         {!list.error && list.items.length === 0 && <p className="center-note">No hay integrantes para mostrar.</p>}
       </>}
+      {canManageBans(actor) && <CommunityBans key={id} id={id} />}
+      {banTarget && <BanMemberDialog key={`${id}:${banTarget.usuario.id}`} id={id} actor={actor} userId={usuario.id}
+        original={banTarget} member={list.items.find((member) => member.usuario.id === banTarget.usuario.id)}
+        list={list} returnFocusRef={trigger} fallbackFocusRef={heading}
+        onClose={(message) => { setBanning(null); if (message) setNotice({ id, message }); }} />}
       {active && <MemberRolesDialog key={`${id}:${active.usuario.id}`} id={id} actor={actor} userId={usuario.id}
         original={active} member={list.items.find((member) => member.usuario.id === active.usuario.id)}
         catalog={catalog} list={list} detail={detail} returnFocusRef={trigger} fallbackFocusRef={heading}
