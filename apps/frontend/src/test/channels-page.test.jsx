@@ -248,3 +248,15 @@ it('una desconexión invalida el borrador hasta actualizar la configuración', a
   show(); await openAccess(); emit('disconnect');
   expect(screen.getByRole('button', { name: 'Guardar permisos' })).toBeDisabled();
 });
+
+it('conserva habilitaciones de roles personalizados al guardar el formulario existente', async () => {
+  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [
+    { rolPersonalizado: { id: 9, nombre: 'Equipo' }, permisos: ['VER'] },
+  ] } });
+  show();
+  fireEvent.click(await openAccess());
+  await screen.findByText('Permisos guardados.');
+  expect(channels.replaceChannelAccess).toHaveBeenCalledWith(1, {
+    privado: true, habilitaciones: [{ idRol: 9, permisos: ['VER'] }],
+  });
+});

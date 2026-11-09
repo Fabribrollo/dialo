@@ -142,3 +142,7 @@ node --test apps/backend/test/roles-validation.test.js
 ```
 
 Cubre autenticación de las cinco rutas, CRUD, permisos por rol base, protección de nombres/IDs/campos, aislamiento entre comunidades, unicidad con mayúsculas y concurrencia, cascadas sin borrar datos anteriores, eventos en varias pestañas y ausencia de difusión a terceros/canales privados. Prueba carreras entre actualizar/eliminar y borrar comunidad/crear rol. No acredita asignación por API, UI ni el evaluador de T-31.
+
+## Permisos de roles personalizados (T-31)
+
+`npm run test:channel-custom-roles -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t31_<id>`. Prueba la suma de permisos de rol base, roles personalizados y habilitacion individual, la configuracion de acceso con idRol, roles de otra comunidad, la misma decision en REST y Socket.IO, la perdida de ESCRIBIR conservando la lectura, la perdida de VER en varias pestanas y el aviso a `onChannelAccessChange`. Los escenarios prueban el evaluador con asignaciones preparadas dentro de `withCommunityAccessChange`.

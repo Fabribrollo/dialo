@@ -423,6 +423,6 @@ Servidor → cliente, room `community:<id>`, después del commit:
 | `community:role-updated` | `{ idComunidad, rol: { id, idComunidad, nombre, fechaCreacion } }` |
 | `community:role-deleted` | `{ idComunidad, idRol }` |
 
-Todas las pestañas de los integrantes reciben los cambios; errores y transacciones rechazadas no generan estos eventos. No se difunden asignaciones, grants ni canales privados en sus payloads. Eliminar reevalúa los canales afectados con el pipeline compartido de acceso y publica `channel:updated` únicamente a quienes pueden verlos, o `channel:access-lost` si corresponde. El evaluador de T-29 sigue considerando roles base e integrantes; T-31 añade el efecto de roles personalizados.
+Todas las pestañas de los integrantes reciben los cambios; errores y transacciones rechazadas no generan estos eventos. No se difunden asignaciones, grants ni canales privados en sus payloads. Eliminar reevalúa los canales afectados con el pipeline compartido de acceso y publica `channel:updated` únicamente a quienes pueden verlos, o `channel:access-lost` si corresponde. El evaluador de T-31 suma roles base, roles personalizados y habilitaciones individuales.
 
 El consumidor debe reconciliar el catálogo mediante GET al reconectar y actualizar por ID; no hay replay ni garantía de entrega exactamente una vez frente a cortes. No hay nuevas suscripciones ni comandos de cliente para este CRUD. La interfaz de administración llega en T-32/T-33.

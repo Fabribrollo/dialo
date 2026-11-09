@@ -1,7 +1,7 @@
 import { prisma } from '../prisma/client.js';
 import { requireRole } from './communitiesService.js';
 import { AppError } from '../utils/AppError.js';
-import { canModerateChannel, channelSelect, effectiveChannelPermissions, toChannel } from '../utils/channelPermissions.js';
+import { canModerateChannel, channelSelect, effectiveChannelPermissions, memberRoleIds, memberSelect, toChannel } from '../utils/channelPermissions.js';
 import { closeChannel, emitToUser, leaveChannel } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
 import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
@@ -14,9 +14,9 @@ async function channelContext(db, idCanal, idUsuario) {
   const canal = await db.canal.findUnique({ where: { id: idCanal }, select: channelSelect });
   if (!canal) return null;
   const membresia = await db.membresia.findUnique({
-    where: { idComunidad_idUsuario: { idComunidad: canal.idComunidad, idUsuario } }, select: { rol: true },
+    where: { idComunidad_idUsuario: { idComunidad: canal.idComunidad, idUsuario } }, select: memberSelect,
   });
-  const permisos = effectiveChannelPermissions(canal, membresia?.rol, idUsuario);
+  const permisos = effectiveChannelPermissions(canal, membresia?.rol, idUsuario, memberRoleIds(membresia));
   return { canal, rol: membresia?.rol, permisos };
 }
 
@@ -68,17 +68,82 @@ export async function getChannel(idCanal, idUsuario) {
 
 export async function listChannels(idComunidad, idUsuario) {
   const { rol } = await requireRole(idComunidad, idUsuario);
+  const idsRoles = memberRoleIds(await prisma.membresia.findUnique({
+    where: { idComunidad_idUsuario: { idComunidad, idUsuario } }, select: memberSelect,
+  }));
   const canales = await prisma.canal.findMany({ where: { idComunidad }, orderBy: [{ posicion: 'asc' }, { id: 'asc' }], select: channelSelect });
   return canales.flatMap((canal) => {
-    const permisos = effectiveChannelPermissions(canal, rol, idUsuario);
+    const permisos = effectiveChannelPermissions(canal, rol, idUsuario, idsRoles);
     return permisos.includes('VER') ? [toChannel(canal, permisos)] : [];
   });
 }
 
 export function audience(canal, miembros) {
-  return new Map(miembros.map((m) => [m.idUsuario, effectiveChannelPermissions(canal, m.rol, m.idUsuario)]));
+  return new Map(miembros.map((m) => [m.idUsuario, effectiveChannelPermissions(canal, m.rol, m.idUsuario, memberRoleIds(m))]));
 }
-export const getChannelMembers = (tx, idComunidad) => tx.membresia.findMany({ where: { idComunidad }, select: { idUsuario: true, rol: true } });
+export const getChannelMembers = (tx, idComunidad) => tx.membresia.findMany({ where: { idComunidad }, select: memberSelect });
+
+// Diferencias de permisos por integrante en un canal.
+function channelChanges(canal, before, after) {
+  const changes = [];
+  for (const idUsuario of new Set([...before.keys(), ...after.keys()])) {
+    const antes = before.get(idUsuario) ?? [], despues = after.get(idUsuario) ?? [];
+    if (antes.join() !== despues.join()) changes.push({ idComunidad: canal.idComunidad, idCanal: canal.id, idUsuario, antes, despues });
+  }
+  return changes;
+}
+
+const accessListeners = new Set();
+// Punto de integracion para cortar fuentes multimedia cuando cambian los permisos (T-40).
+export function onChannelAccessChange(listener) {
+  accessListeners.add(listener);
+  return () => accessListeners.delete(listener);
+}
+function notifyAccessChanges(changes) {
+  if (!changes.length) return;
+  for (const listener of accessListeners) {
+    try { listener(changes); } catch (error) { console.error(error); }
+  }
+}
+
+async function communityAccess(tx, idComunidad) {
+  const [canales, miembros] = await Promise.all([
+    tx.canal.findMany({ where: { idComunidad }, select: channelSelect }),
+    getChannelMembers(tx, idComunidad),
+  ]);
+  return new Map(canales.map((canal) => [canal.id, { canal, permisos: audience(canal, miembros) }]));
+}
+
+// Quien pierde VER sale del canal; quien cambia permisos recibe el canal actualizado.
+export function publishAccessDiff(before, after) {
+  const changes = [];
+  for (const [idCanal, previo] of before) {
+    const actual = after.get(idCanal);
+    if (!actual) continue;
+    for (const change of channelChanges(actual.canal, previo.permisos, actual.permisos)) {
+      changes.push(change);
+      if (change.antes.includes('VER') && !change.despues.includes('VER')) {
+        leaveChannel(idCanal, change.idUsuario);
+        emitToUser(change.idUsuario, EVENTS.CHANNEL_ACCESS_LOST, { idComunidad: actual.canal.idComunidad, idCanal });
+      } else if (change.despues.includes('VER')) {
+        emitToUser(change.idUsuario, EVENTS.CHANNEL_UPDATED, { canal: toChannel(actual.canal, change.despues) });
+      }
+    }
+  }
+  notifyAccessChanges(changes);
+  return changes;
+}
+
+// Para cambios de roles, asignaciones o membresias (T-29, T-30, T-41): compara los accesos
+// antes y despues bajo el bloqueo de la comunidad y publica las diferencias despues del commit.
+export async function withCommunityAccessChange(idComunidad, operation, missing) {
+  const saved = await withCommunityChannelsLock(idComunidad, async (tx) => {
+    const before = await communityAccess(tx, idComunidad);
+    const result = await operation(tx);
+    return { result, before, after: await communityAccess(tx, idComunidad) };
+  }, missing, (saved) => publishAccessDiff(saved.before, saved.after));
+  return saved.result;
+}
 
 export function publishChannelChange(canal, before, after, event = EVENTS.CHANNEL_UPDATED) {
   for (const [idUsuario, permisos] of before) if (permisos.includes('VER') && !after.get(idUsuario)?.includes('VER')) {
@@ -88,6 +153,7 @@ export function publishChannelChange(canal, before, after, event = EVENTS.CHANNE
   for (const [idUsuario, permisos] of after) if (permisos.includes('VER')) {
     emitToUser(idUsuario, event, { canal: toChannel(canal, permisos) });
   }
+  notifyAccessChanges(channelChanges(canal, before, after));
 }
 
 export async function createChannel(idComunidad, idUsuario, datos) {
@@ -97,7 +163,7 @@ export async function createChannel(idComunidad, idUsuario, datos) {
     const canal = await tx.canal.create({ data: { idComunidad, ...datos, posicion: (last._max.posicion ?? -1) + 1 }, select: channelSelect });
     return { canal, rol, after: audience(canal, await getChannelMembers(tx, idComunidad)) };
   }, undefined, (saved) => publishChannelChange(saved.canal, new Map(), saved.after, EVENTS.CHANNEL_CREATED));
-  return toChannel(saved.canal, effectiveChannelPermissions(saved.canal, saved.rol, idUsuario));
+  return toChannel(saved.canal, saved.after.get(idUsuario) ?? []);
 }
 
 export async function mutateChannel(idCanal, idUsuario, operation, afterCommit) {
@@ -118,7 +184,7 @@ export async function updateChannel(idCanal, idUsuario, cambios) {
     const canal = await tx.canal.update({ where: { id: idCanal }, data: cambios, select: channelSelect });
     return { canal, rol, before: audience(previous, miembros), after: audience(canal, miembros) };
   }, (saved) => publishChannelChange(saved.canal, saved.before, saved.after));
-  return toChannel(saved.canal, effectiveChannelPermissions(saved.canal, saved.rol, idUsuario));
+  return toChannel(saved.canal, saved.after.get(idUsuario) ?? []);
 }
 
 export async function deleteChannel(idCanal, idUsuario) {
@@ -128,6 +194,7 @@ export async function deleteChannel(idCanal, idUsuario) {
     return { canal, before };
   }, (saved) => {
     closeChannel(idCanal);
+    notifyAccessChanges(channelChanges(saved.canal, saved.before, new Map()));
     for (const [id, permisos] of saved.before) if (permisos.includes('VER')) {
       emitToUser(id, EVENTS.CHANNEL_DELETED, { idComunidad: saved.canal.idComunidad, idCanal });
     }
@@ -147,7 +214,7 @@ export async function reorderChannels(idComunidad, idUsuario, orden) {
   }, undefined, (saved) => {
     // No difundir IDs de canales privados a integrantes que no pueden verlos.
     for (const member of saved.miembros) {
-      const visible = new Set(saved.canales.filter((c) => effectiveChannelPermissions(c, member.rol, member.idUsuario).includes('VER')).map((c) => c.id));
+      const visible = new Set(saved.canales.filter((c) => effectiveChannelPermissions(c, member.rol, member.idUsuario, memberRoleIds(member)).includes('VER')).map((c) => c.id));
       emitToUser(member.idUsuario, EVENTS.CHANNELS_REORDERED, { idComunidad, orden: orden.filter((id) => visible.has(id)) });
     }
   });

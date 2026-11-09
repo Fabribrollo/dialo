@@ -4,7 +4,7 @@ import { getCommunityMembers } from '../../services/communitiesService.js';
 import { getChannelAccess, replaceChannelAccess } from '../../services/channelsService.js';
 
 const LABELS = { VER: 'Ver', ESCRIBIR: 'Escribir', HABLAR: 'Hablar', TRANSMITIR: 'Transmitir cámara o pantalla' };
-const keyFor = (grant) => grant.rol ? `rol:${grant.rol}` : `user:${grant.usuario.id}`;
+const keyFor = (grant) => grant.rol ? `rol:${grant.rol}` : grant.rolPersonalizado ? `custom:${grant.rolPersonalizado.id}` : `user:${grant.usuario.id}`;
 
 export default function ChannelAccessForm({ canal, version, onSaved, onCancel, onReload, onUnavailable }) {
   const [config, setConfig] = useState(null), [members, setMembers] = useState([]), [grants, setGrants] = useState({});
@@ -53,7 +53,7 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
     event.preventDefault();
     if (pending.current || stale || !config) return;
     const habilitaciones = Object.values(grants).filter((g) => g.permisos.length).map((g) => ({
-      ...(g.rol ? { rol: g.rol } : { idUsuario: g.usuario.id }), permisos: g.permisos,
+      ...(g.rol ? { rol: g.rol } : g.rolPersonalizado ? { idRol: g.rolPersonalizado.id } : { idUsuario: g.usuario.id }), permisos: g.permisos,
     }));
     if (habilitaciones.length > 50) { setError('Podés guardar hasta 50 habilitaciones por canal.'); return; }
     pending.current = true; setBusy(true); setError('');
@@ -81,6 +81,8 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
         : 'Todos los integrantes pueden ver y hablar. Las habilitaciones agregan permisos; no los restringen.'}</p>
       <p className="community-help">Propietario y administradores siempre tienen acceso completo. Para un canal de solo lectura, elegí privado y habilitá únicamente Ver.</p>
       <h3>Por rol</h3>
+      {Object.entries(grants).filter(([key]) => key.startsWith('custom:')).map(([key, grant]) =>
+        <p key={key} className="community-help">{grant.rolPersonalizado.nombre}: {grant.permisos.map((p) => LABELS[p]).join(', ')}.</p>)}
       {row('rol:MODERADOR', 'Moderadores')}{row('rol:INTEGRANTE', 'Integrantes')}
       <h3>Por integrante</h3>
       {individual.map(([key, grant]) => row(key, `${grant.usuario.nombreVisible} (@${grant.usuario.nombreUsuario})`))}
