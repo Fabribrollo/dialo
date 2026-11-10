@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
 import { ConversationsProvider, useConversations } from '../context/ConversationsContext.jsx';
+import { CallProvider } from '../context/CallContext.jsx';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 
@@ -38,5 +39,5 @@ function Shell() {
   </div>;
 }
 export default function AppShell() {
-  return <ConversationsProvider><Shell /></ConversationsProvider>;
+  return <ConversationsProvider><CallProvider><Shell /></CallProvider></ConversationsProvider>;
 }

@@ -64,7 +64,7 @@ El modo `--dev` sirve solo en la misma red: no tiene TURN ni HTTPS. Para probar 
   - HABLAR: puede publicar microfono.
   - TRANSMITIR: puede publicar camara y pantalla.
 - Cada ingreso lleva un identificador propio (`ingreso`) en los metadatos del participante.
-- Estados del cliente: `CONECTANDO`, `CONECTADO`, `RECONECTANDO`, `DESCONECTADO`. Ante un corte, el cliente pide un token nuevo al backend antes de reconectar: nunca reutiliza el anterior.
+- Estados del cliente: `CONECTANDO`, `CONECTADO`, `RECONECTANDO`, `DESCONECTADO`; el front suma `SALIENDO` y `ERROR` (ver [frontend.md](frontend.md#estado-global-de-llamada-f-10t-36)). Ante un corte, el cliente pide un token nuevo al backend antes de reconectar: nunca reutiliza el anterior.
 - Llamadas simultaneas: una sola llamada activa por usuario. Si ya esta en otra sala, el ingreso responde `409 ALREADY_IN_CALL` y el cliente ofrece salir de la anterior.
 
 Errores:
