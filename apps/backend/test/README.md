@@ -166,3 +166,7 @@ La conectividad real (tres participantes en dos redes) y la medicion de la revoc
 ## Ingreso y autorizacion de llamadas (T-35)
 
 `npm run test:calls -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t35_<id>`. LiveKit se simula: los tokens se firman de verdad y las llamadas al servidor se registran. Prueba el ingreso con VER, las fuentes del token segun HABLAR y TRANSMITIR, el rechazo sin VER, en canales de texto y de otra comunidad, LiveKit no configurado, eventos con ingreso falso o repetidos, la salida idempotente, una llamada activa por usuario, sesion cerrada o permiso perdido antes de conectar y la reconciliacion con lo que hay en LiveKit.
+
+## Revocacion en llamadas activas (T-40)
+
+`npm run test:calls-revocation -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t40_<id>`. LiveKit se simula y se registra cada operacion. Prueba que perder TRANSMITIR corte solo esas fuentes, que perder VER o el rol que lo daba saque de la llamada, baneo y desbaneo, abandono, borrado o cambio de tipo del canal, borrado de la comunidad, logout de una sola sesion, cambio de contrasena, reingreso con un token anterior, falla de LiveKit al revocar y la reconciliacion con sesiones vencidas.

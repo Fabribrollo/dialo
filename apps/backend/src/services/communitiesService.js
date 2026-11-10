@@ -5,6 +5,7 @@ import { AppError } from '../utils/AppError.js';
 import { toUsuarioPublico, usuarioPublicoSelect } from '../utils/selects.js';
 import { uploadImage } from '../utils/storage.js';
 import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
+import { cerrarSalas, sacarDeLlamada } from './callCleanup.js';
 
 export const JERARQUIA = { INTEGRANTE: 1, MODERADOR: 2, ADMIN: 3, PROPIETARIO: 4 };
 
@@ -149,9 +150,11 @@ export async function deleteCommunity(idComunidad, idUsuario) {
     const canales = await tx.canal.findMany({ where: { idComunidad }, select: { id: true } });
     await tx.comunidad.delete({ where: { id: idComunidad } });
     return canales;
-  }, undefined, (canales) => {
+  }, undefined, async (canales) => {
     emitToCommunity(idComunidad, EVENTS.COMMUNITY_DELETED, { idComunidad });
     closeCommunity(idComunidad, canales.map((c) => c.id));
+    // Los registros de llamada se borran en cascada; falta cortar las conexiones en LiveKit.
+    await cerrarSalas(canales.map((c) => c.id));
   });
 }
 
@@ -187,9 +190,12 @@ export async function abandonCommunity(idComunidad, idUsuario) {
       throw new AppError(409, 'OWNER_CANNOT_LEAVE', 'Transferí la propiedad o eliminá la comunidad antes de abandonarla');
     }
     const canales = await tx.canal.findMany({ where: { idComunidad }, select: { id: true } });
+    const llamada = await tx.participanteLlamada.findFirst({ where: { idUsuario, canal: { idComunidad } }, select: { idCanal: true } });
+    if (llamada) await tx.participanteLlamada.delete({ where: { idUsuario } });
     await tx.membresia.delete({ where: { idComunidad_idUsuario: { idComunidad, idUsuario } } });
-    return canales;
-  }, undefined, (canales) => {
+    return { canales, llamada };
+  }, undefined, async ({ canales, llamada }) => {
+    if (llamada) await sacarDeLlamada(llamada.idCanal, idUsuario);
     leaveCommunity(idComunidad, idUsuario, canales.map((c) => c.id));
     emitToCommunity(idComunidad, EVENTS.COMMUNITY_MEMBER_LEFT, { idComunidad, idUsuario });
     emitToUser(idUsuario, EVENTS.COMMUNITY_LEFT, { idComunidad });
