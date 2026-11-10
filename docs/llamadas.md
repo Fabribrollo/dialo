@@ -118,6 +118,25 @@ Estrategia:
 
 Cota objetivo: la conexion activa se corta en menos de 2 segundos desde que se decide la revocacion. Para medirla, ver la prueba manual.
 
+### Que corta una llamada (T-40)
+
+| Causa | Efecto en la llamada |
+| --- | --- |
+| Pierde VER (habilitaciones, rol base, rol personalizado) | Se lo saca de la sala y se borra su registro |
+| Pierde HABLAR o TRANSMITIR pero conserva VER | Sigue en la llamada; se actualizan sus permisos en LiveKit y se cortan solo las fuentes perdidas |
+| Gana HABLAR o TRANSMITIR | Se actualizan sus permisos sin volver a entrar |
+| Baneo o abandono de la comunidad | Se lo saca de la sala; un token anterior no sirve para volver. Desbanear no devuelve la membresia ni la llamada |
+| Canal borrado o que deja de ser VOZ/VIDEO | Se cierra la sala entera |
+| Comunidad borrada | Se cierran las salas de todos sus canales |
+| Logout | Solo las llamadas de esa sesion; las demas sesiones siguen |
+| Cambio de contrasena | Las llamadas de todas las sesiones del usuario |
+| Vencimiento o revocacion externa de la sesion | Se corta en la siguiente reconciliacion (hasta 60 segundos) |
+
+Los cambios de permisos llegan desde `onChannelAccessChange` (T-31) y los cierres de sesion desde `onSessionEnded` (T-15).
+Al conectar con un token anterior que todavia no vencio, el servidor aplica en el momento los permisos actuales: una fuente quitada no vuelve.
+
+Si LiveKit falla al revocar, el registro igual se borra (el usuario no puede volver a entrar ni aparece en la lista) y la reconciliacion de cada 60 segundos termina el corte: recorre las salas de LiveKit, saca a quien no tenga un ingreso valido, vuelve a comprobar sesion y VER de cada conectado, reaplica sus permisos y cierra las salas de canales que ya no existen.
+
 ---
 
 ## Prueba manual (tres participantes, dos redes)
