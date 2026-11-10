@@ -20,8 +20,8 @@ let listeners, call;
 function emit(evento, data) { act(() => listeners.get(evento)?.forEach((fn) => fn(data))); }
 function base(extra = {}) {
   return {
-    estado: 'DESCONECTADO', canal: null, error: null, misPermisos: [], participantes: [], microfono: false, audioBloqueado: false,
-    entrar: vi.fn(), salir: vi.fn(), alternarMicrofono: vi.fn(), activarAudio: vi.fn(), ...extra,
+    estado: 'DESCONECTADO', canal: null, error: null, misPermisos: [], participantes: [], microfono: false, camara: false, audioBloqueado: false,
+    entrar: vi.fn(), salir: vi.fn(), alternarMicrofono: vi.fn(), alternarCamara: vi.fn(), activarAudio: vi.fn(), ...extra,
   };
 }
 function setCall(extra) { call = base(extra); useCall.mockReturnValue(call); }
@@ -192,4 +192,58 @@ it('la barra muestra una llamada interrumpida y permite cerrarla', () => {
   expect(screen.getByText('La llamada terminó.')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
   expect(call.salir).toHaveBeenCalled();
+});
+
+const transmite = { ...canal, misPermisos: ['VER', 'HABLAR', 'TRANSMITIR'] };
+const pista = () => ({ attach: vi.fn(), detach: vi.fn() });
+
+it('con TRANSMITIR ofrece encender la cámara; sin él no', async () => {
+  setCall({ estado: 'CONECTADO', canal: transmite, misPermisos: transmite.misPermisos });
+  const { rerender } = show(transmite);
+  fireEvent.click(screen.getByRole('button', { name: 'Encender cámara' }));
+  expect(call.alternarCamara).toHaveBeenCalled();
+  setCall({ estado: 'CONECTADO', canal: transmite, misPermisos: transmite.misPermisos, camara: true });
+  rerender(<CallPanel canal={transmite} />);
+  expect(screen.getByRole('button', { name: 'Apagar cámara' })).toBeInTheDocument();
+  rerender(<CallPanel canal={canal} />);
+  expect(screen.queryByRole('button', { name: /cámara/ })).not.toBeInTheDocument();
+  await screen.findByText('Todavía no hay nadie conectado.');
+});
+
+it('muestra el video de los demás con su identidad y los que no tienen cámara', async () => {
+  const deAna = pista();
+  setCall({ estado: 'CONECTADO', canal, misPermisos: ['VER', 'HABLAR'], participantes: [
+    { idUsuario: 1, nombre: 'Fabri', local: true, microfono: true, hablando: false, camara: false, video: null },
+    { idUsuario: 7, nombre: 'Ana', microfono: true, hablando: true, camara: true, video: deAna },
+  ] });
+  const { unmount } = show();
+  const grilla = screen.getByRole('group', { name: 'Video de la llamada' });
+  const video = within(grilla).getByLabelText('Cámara de Ana');
+  expect(deAna.attach).toHaveBeenCalledWith(video);
+  expect(video.muted).toBe(true);
+  expect(within(grilla).getByText('Fabri (vos) · sin cámara')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /cámara/ })).not.toBeInTheDocument();
+  await act(async () => {});
+  unmount();
+  expect(deAna.detach).toHaveBeenCalledWith(video);
+});
+
+it('al apagarse una cámara se suelta su video y sin videos no hay grilla', async () => {
+  const deAna = pista();
+  const con = [{ idUsuario: 7, nombre: 'Ana', camara: true, video: deAna }];
+  setCall({ estado: 'CONECTADO', canal, misPermisos: ['VER'], participantes: con });
+  const { rerender } = show();
+  const video = screen.getByLabelText('Cámara de Ana');
+  setCall({ estado: 'CONECTADO', canal, misPermisos: ['VER'], participantes: [{ ...con[0], camara: false, video: null }] });
+  rerender(<CallPanel canal={canal} />);
+  expect(deAna.detach).toHaveBeenCalledWith(video);
+  expect(screen.queryByRole('group', { name: 'Video de la llamada' })).not.toBeInTheDocument();
+  await screen.findByText('Todavía no hay nadie conectado.').catch(() => {});
+});
+
+it('la barra permite apagar la cámara desde otra página', () => {
+  setCall({ estado: 'CONECTADO', canal: transmite, misPermisos: transmite.misPermisos, camara: true });
+  showBar('/amigos');
+  fireEvent.click(screen.getByRole('button', { name: 'Apagar cámara' }));
+  expect(call.alternarCamara).toHaveBeenCalled();
 });

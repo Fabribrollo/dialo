@@ -32,16 +32,32 @@ const ERRORES_DE_MICROFONO = {
   NotReadableError: 'El micrófono está ocupado por otra aplicación.',
 };
 
+const ERRORES_DE_CAMARA = {
+  NotAllowedError: 'El navegador no dio permiso para usar la cámara.',
+  SecurityError: 'El navegador no dio permiso para usar la cámara.',
+  NotFoundError: 'No se encontró ninguna cámara.',
+  NotReadableError: 'La cámara está ocupada por otra aplicación.',
+};
+
+const errorDeMicrofono = (e) => ({ code: 'MICROPHONE_ERROR', message: ERRORES_DE_MICROFONO[e?.name] ?? 'No se pudo usar el micrófono.', details: [] });
+const errorDeCamara = (e) => ({ code: 'CAMERA_ERROR', message: ERRORES_DE_CAMARA[e?.name] ?? 'No se pudo usar la cámara.', details: [] });
+
 const idUsuarioDe = (identidad) => Number(identidad?.replace('usuario-', '')) || null;
 
 function leerParticipantes(room) {
-  return [room.localParticipant, ...room.remoteParticipants.values()].map((p) => ({
-    idUsuario: idUsuarioDe(p.identity),
-    nombre: p.name,
-    local: Boolean(p.isLocal),
-    microfono: Boolean(p.isMicrophoneEnabled),
-    hablando: Boolean(p.isSpeaking),
-  }));
+  return [room.localParticipant, ...room.remoteParticipants.values()].map((p) => {
+    const video = p.getTrackPublication?.(Track.Source.Camera);
+    const camara = Boolean(p.isCameraEnabled);
+    return {
+      idUsuario: idUsuarioDe(p.identity),
+      nombre: p.name,
+      local: Boolean(p.isLocal),
+      microfono: Boolean(p.isMicrophoneEnabled),
+      hablando: Boolean(p.isSpeaking),
+      camara,
+      video: camara && !video?.isMuted ? video?.track ?? null : null,
+    };
+  });
 }
 
 function aError(e) {
@@ -84,7 +100,11 @@ export function CallProvider({ children }) {
       refrescar();
     });
     room.on(RoomEvent.TrackUnsubscribed, (track) => {
-      track.detach().forEach((elemento) => elemento.remove());
+      if (track.kind === Track.Kind.Audio) track.detach().forEach((elemento) => elemento.remove());
+      refrescar();
+    });
+    room.on(RoomEvent.MediaDevicesError, (e, tipo) => {
+      setError(tipo === 'videoinput' ? errorDeCamara(e) : errorDeMicrofono(e));
       refrescar();
     });
     room.on(RoomEvent.AudioPlaybackStatusChanged, () => setAudioBloqueado(!room.canPlaybackAudio));
@@ -174,18 +194,21 @@ export function CallProvider({ children }) {
     }
   }
 
-  async function alternarMicrofono() {
+  async function alternarDispositivo(permiso, estaActivo, cambiar, errorDe) {
     const room = roomRef.current;
-    if (!room || !misPermisos.includes('HABLAR')) return;
+    if (!room || !misPermisos.includes(permiso)) return;
     const local = room.localParticipant;
     try {
-      await local.setMicrophoneEnabled(!local.isMicrophoneEnabled);
+      await cambiar(local, !estaActivo(local));
       setError(null);
     } catch (e) {
-      setError({ code: 'MICROPHONE_ERROR', message: ERRORES_DE_MICROFONO[e?.name] ?? 'No se pudo usar el micrófono.', details: [] });
+      setError(errorDe(e));
     }
     setParticipantes(leerParticipantes(room));
   }
+
+  const alternarMicrofono = () => alternarDispositivo('HABLAR', (l) => l.isMicrophoneEnabled, (l, v) => l.setMicrophoneEnabled(v), errorDeMicrofono);
+  const alternarCamara = () => alternarDispositivo('TRANSMITIR', (l) => l.isCameraEnabled, (l, v) => l.setCameraEnabled(v), errorDeCamara);
 
   function activarAudio() {
     const room = roomRef.current;
@@ -200,10 +223,11 @@ export function CallProvider({ children }) {
     if (anterior) leaveCall(anterior.id).catch(() => {});
   }, []);
 
-  const microfono = participantes.find((p) => p.local)?.microfono ?? false;
+  const yo = participantes.find((p) => p.local);
   const value = {
-    estado, canal, error, misPermisos, participantes, microfono, audioBloqueado,
-    entrar, salir, alternarMicrofono, activarAudio,
+    estado, canal, error, misPermisos, participantes, audioBloqueado,
+    microfono: yo?.microfono ?? false, camara: yo?.camara ?? false,
+    entrar, salir, alternarMicrofono, alternarCamara, activarAudio,
   };
 
   return <CallContext.Provider value={value}>

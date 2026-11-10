@@ -20,6 +20,14 @@ const sdk = vi.hoisted(() => {
           if (sdk.micError) throw sdk.micError;
           this.localParticipant.isMicrophoneEnabled = activo;
         }),
+        isCameraEnabled: false,
+        camaraTrack: { kind: 'video', attach: vi.fn(), detach: vi.fn(() => []) },
+        setCameraEnabled: vi.fn(async (activo) => {
+          if (sdk.camError) throw sdk.camError;
+          this.localParticipant.isCameraEnabled = activo;
+        }),
+        getTrackPublication: (fuente) => fuente === 'camera' && this.localParticipant.isCameraEnabled
+          ? { isMuted: false, track: this.localParticipant.camaraTrack } : undefined,
       };
       this.connect = vi.fn(async () => {
         this.eventosAlConectar = [...this.handlers.keys()];
@@ -38,14 +46,14 @@ const sdk = vi.hoisted(() => {
     emit(evento, ...args) { this.handlers.get(evento)?.forEach((fn) => fn(...args)); }
   }
   const nombres = new Proxy({}, { get: (_, clave) => clave });
-  return { rooms, FakeRoom, nombres, micError: null, connectError: null };
+  return { rooms, FakeRoom, nombres, micError: null, camError: null, connectError: null };
 });
 
 vi.mock('livekit-client', () => ({
   Room: sdk.FakeRoom,
   RoomEvent: sdk.nombres,
   DisconnectReason: sdk.nombres,
-  Track: { Kind: { Audio: 'audio', Video: 'video' } },
+  Track: { Kind: { Audio: 'audio', Video: 'video' }, Source: { Camera: 'camera', ScreenShare: 'screen_share' } },
 }));
 vi.mock('../services/callsService.js', () => ({ joinCall: vi.fn(), leaveCall: vi.fn() }));
 
@@ -60,12 +68,15 @@ function Panel() {
     <p data-testid="estado">{call.estado}</p>
     <p data-testid="error">{call.error?.message ?? ''}</p>
     <p data-testid="microfono">{call.microfono ? 'abierto' : 'cerrado'}</p>
+    <p data-testid="camara">{call.camara ? 'prendida' : 'apagada'}</p>
+    <p data-testid="videos">{call.participantes.filter((p) => p.video).map((p) => p.nombre).join(',')}</p>
     <p data-testid="participantes">{call.participantes.map((p) => `${p.nombre}${p.hablando ? '*' : ''}`).join(',')}</p>
     <button onClick={() => call.entrar(voz)}>Unirse</button>
     <button onClick={() => call.entrar(otro)}>Unirse a otro</button>
     <button onClick={() => call.entrar(voz, { reemplazar: true })}>Salir de la otra y unirse</button>
     <button onClick={call.salir}>Salir</button>
     <button onClick={call.alternarMicrofono}>Micrófono</button>
+    <button onClick={call.alternarCamara}>Cámara</button>
   </div>;
 }
 
@@ -84,6 +95,7 @@ async function conectado() {
 beforeEach(() => {
   sdk.rooms.length = 0;
   sdk.micError = null;
+  sdk.camError = null;
   sdk.connectError = null;
   joinCall.mockReset().mockResolvedValue(llamada());
   leaveCall.mockReset().mockResolvedValue(null);
@@ -279,4 +291,60 @@ it('desmontar el provider (logout) cierra la llamada', async () => {
   unmount();
   expect(room.disconnect).toHaveBeenCalled();
   expect(leaveCall).toHaveBeenCalledWith(2);
+});
+
+it('la cámara se publica solo con TRANSMITIR y se apaga sin tocar el micrófono', async () => {
+  joinCall.mockResolvedValue(llamada(['VER', 'HABLAR', 'TRANSMITIR']));
+  await conectado();
+  fireEvent.click(screen.getByRole('button', { name: 'Micrófono' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Cámara' }));
+  await waitFor(() => expect(screen.getByTestId('camara').textContent).toBe('prendida'));
+  expect(screen.getByTestId('videos').textContent).toBe('Fabri');
+  fireEvent.click(screen.getByRole('button', { name: 'Cámara' }));
+  await waitFor(() => expect(screen.getByTestId('camara').textContent).toBe('apagada'));
+  expect(screen.getByTestId('videos').textContent).toBe('');
+  expect(screen.getByTestId('microfono').textContent).toBe('abierto');
+  expect(ultimaRoom().localParticipant.setCameraEnabled.mock.calls).toEqual([[true], [false]]);
+});
+
+it('sin TRANSMITIR no publica cámara aunque se llame a la función', async () => {
+  await conectado();
+  fireEvent.click(screen.getByRole('button', { name: 'Cámara' }));
+  await act(async () => {});
+  expect(ultimaRoom().localParticipant.setCameraEnabled).not.toHaveBeenCalled();
+});
+
+it.each([
+  ['NotAllowedError', 'El navegador no dio permiso para usar la cámara.'],
+  ['NotFoundError', 'No se encontró ninguna cámara.'],
+  ['NotReadableError', 'La cámara está ocupada por otra aplicación.'],
+])('un fallo de cámara (%s) no corta el audio', async (name, mensaje) => {
+  joinCall.mockResolvedValue(llamada(['VER', 'HABLAR', 'TRANSMITIR']));
+  await conectado();
+  fireEvent.click(screen.getByRole('button', { name: 'Micrófono' }));
+  await waitFor(() => expect(screen.getByTestId('microfono').textContent).toBe('abierto'));
+  sdk.camError = Object.assign(new Error('x'), { name });
+  fireEvent.click(screen.getByRole('button', { name: 'Cámara' }));
+  await waitFor(() => expect(error()).toBe(mensaje));
+  expect(estado()).toBe('CONECTADO');
+  expect(screen.getByTestId('microfono').textContent).toBe('abierto');
+  expect(ultimaRoom().disconnect).not.toHaveBeenCalled();
+});
+
+it('una cámara que se desconecta muestra el error sin cortar la llamada', async () => {
+  joinCall.mockResolvedValue(llamada(['VER', 'HABLAR', 'TRANSMITIR']));
+  await conectado();
+  act(() => ultimaRoom().emit('MediaDevicesError', Object.assign(new Error('x'), { name: 'NotReadableError' }), 'videoinput'));
+  expect(error()).toBe('La cámara está ocupada por otra aplicación.');
+  expect(estado()).toBe('CONECTADO');
+});
+
+it('el video remoto no se agrega al contenedor de audio', async () => {
+  await conectado();
+  const elemento = document.createElement('video');
+  const track = { kind: 'video', attach: vi.fn(() => elemento), detach: vi.fn(() => [elemento]) };
+  act(() => ultimaRoom().emit('TrackSubscribed', track));
+  expect(track.attach).not.toHaveBeenCalled();
+  act(() => ultimaRoom().emit('TrackUnsubscribed', track));
+  expect(track.detach).not.toHaveBeenCalled();
 });

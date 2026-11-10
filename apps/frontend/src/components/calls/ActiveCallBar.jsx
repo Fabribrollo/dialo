@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router';
 import { useCall } from '../../hooks/useCall.js';
-import { MicrophoneButton } from './CallPanel.jsx';
+import { CameraButton, MicrophoneButton } from './CallPanel.jsx';
 
 const ESTADOS = { CONECTANDO: 'Conectando…', CONECTADO: 'En llamada', RECONECTANDO: 'Reconectando…', SALIENDO: 'Saliendo…', ERROR: 'Llamada interrumpida' };
 
@@ -16,6 +16,7 @@ export default function ActiveCallBar() {
     <div className="community-actions">
       <Link className="button-link community-secondary-link" to={ruta}>Volver al canal</Link>
       {call.estado !== 'ERROR' && call.misPermisos.includes('HABLAR') && <MicrophoneButton call={call} />}
+      {call.estado !== 'ERROR' && call.misPermisos.includes('TRANSMITIR') && <CameraButton call={call} />}
       <button type="button" className="secondary danger" disabled={call.estado === 'SALIENDO'} onClick={call.salir}>
         {call.estado === 'ERROR' ? 'Cerrar' : 'Salir de la llamada'}</button>
     </div>

@@ -1,5 +1,6 @@
 import { useCall } from '../../hooks/useCall.js';
 import { useCallParticipants } from '../../hooks/useCallParticipants.js';
+import VideoGrid from './VideoGrid.jsx';
 
 const ESTADOS = {
   CONECTANDO: 'Conectando a la llamada…',
@@ -25,6 +26,12 @@ export function MicrophoneButton({ call }) {
   </button>;
 }
 
+export function CameraButton({ call }) {
+  return <button type="button" className="secondary call-camera-button" disabled={call.estado !== 'CONECTADO'} onClick={call.alternarCamara}>
+    {call.camara ? 'Apagar cámara' : 'Encender cámara'}
+  </button>;
+}
+
 export default function CallPanel({ canal }) {
   const call = useCall();
   const participantes = useCallParticipants(canal.id);
@@ -32,7 +39,9 @@ export default function CallPanel({ canal }) {
   const estado = enEste ? call.estado : 'DESCONECTADO';
   const enLlamada = ['CONECTANDO', 'CONECTADO', 'RECONECTANDO', 'SALIENDO'].includes(estado);
   const puedeHablar = canal.misPermisos.includes('HABLAR') && call.misPermisos.includes('HABLAR');
-  const otraLlamada = call.canal && !enEste && call.estado !== 'ERROR' ? call.canal : null;
+  const puedeTransmitir = canal.misPermisos.includes('TRANSMITIR') && call.misPermisos.includes('TRANSMITIR');
+  const conVideo = enEste && estado === 'CONECTADO' && call.participantes.some((p) => p.video);
+  const otraLlamada =call.canal && !enEste && call.estado !== 'ERROR' ? call.canal : null;
   const lista = unirParticipantes(participantes.items, enEste && estado === 'CONECTADO' ? call.participantes : []);
 
   return <section className="call-panel" aria-label="Llamada de voz">
@@ -50,10 +59,13 @@ export default function CallPanel({ canal }) {
         ? <button type="button" onClick={() => call.entrar(canal, { reemplazar: true })}>Salir de la otra llamada y unirme</button>
         : estado === 'ERROR' && <button type="button" onClick={() => call.entrar(canal)}>Reintentar</button>}
       {enLlamada && puedeHablar && <MicrophoneButton call={call} />}
+      {enLlamada && puedeTransmitir && <CameraButton call={call} />}
       {enEste && call.audioBloqueado && <button type="button" className="secondary" onClick={call.activarAudio}>Activar audio</button>}
       {(enLlamada || estado === 'ERROR') && <button type="button" className="secondary danger" disabled={estado === 'SALIENDO'}
         onClick={call.salir}>{estado === 'ERROR' ? 'Cerrar' : 'Salir de la llamada'}</button>}
     </div>
+
+    {conVideo && <VideoGrid participantes={call.participantes} />}
 
     <h2 className="call-heading">En la llamada ({lista.length})</h2>
     {participantes.error && <p role="alert" className="notice error">{participantes.error}</p>}
