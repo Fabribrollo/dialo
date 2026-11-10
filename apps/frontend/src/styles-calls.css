@@ -1,0 +1,19 @@
+.call-panel { padding: 16px 20px; display: grid; gap: 14px; }
+.call-status p { margin: 0 0 6px; }
+.call-controls { gap: 10px; flex-wrap: wrap; }
+.call-heading { margin: 6px 0 0; font-size: 16px; color: var(--navy); }
+.call-participants { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.call-participants li { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+.call-participants li.is-speaking { border-color: var(--success); box-shadow: 0 0 0 2px var(--success); }
+.call-participant-name { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.call-badge { font: 12px/1.6 var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; }
+.call-badge.speaking { color: var(--paper); background: var(--success); border-color: var(--success); }
+.active-call-bar { position: sticky; top: 0; z-index: 15; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 10px clamp(16px,2.4vw,46px); background: var(--navy); color: var(--paper); }
+.active-call-bar p { margin: 0; }
+.active-call-bar .active-call-error { flex-basis: 100%; color: var(--sand); font-size: 13px; }
+.active-call-bar .community-actions { gap: 8px; flex-wrap: wrap; }
+.active-call-bar a:focus-visible, .active-call-bar button:focus-visible { outline-color: var(--accent); }
+@media (max-width:760px) {
+  .call-panel { padding: 12px; }
+  .call-controls button, .active-call-bar .community-actions > * { flex: 1 1 100%; }
+}

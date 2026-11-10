@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
 import { ConversationsProvider, useConversations } from '../context/ConversationsContext.jsx';
 import { CallProvider } from '../context/CallContext.jsx';
+import ActiveCallBar from './calls/ActiveCallBar.jsx';
 import Avatar from './Avatar.jsx';
 import Icon from './Icon.jsx';
 
@@ -34,7 +35,7 @@ function Shell() {
       </div>
     </header>
     {error && <p role="alert" className="notice error">{error}</p>}
-    <main id="contenido" className="app-content" tabIndex={-1}><Outlet /></main>
+    <main id="contenido" className="app-content" tabIndex={-1}><ActiveCallBar /><Outlet /></main>
     <Navigation mobile />
   </div>;
 }

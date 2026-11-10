@@ -39,6 +39,6 @@ it('retira un canal revocado y actualiza la identidad desde las colecciones vige
  mounted.rerender(<MemoryRouter><CommunityDashboard comunidad={community}/></MemoryRouter>);
  expect(screen.queryByRole('link',{name:/canal-2/})).not.toBeInTheDocument();expect(screen.getByText('Nueva identidad')).toBeInTheDocument();expect(screen.queryByText('Persona 1')).not.toBeInTheDocument();
 });
-it('voz y video llevan al detalle existente, sin ofrecer llamadas no implementadas',()=>{
- channels.items=[{...channel(8),tipo:'VOZ'},{...channel(9),tipo:'VIDEO'}];view();expect(screen.getByText('Voz · Público')).toBeInTheDocument();expect(screen.queryByRole('button',{name:/llamar|conectar/i})).not.toBeInTheDocument();
+it('voz y video existentes se muestran como Voz, sin botones de llamada en el panel',()=>{
+ channels.items=[{...channel(8),tipo:'VOZ'},{...channel(9),tipo:'VIDEO'}];view();expect(screen.getAllByText('Voz · Público')).toHaveLength(2);expect(screen.queryByRole('button',{name:/llamar|conectar/i})).not.toBeInTheDocument();
 });

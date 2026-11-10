@@ -23,7 +23,7 @@ Guía de la implementación integrada hasta T-27. Los contratos del servidor est
 | `/login`, `/register` | Acceso y registro para visitantes |
 | `/forgot-password`, `/reset-password` | Recuperación de contraseña |
 
-No hay explorador público, ingreso directo ni transferencia de propiedad en esta interfaz. Los canales de voz y video muestran su tipo y configuración, sin llamadas.
+No hay explorador público, ingreso directo ni transferencia de propiedad en esta interfaz. Los canales de voz y video muestran el panel de llamada (ver más abajo).
 
 ## Presentación actual
 
@@ -118,6 +118,30 @@ El chat usa la altura disponible y desplaza el historial separado del compositor
 - Reconexión: los cortes cortos los resuelve el SDK (`RECONECTANDO` → `CONECTADO`). Si el SDK se desconecta por otra razón, se pide un token nuevo y se reintenta una vez; si falla, `ERROR`. Si LiveKit lo saca de la sala, la identidad se duplica en otra pestaña o la sala se borra, queda en `ERROR` sin reconectar ni llamar a `leave`.
 - `salir()` y el desmontaje cortan la conexión (LiveKit detiene los tracks propios), quitan listeners y audios, y llaman a `POST /call/leave`. Una respuesta tardía de un `entrar` cancelado se descarta y libera en el backend.
 
+## Interfaz de voz (F-10/T-37)
+
+`CallPanel` reemplaza el aviso de llamadas futuras en los canales VOZ y VIDEO. `ActiveCallBar` vive dentro del `main` de `AppShell`, fija arriba, y aparece en cualquier ruta mientras haya una llamada (o una llamada interrumpida), salvo en la ruta del propio canal.
+
+- Participantes: `useCallParticipants(idCanal)` se suscribe al canal (`channel:subscribe`, alcanza con VER), pide `GET /call/participants` y aplica `call:participant-joined` y `call:participant-left`. Al reconectar el socket vuelve a suscribir y pedir la lista. Se ve quién está aunque uno no haya entrado.
+- Dentro de la llamada, cada participante del back se cruza por `idUsuario` con los de LiveKit para agregar "Hablando" (actividad real de audio) y "Silenciado" (micrófono cerrado). Son indicadores separados: un micrófono abierto en silencio no figura como hablando. Si LiveKit tiene a alguien que el back todavía no confirmó por webhook, también se muestra.
+- Controles: Unirse (o "Cambiar a esta llamada" si está en otra), micrófono, Activar audio y Salir. El micrófono aparece solo con HABLAR en los permisos vigentes del canal y en los de la llamada, y queda deshabilitado mientras no esté `CONECTADO`. Sin HABLAR se avisa que es solo recepción.
+- Estados: `CONECTANDO` y `RECONECTANDO` tienen texto propio en un `role=status`. `ERROR` muestra el mensaje en `role=alert` con "Reintentar"; para `ALREADY_IN_CALL` ofrece "Salir de la otra llamada y unirme". Si LiveKit lo saca de la sala (pérdida de permisos o ingreso desde otro lugar), la barra muestra la llamada interrumpida con "Cerrar".
+- La política de listado es la del backend: alguien aparece cuando LiveKit confirma su conexión y desaparece al salir, desconectarse o en la reconciliación de 60 s.
+- Estilos en `styles-calls.css`: foco visible heredado, controles de 44 px, indicador de habla con borde y etiqueta de texto (no solo color) y botones a ancho completo en móvil.
+
+### Recorrido manual con tres participantes
+
+Requiere las claves de LiveKit en `apps/backend/.env` (`GET /api/media/health` en `{ "disponible": true }`) y, para la lista de participantes, el webhook de LiveKit apuntando al backend (ver [llamadas.md](llamadas.md)). Fuera de `localhost` el navegador exige HTTPS para el micrófono.
+
+1. Tres cuentas en tres navegadores o dispositivos, con un canal de voz público y una cuenta con solo VER (canal privado con habilitación VER).
+2. Abrir el canal sin unirse: el navegador no pide micrófono y la lista muestra a los que ya están.
+3. Unirse con las tres. La de solo VER entra sin pedido de permisos y no ve el botón de micrófono.
+4. Activar micrófono en dos cuentas y hablar por turnos: "Hablando" sigue a quien habla, no a quien tiene el micrófono abierto. Silenciar muestra "Silenciado" en los demás.
+5. Navegar a Amigos durante la llamada: la barra sigue visible, el audio no se corta y "Volver al canal" regresa.
+6. Salir desde la barra: los demás ven la salida sin recargar. Cerrar la pestaña de otro participante: desaparece al llegar el webhook.
+7. Denegar el micrófono en el navegador: aparece el error y la llamada sigue. Cortar la red unos segundos: "Reconectando…" y vuelta a "Estás en la llamada."
+8. Repetir con teclado y a 360 px de ancho.
+
 ## Pruebas
 
 Desde la raíz:
@@ -144,7 +168,7 @@ Los controles incluyen etiquetas, foco visible, teclado, estados y enlace para s
 6. Crear comunidad; comprobar aparición en otra pestaña de la misma cuenta. Editar nombre/tipo/imagen y cancelar/confirmar según corresponda en una comunidad descartable.
 7. Crear y copiar invitación, abrirla desde otra sesión, consultar previa sin ingresar y aceptar. Probar el destino pendiente desde login/registro, vencimiento, revocación y usos.
 8. Ver integrantes y abandonar con una cuenta no propietaria; comprobar cierre de vistas en sus otras pestañas.
-9. Crear canales de texto/voz/video, ordenarlos con teclado y editar. Voz/video no deben mostrar conexión de llamada. Eliminar solo canales descartables.
+9. Crear canales de texto/voz/video, ordenarlos con teclado y editar. Voz/video muestran el panel de llamada (recorrido en la sección de llamadas). Eliminar solo canales descartables.
 10. Configurar un canal privado, habilitar Ver a un integrante y comprobar lectura sin envío. Otorgar Escribir; enviar/editar/eliminar propios y comprobar recepción una sola vez en varias pestañas. Revocar Ver y comprobar retirada del contenido; restaurar y volver a abrir.
 11. Con propietario y autor de menor rango, confirmar/cancelar eliminación moderada; no debe existir edición ajena. Para otros roles se puede usar el seed en una base de desarrollo descartable; no hay endpoint para cambiar roles.
 12. Cargar historial anterior, alternar rápido de canal y comprobar borradores. Detener/reiniciar backend; comprobar conservación de texto y recuperación de historial/permisos. Revisar el resultado de un envío sin ack antes de reintentar.

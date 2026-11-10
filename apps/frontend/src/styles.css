@@ -3,6 +3,7 @@
 @import url('./styles-channels.css');
 @import url('./styles-workspace.css');
 @import url('./styles-sidebar.css');
+@import url('./styles-calls.css');
 :root {
   font-family: 'Segoe UI', system-ui, sans-serif;
   color: #26302e; background: #ebe4cf; color-scheme: light;

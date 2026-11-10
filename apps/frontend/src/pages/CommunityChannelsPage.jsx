@@ -8,6 +8,7 @@ import ChannelForm, { CHANNEL_TYPES } from '../components/channels/ChannelForm.j
 import ChannelAccessForm from '../components/channels/ChannelAccessForm.jsx';
 import ChannelChat from '../components/channel-chat/ChannelChat.jsx';
 import ChannelSelector from '../components/channels/ChannelSelector.jsx';
+import CallPanel from '../components/calls/CallPanel.jsx';
 import CommunityNav from '../components/communities/CommunityNav.jsx';
 import { deleteChannel, orderChannels } from '../services/channelsService.js';
 
@@ -89,9 +90,9 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
         {creating ? canManage ? <ChannelForm key={`new-${comunidad.id}`} idComunidad={comunidad.id} onSaved={saved}
           onCancel={() => navigate(base)} onUnavailable={refresh} /> : <p role="alert">Tu rol no permite crear canales.</p> : selected ? <>
           <header className="channel-detail-heading"><h1>{selected.nombre}</h1><span className="channel-type">{CHANNEL_TYPES[selected.tipo]} · {selected.privado ? 'Privado' : 'Público'}</span></header>
-          <p className="community-help">{selected.tipo === 'TEXTO'
-            ? selected.misPermisos.includes('ESCRIBIR') ? 'Tenés permisos de lectura y escritura.' : 'Este canal es de solo lectura para tu cuenta.'
-            : 'Las llamadas estarán disponibles en una próxima entrega.'}</p>
+          {selected.tipo === 'TEXTO' && <p className="community-help">{selected.misPermisos.includes('ESCRIBIR')
+            ? 'Tenés permisos de lectura y escritura.' : 'Este canal es de solo lectura para tu cuenta.'}</p>}
+          {selected.tipo !== 'TEXTO' && !mode && <CallPanel key={selected.id} canal={selected} />}
           {selected.tipo === 'TEXTO' && !mode && <ChannelChat key={selected.id} canal={selected} draft={drafts[selected.id] ?? ''}
             setDraft={(value) => setDrafts((old) => ({ ...old, [selected.id]: typeof value === 'function' ? value(old[selected.id] ?? '') : value }))} />}
           {canManage && !mode && <div className="community-actions channel-detail-actions">
