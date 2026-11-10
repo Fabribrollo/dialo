@@ -21,7 +21,7 @@ function emit(evento, data) { act(() => listeners.get(evento)?.forEach((fn) => f
 function base(extra = {}) {
   return {
     estado: 'DESCONECTADO', canal: null, error: null, misPermisos: [], participantes: [], microfono: false, camara: false, audioBloqueado: false,
-    entrar: vi.fn(), salir: vi.fn(), alternarMicrofono: vi.fn(), alternarCamara: vi.fn(), activarAudio: vi.fn(), ...extra,
+    entrar: vi.fn(), salir: vi.fn(), alternarMicrofono: vi.fn(), alternarCamara: vi.fn(), alternarPantalla: vi.fn(), pantalla: false, puedeCompartirPantalla: true, activarAudio: vi.fn(), ...extra,
   };
 }
 function setCall(extra) { call = base(extra); useCall.mockReturnValue(call); }
@@ -246,4 +246,42 @@ it('la barra permite apagar la cámara desde otra página', () => {
   showBar('/amigos');
   fireEvent.click(screen.getByRole('button', { name: 'Apagar cámara' }));
   expect(call.alternarCamara).toHaveBeenCalled();
+});
+
+it('con TRANSMITIR ofrece compartir pantalla y muestra quién transmite', async () => {
+  const deAna = pista();
+  setCall({ estado: 'CONECTADO', canal: transmite, misPermisos: transmite.misPermisos, participantes: [
+    { idUsuario: 7, nombre: 'Ana', microfono: true, hablando: false, camara: false, video: null, pantalla: true, videoPantalla: deAna },
+  ] });
+  show(transmite);
+  fireEvent.click(screen.getByRole('button', { name: 'Compartir pantalla' }));
+  expect(call.alternarPantalla).toHaveBeenCalled();
+  const video = screen.getByLabelText('Pantalla de Ana');
+  expect(deAna.attach).toHaveBeenCalledWith(video);
+  expect(screen.getByText('Compartiendo pantalla')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Activar micrófono' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Encender cámara' })).toBeInTheDocument();
+  await act(async () => {});
+});
+
+it('un navegador sin soporte explica en vez de ofrecer el botón', async () => {
+  setCall({ estado: 'CONECTADO', canal: transmite, misPermisos: transmite.misPermisos, puedeCompartirPantalla: false });
+  show(transmite);
+  expect(screen.queryByRole('button', { name: 'Compartir pantalla' })).not.toBeInTheDocument();
+  expect(screen.getByText(/Este navegador no permite compartir pantalla/)).toBeInTheDocument();
+  await act(async () => {});
+});
+
+it('sin TRANSMITIR no hay botón de pantalla', async () => {
+  setCall({ estado: 'CONECTADO', canal, misPermisos: ['VER', 'HABLAR'] });
+  show();
+  expect(screen.queryByRole('button', { name: /pantalla/ })).not.toBeInTheDocument();
+  await act(async () => {});
+});
+
+it('la barra deja cortar la pantalla compartida desde otra página', () => {
+  setCall({ estado: 'CONECTADO', canal: transmite, misPermisos: transmite.misPermisos, pantalla: true });
+  showBar('/amigos');
+  fireEvent.click(screen.getByRole('button', { name: 'Dejar de compartir' }));
+  expect(call.alternarPantalla).toHaveBeenCalled();
 });

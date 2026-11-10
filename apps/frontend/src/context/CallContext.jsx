@@ -42,12 +42,27 @@ const ERRORES_DE_CAMARA = {
 const errorDeMicrofono = (e) => ({ code: 'MICROPHONE_ERROR', message: ERRORES_DE_MICROFONO[e?.name] ?? 'No se pudo usar el micrófono.', details: [] });
 const errorDeCamara = (e) => ({ code: 'CAMERA_ERROR', message: ERRORES_DE_CAMARA[e?.name] ?? 'No se pudo usar la cámara.', details: [] });
 
+const soportaPantalla = () => typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getDisplayMedia === 'function';
+
+function errorDePantalla(e) {
+  if (e?.name === 'NotAllowedError' && !/system/i.test(e.message ?? '')) return null;
+  const mensaje = e?.name === 'NotAllowedError' ? 'El sistema operativo no le permite al navegador compartir la pantalla.'
+    : e?.name === 'NotFoundError' ? 'No hay pantallas o ventanas disponibles para compartir.'
+      : 'No se pudo compartir la pantalla.';
+  return { code: 'SCREEN_ERROR', message: mensaje, details: [] };
+}
+
+function pistaDe(p, fuente) {
+  const publicacion = p.getTrackPublication?.(fuente);
+  return publicacion && !publicacion.isMuted ? publicacion.track ?? null : null;
+}
+
 const idUsuarioDe = (identidad) => Number(identidad?.replace('usuario-', '')) || null;
 
 function leerParticipantes(room) {
   return [room.localParticipant, ...room.remoteParticipants.values()].map((p) => {
-    const video = p.getTrackPublication?.(Track.Source.Camera);
     const camara = Boolean(p.isCameraEnabled);
+    const pantalla = Boolean(p.isScreenShareEnabled);
     return {
       idUsuario: idUsuarioDe(p.identity),
       nombre: p.name,
@@ -55,7 +70,9 @@ function leerParticipantes(room) {
       microfono: Boolean(p.isMicrophoneEnabled),
       hablando: Boolean(p.isSpeaking),
       camara,
-      video: camara && !video?.isMuted ? video?.track ?? null : null,
+      video: camara ? pistaDe(p, Track.Source.Camera) : null,
+      pantalla,
+      videoPantalla: pantalla ? pistaDe(p, Track.Source.ScreenShare) : null,
     };
   });
 }
@@ -207,6 +224,14 @@ export function CallProvider({ children }) {
     setParticipantes(leerParticipantes(room));
   }
 
+  function alternarPantalla() {
+    if (!soportaPantalla()) {
+      setError({ code: 'SCREEN_UNSUPPORTED', message: 'Este navegador no permite compartir pantalla. Usá Chrome, Edge, Firefox o Safari en una computadora.', details: [] });
+      return Promise.resolve();
+    }
+    return alternarDispositivo('TRANSMITIR', (l) => l.isScreenShareEnabled, (l, v) => l.setScreenShareEnabled(v, { audio: true }), errorDePantalla);
+  }
+
   const alternarMicrofono = () => alternarDispositivo('HABLAR', (l) => l.isMicrophoneEnabled, (l, v) => l.setMicrophoneEnabled(v), errorDeMicrofono);
   const alternarCamara = () => alternarDispositivo('TRANSMITIR', (l) => l.isCameraEnabled, (l, v) => l.setCameraEnabled(v), errorDeCamara);
 
@@ -226,8 +251,8 @@ export function CallProvider({ children }) {
   const yo = participantes.find((p) => p.local);
   const value = {
     estado, canal, error, misPermisos, participantes, audioBloqueado,
-    microfono: yo?.microfono ?? false, camara: yo?.camara ?? false,
-    entrar, salir, alternarMicrofono, alternarCamara, activarAudio,
+    microfono: yo?.microfono ?? false, camara: yo?.camara ?? false, pantalla: yo?.pantalla ?? false, puedeCompartirPantalla: soportaPantalla(),
+    entrar, salir, alternarMicrofono, alternarCamara, alternarPantalla, activarAudio,
   };
 
   return <CallContext.Provider value={value}>

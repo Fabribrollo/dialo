@@ -1,23 +1,25 @@
 import { useEffect, useRef } from 'react';
 
-function VideoTile({ participante }) {
+function VideoTile({ track, nombre, local, hablando, pantalla }) {
   const ref = useRef(null);
-  const { video, nombre, local, hablando } = participante;
   useEffect(() => {
     const elemento = ref.current;
-    if (!video || !elemento) return undefined;
-    video.attach(elemento);
-    return () => { video.detach(elemento); };
-  }, [video]);
-  return <figure className={`call-video-tile${hablando ? ' is-speaking' : ''}${local ? ' is-local' : ''}`}>
-    {video ? <video ref={ref} autoPlay playsInline muted aria-label={`Cámara de ${nombre}`} />
+    if (!track || !elemento) return undefined;
+    track.attach(elemento);
+    return () => { track.detach(elemento); };
+  }, [track]);
+  const clases = ['call-video-tile', hablando && 'is-speaking', local && !pantalla && 'is-local', pantalla && 'is-screen'].filter(Boolean).join(' ');
+  return <figure className={clases}>
+    {track ? <video ref={ref} autoPlay playsInline muted aria-label={`${pantalla ? 'Pantalla' : 'Cámara'} de ${nombre}`} />
       : <div className="call-video-off" aria-hidden="true">{(nombre ?? '?').slice(0, 2).toUpperCase()}</div>}
-    <figcaption>{nombre}{local && ' (vos)'}{!video && ' · sin cámara'}</figcaption>
+    <figcaption>{pantalla && 'Pantalla de '}{nombre}{local && ' (vos)'}{!track && ' · sin cámara'}</figcaption>
   </figure>;
 }
 
 export default function VideoGrid({ participantes }) {
+  const pantallas = participantes.filter((p) => p.videoPantalla);
   return <div className="call-video-grid" aria-label="Video de la llamada" role="group">
-    {participantes.map((p) => <VideoTile key={p.idUsuario} participante={p} />)}
+    {pantallas.map((p) => <VideoTile key={`pantalla-${p.idUsuario}`} track={p.videoPantalla} nombre={p.nombre} local={p.local} pantalla />)}
+    {participantes.map((p) => <VideoTile key={`camara-${p.idUsuario}`} track={p.video} nombre={p.nombre} local={p.local} hablando={p.hablando} />)}
   </div>;
 }

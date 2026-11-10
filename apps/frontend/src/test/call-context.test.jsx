@@ -26,8 +26,18 @@ const sdk = vi.hoisted(() => {
           if (sdk.camError) throw sdk.camError;
           this.localParticipant.isCameraEnabled = activo;
         }),
-        getTrackPublication: (fuente) => fuente === 'camera' && this.localParticipant.isCameraEnabled
-          ? { isMuted: false, track: this.localParticipant.camaraTrack } : undefined,
+        isScreenShareEnabled: false,
+        pantallaTrack: { kind: 'video', attach: vi.fn(), detach: vi.fn(() => []) },
+        setScreenShareEnabled: vi.fn(async (activo) => {
+          if (sdk.screenError) throw sdk.screenError;
+          this.localParticipant.isScreenShareEnabled = activo;
+        }),
+        getTrackPublication: (fuente) => {
+          const lp = this.localParticipant;
+          if (fuente === 'camera' && lp.isCameraEnabled) return { isMuted: false, track: lp.camaraTrack };
+          if (fuente === 'screen_share' && lp.isScreenShareEnabled) return { isMuted: false, track: lp.pantallaTrack };
+          return undefined;
+        },
       };
       this.connect = vi.fn(async () => {
         this.eventosAlConectar = [...this.handlers.keys()];
@@ -46,7 +56,7 @@ const sdk = vi.hoisted(() => {
     emit(evento, ...args) { this.handlers.get(evento)?.forEach((fn) => fn(...args)); }
   }
   const nombres = new Proxy({}, { get: (_, clave) => clave });
-  return { rooms, FakeRoom, nombres, micError: null, camError: null, connectError: null };
+  return { rooms, FakeRoom, nombres, micError: null, camError: null, screenError: null, connectError: null };
 });
 
 vi.mock('livekit-client', () => ({
@@ -69,6 +79,8 @@ function Panel() {
     <p data-testid="error">{call.error?.message ?? ''}</p>
     <p data-testid="microfono">{call.microfono ? 'abierto' : 'cerrado'}</p>
     <p data-testid="camara">{call.camara ? 'prendida' : 'apagada'}</p>
+    <p data-testid="pantalla">{call.pantalla ? 'compartiendo' : 'no'}</p>
+    <p data-testid="pantallas">{call.participantes.filter((p) => p.videoPantalla).map((p) => p.nombre).join(',')}</p>
     <p data-testid="videos">{call.participantes.filter((p) => p.video).map((p) => p.nombre).join(',')}</p>
     <p data-testid="participantes">{call.participantes.map((p) => `${p.nombre}${p.hablando ? '*' : ''}`).join(',')}</p>
     <button onClick={() => call.entrar(voz)}>Unirse</button>
@@ -77,6 +89,7 @@ function Panel() {
     <button onClick={call.salir}>Salir</button>
     <button onClick={call.alternarMicrofono}>Micrófono</button>
     <button onClick={call.alternarCamara}>Cámara</button>
+    <button onClick={call.alternarPantalla}>Pantalla</button>
   </div>;
 }
 
@@ -96,6 +109,8 @@ beforeEach(() => {
   sdk.rooms.length = 0;
   sdk.micError = null;
   sdk.camError = null;
+  sdk.screenError = null;
+  Object.defineProperty(navigator, 'mediaDevices', { value: { getDisplayMedia: vi.fn() }, configurable: true });
   sdk.connectError = null;
   joinCall.mockReset().mockResolvedValue(llamada());
   leaveCall.mockReset().mockResolvedValue(null);
@@ -347,4 +362,70 @@ it('el video remoto no se agrega al contenedor de audio', async () => {
   expect(track.attach).not.toHaveBeenCalled();
   act(() => ultimaRoom().emit('TrackUnsubscribed', track));
   expect(track.detach).not.toHaveBeenCalled();
+});
+
+const pantalla = () => screen.getByTestId('pantalla').textContent;
+async function transmitiendo() {
+  joinCall.mockResolvedValue(llamada(['VER', 'HABLAR', 'TRANSMITIR']));
+  await conectado();
+}
+
+it('comparte pantalla como fuente aparte y se detiene desde la app', async () => {
+  await transmitiendo();
+  fireEvent.click(screen.getByRole('button', { name: 'Pantalla' }));
+  await waitFor(() => expect(pantalla()).toBe('compartiendo'));
+  expect(ultimaRoom().localParticipant.setScreenShareEnabled).toHaveBeenCalledWith(true, { audio: true });
+  expect(screen.getByTestId('pantallas').textContent).toBe('Fabri');
+  expect(screen.getByTestId('camara').textContent).toBe('apagada');
+  fireEvent.click(screen.getByRole('button', { name: 'Pantalla' }));
+  await waitFor(() => expect(pantalla()).toBe('no'));
+  expect(screen.getByTestId('pantallas').textContent).toBe('');
+});
+
+it('detener desde el navegador limpia el estado', async () => {
+  await transmitiendo();
+  fireEvent.click(screen.getByRole('button', { name: 'Pantalla' }));
+  await waitFor(() => expect(pantalla()).toBe('compartiendo'));
+  const room = ultimaRoom();
+  room.localParticipant.isScreenShareEnabled = false;
+  act(() => room.emit('LocalTrackUnpublished'));
+  expect(pantalla()).toBe('no');
+  expect(screen.getByTestId('pantallas').textContent).toBe('');
+});
+
+it('cancelar el selector conserva la llamada y no muestra error ni transmisión', async () => {
+  await transmitiendo();
+  sdk.screenError = Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' });
+  fireEvent.click(screen.getByRole('button', { name: 'Pantalla' }));
+  await act(async () => {});
+  expect(error()).toBe('');
+  expect(pantalla()).toBe('no');
+  expect(estado()).toBe('CONECTADO');
+});
+
+it.each([
+  ['Permission denied by system', 'NotAllowedError', 'El sistema operativo no le permite al navegador compartir la pantalla.'],
+  ['x', 'NotFoundError', 'No hay pantallas o ventanas disponibles para compartir.'],
+  ['x', 'AbortError', 'No se pudo compartir la pantalla.'],
+])('un fallo real de pantalla se informa sin cortar la llamada (%s %s)', async (texto, name, mensaje) => {
+  await transmitiendo();
+  sdk.screenError = Object.assign(new Error(texto), { name });
+  fireEvent.click(screen.getByRole('button', { name: 'Pantalla' }));
+  await waitFor(() => expect(error()).toBe(mensaje));
+  expect(estado()).toBe('CONECTADO');
+});
+
+it('un navegador sin getDisplayMedia explica por qué', async () => {
+  await transmitiendo();
+  Object.defineProperty(navigator, 'mediaDevices', { value: {}, configurable: true });
+  fireEvent.click(screen.getByRole('button', { name: 'Pantalla' }));
+  await waitFor(() => expect(error()).toMatch('Este navegador no permite compartir pantalla'));
+  expect(ultimaRoom().localParticipant.setScreenShareEnabled).not.toHaveBeenCalled();
+});
+
+it('sin TRANSMITIR no comparte pantalla', async () => {
+  await conectado();
+  fireEvent.click(screen.getByRole('button', { name: 'Pantalla' }));
+  await act(async () => {});
+  expect(ultimaRoom().localParticipant.setScreenShareEnabled).not.toHaveBeenCalled();
 });

@@ -110,8 +110,8 @@ El chat usa la altura disponible y desplaza el historial separado del compositor
 
 `CallProvider` (`context/CallContext.jsx`) se monta en `AppShell`, debajo de las rutas protegidas: sobrevive a la navegación y se desmonta al cerrar sesión, lo que corta la llamada y avisa al backend. Las páginas lo usan con `useCall()` y no llaman a `callsService` ni a `livekit-client`. Hay una sola llamada por pestaña. El contrato HTTP y de LiveKit está en [llamadas.md](llamadas.md).
 
-- Datos: `estado` (`DESCONECTADO`, `CONECTANDO`, `CONECTADO`, `RECONECTANDO`, `SALIENDO`, `ERROR`), `canal`, `error` (`{ code, message, details }`), `misPermisos`, `participantes` (`{ idUsuario, nombre, local, microfono, hablando, camara, video }`), `microfono`, `camara` y `audioBloqueado`.
-- Funciones: `entrar(canal, { reemplazar })`, `salir()`, `alternarMicrofono()`, `alternarCamara()` y `activarAudio()`.
+- Datos: `estado` (`DESCONECTADO`, `CONECTANDO`, `CONECTADO`, `RECONECTANDO`, `SALIENDO`, `ERROR`), `canal`, `error` (`{ code, message, details }`), `misPermisos`, `participantes` (`{ idUsuario, nombre, local, microfono, hablando, camara, video, pantalla, videoPantalla }`), `microfono`, `camara`, `pantalla`, `puedeCompartirPantalla` y `audioBloqueado`.
+- Funciones: `entrar(canal, { reemplazar })`, `salir()`, `alternarMicrofono()`, `alternarCamara()`, `alternarPantalla()` y `activarAudio()`.
 - `entrar` pone `CONECTANDO`, pide el token con `POST /call/join`, guarda los permisos, crea el `Room`, registra los listeners y recién después conecta. Un segundo `entrar` al mismo canal se ignora; a otro canal sale primero del actual.
 - El micrófono no se pide al entrar: solo con `alternarMicrofono()` y si hay HABLAR. Un usuario con solo VER escucha sin que el navegador le pida permisos. Permiso denegado, micrófono ausente u ocupado dejan un `error` con mensaje y la llamada sigue en `CONECTADO`.
 - `hablando` viene de la detección de actividad de LiveKit, no del micrófono abierto.
@@ -141,6 +141,24 @@ El chat usa la altura disponible y desplaza el historial separado del compositor
 - Sin TRANSMITIR se recibe el video de los demás (alcanza VER), pero no se puede publicar: el token no incluye la fuente cámara.
 - La grilla usa `auto-fit` con mínimo de 220 px y relación 16:9, así que en móvil queda una columna y se reacomoda al entrar o salir gente.
 
+## Compartir pantalla (F-10/T-39)
+
+- `alternarPantalla()` exige TRANSMITIR en los permisos de la llamada y llama a `setScreenShareEnabled(true, { audio: true })` desde el clic, que abre el selector del navegador. El backend también lo controla: el token solo incluye las fuentes de pantalla con TRANSMITIR, así que un cliente alterado no puede publicarla.
+- La pantalla es una fuente aparte de la cámara: se pueden tener las dos, y micrófono y cámara siguen con sus propios botones. En la grilla, la pantalla ocupa el ancho completo arriba, sin recortar, con la etiqueta "Pantalla de …". En la lista aparece "Compartiendo pantalla".
+- Detener: desde el botón del panel, desde la barra ("Dejar de compartir", visible solo mientras se comparte) o desde el aviso del navegador. En ese último caso LiveKit despublica el track al terminar y el estado se actualiza con `LocalTrackUnpublished`; los demás reciben `TrackUnpublished`.
+- Cancelar el selector (`NotAllowedError` sin "system") no muestra error ni transmisión. Un bloqueo del sistema operativo, la falta de pantallas o cualquier otra falla deja un `error` de pantalla y la llamada sigue.
+- Si el navegador no tiene `getDisplayMedia` (celulares), `puedeCompartirPantalla` es `false`: el panel explica que hay que usar una computadora y no muestra el botón.
+- El audio del sistema se pide pero es opcional. Si el navegador no lo da, se comparte solo la imagen sin error. Cuando llega, se reproduce una sola vez como el resto del audio.
+
+Matriz de compatibilidad (según la documentación de cada navegador; confirmar en el recorrido manual):
+
+| Navegador | Pantalla y ventana | Pestaña | Audio del sistema |
+| --- | --- | --- | --- |
+| Chrome y Edge de escritorio | Sí | Sí | Pestaña; pantalla completa solo en Windows |
+| Firefox de escritorio | Sí | No | No |
+| Safari en macOS | Sí | No | No |
+| Chrome en Android, Safari en iOS | No (se explica en el panel) | No | No |
+
 ### Recorrido manual con tres participantes
 
 Requiere las claves de LiveKit en `apps/backend/.env` (`GET /api/media/health` en `{ "disponible": true }`) y, para la lista de participantes, el webhook de LiveKit apuntando al backend (ver [llamadas.md](llamadas.md)). Fuera de `localhost` el navegador exige HTTPS para el micrófono.
@@ -152,8 +170,9 @@ Requiere las claves de LiveKit en `apps/backend/.env` (`GET /api/media/health` e
 5. Navegar a Amigos durante la llamada: la barra sigue visible, el audio no se corta y "Volver al canal" regresa.
 6. Salir desde la barra: los demás ven la salida sin recargar. Cerrar la pestaña de otro participante: desaparece al llegar el webhook.
 7. Con TRANSMITIR, encender y apagar la cámara: los demás la ven aparecer y desaparecer sin recargar y la luz se apaga. Una cuenta sin TRANSMITIR ve el video pero no tiene botón de cámara. Abrir la cámara en otra app y encenderla en Dialo: aparece el error y el audio sigue.
-8. Denegar el micrófono en el navegador: aparece el error y la llamada sigue. Cortar la red unos segundos: "Reconectando…" y vuelta a "Estás en la llamada."
-9. Repetir con teclado y a 360 px de ancho, con tres cámaras encendidas.
+8. Con TRANSMITIR, compartir pantalla: los demás la ven sin recargar y figura "Compartiendo pantalla". Cancelar el selector no cambia nada. Detener desde el aviso del navegador y desde la barra estando en otra página: los receptores dejan de verla. Probar desde un celular: aparece la explicación.
+9. Denegar el micrófono en el navegador: aparece el error y la llamada sigue. Cortar la red unos segundos: "Reconectando…" y vuelta a "Estás en la llamada."
+10. Repetir con teclado y a 360 px de ancho, con tres cámaras encendidas y una pantalla compartida.
 
 ## Pruebas
 
@@ -181,7 +200,7 @@ Los controles incluyen etiquetas, foco visible, teclado, estados y enlace para s
 6. Crear comunidad; comprobar aparición en otra pestaña de la misma cuenta. Editar nombre/tipo/imagen y cancelar/confirmar según corresponda en una comunidad descartable.
 7. Crear y copiar invitación, abrirla desde otra sesión, consultar previa sin ingresar y aceptar. Probar el destino pendiente desde login/registro, vencimiento, revocación y usos.
 8. Ver integrantes y abandonar con una cuenta no propietaria; comprobar cierre de vistas en sus otras pestañas.
-9. Crear canales de texto/voz/video, ordenarlos con teclado y editar. Voz/video muestran el panel de llamada (recorrido en la sección de llamadas). Eliminar solo canales descartables.
+9. Crear canales de texto y voz (Video ya no se ofrece), ordenarlos con teclado y editar. Voz muestra el panel de llamada (recorrido en la sección de llamadas). Eliminar solo canales descartables.
 10. Configurar un canal privado, habilitar Ver a un integrante y comprobar lectura sin envío. Otorgar Escribir; enviar/editar/eliminar propios y comprobar recepción una sola vez en varias pestañas. Revocar Ver y comprobar retirada del contenido; restaurar y volver a abrir.
 11. Con propietario y autor de menor rango, confirmar/cancelar eliminación moderada; no debe existir edición ajena. Para otros roles se puede usar el seed en una base de desarrollo descartable; no hay endpoint para cambiar roles.
 12. Cargar historial anterior, alternar rápido de canal y comprobar borradores. Detener/reiniciar backend; comprobar conservación de texto y recuperación de historial/permisos. Revisar el resultado de un envío sin ack antes de reintentar.
