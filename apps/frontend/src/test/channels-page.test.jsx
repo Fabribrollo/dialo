@@ -13,6 +13,7 @@ import { useSocket } from '../hooks/useSocket.js';
 
 vi.mock('../components/communities/CommunityDashboard.jsx', async () => { const { Link } = await import('react-router'); return { default: ({ comunidad }) => <><Link to={`/comunidades/${comunidad.id}/canales`}>Ver canales</Link><Link to={`/comunidades/${comunidad.id}/integrantes`}>Ver integrantes</Link></> }; });
 vi.mock('../components/channel-chat/ChannelChat.jsx', () => ({ default: () => null }));
+vi.mock('../components/calls/CallPanel.jsx', () => ({ default: ({ canal }) => <p>Panel de llamada de {canal.nombre}</p> }));
 vi.mock('../components/channels/ChannelSelector.jsx', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));
 vi.mock('../hooks/useAuth.js', () => ({ useAuth: () => ({ usuario: { id: 1 } }) }));
@@ -69,10 +70,12 @@ it.each(['INTEGRANTE', 'MODERADOR'])('%s consulta canales pero no administra ni 
   expect(screen.queryByRole('button', { name: /Subir/ })).not.toBeInTheDocument();
   expect(channels.getChannelAccess).not.toHaveBeenCalled();
 });
-it('voz y video indican llamadas futuras sin ofrecer conexión', async () => {
+it('voz y video muestran el panel de llamada y texto no', async () => {
   show('/comunidades/4/canales/2');
-  expect(await screen.findByText('Las llamadas estarán disponibles en una próxima entrega.')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: /llamar|conectar|unirse/i })).not.toBeInTheDocument();
+  expect(await screen.findByText('Panel de llamada de charla')).toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole('link', { name: /general/ })[0]);
+  await screen.findByText('Tenés permisos de lectura y escritura.');
+  expect(screen.queryByText(/Panel de llamada/)).not.toBeInTheDocument();
 });
 it('resuelve un canal inexistente sin revelar datos', async () => {
   show('/comunidades/4/canales/999');
@@ -109,9 +112,9 @@ it('edita nombre y tipo; explica conflicto por mensajes sin perder los cambios',
   channels.updateChannel.mockRejectedValue(fail(409, 'CHANNEL_HAS_MESSAGES')); show();
   fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
   fireEvent.change(screen.getByLabelText('Nombre del canal'), { target: { value: 'avisos' } });
-  fireEvent.change(screen.getByLabelText('Tipo de canal'), { target: { value: 'VIDEO' } }); fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
+  fireEvent.change(screen.getByLabelText('Tipo de canal'), { target: { value: 'VOZ' } }); fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('debe conservar el tipo Texto');
-  expect(channels.updateChannel).toHaveBeenCalledWith(1, { nombre: 'avisos', tipo: 'VIDEO' });
+  expect(channels.updateChannel).toHaveBeenCalledWith(1, { nombre: 'avisos', tipo: 'VOZ' });
   expect(screen.getByLabelText('Nombre del canal')).toHaveValue('avisos');
 });
 it('eliminar exige confirmar, cancelar devuelve el foco y confirmar retira el canal', async () => {
@@ -213,7 +216,7 @@ it('una respuesta anterior a perder acceso no restaura el canal', async () => {
 it('ignora eventos de otra comunidad y recupera canales al reconectar', async () => {
   show(); await screen.findByRole('button', { name: 'Permisos' }); const before = channels.getChannels.mock.calls.length;
   emit('channel:access-lost', { idComunidad: 99, idCanal: 1 }); expect(channels.getChannels).toHaveBeenCalledTimes(before);
-  items = [text, voice]; emit('connect'); await waitFor(() => expect(screen.queryByRole('link', { name: /Video reunión/ })).not.toBeInTheDocument());
+  items = [text, voice]; emit('connect'); await waitFor(() => expect(screen.queryByRole('link', { name: /Voz reunión/ })).not.toBeInTheDocument());
 });
 it('salir de la comunidad cierra la administración y vuelve al listado', async () => {
   show(); await screen.findByRole('button', { name: 'Permisos' }); communities.getCommunities.mockResolvedValue({ items: [] });
@@ -320,4 +323,14 @@ it('un rol borrado durante el guardado conserva el editor y exige recargar', asy
   expect(await screen.findByText(/Las habilitaciones cambiaron/)).toBeInTheDocument();
   expect(save).toBeDisabled();
   expect(screen.queryByText('Permisos guardados.')).not.toBeInTheDocument();
+});
+it('solo ofrece Texto y Voz; un canal VIDEO existente se muestra y edita como Voz', async () => {
+  show('/comunidades/4/canales/3');
+  expect(await screen.findByText('Voz · Privado')).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
+  const tipo = screen.getByLabelText('Tipo de canal');
+  expect(within(tipo).getAllByRole('option').map((o) => o.textContent)).toEqual(['Texto', 'Voz']);
+  expect(tipo).toHaveValue('VOZ');
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
+  await waitFor(() => expect(channels.updateChannel).toHaveBeenCalledWith(3, { nombre: 'reunión', tipo: 'VOZ' }));
 });
