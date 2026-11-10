@@ -79,6 +79,8 @@ Los no propietarios pueden abandonar con confirmación; `community:left` retira 
 
 El catálogo muestra canales visibles, su tipo y privacidad. Al seleccionar uno se contrae en **Cambiar canal**; dentro están Actualizar, Crear y el ordenamiento. ADMIN/PROPIETARIO crean, editan, eliminan y ordenan con botones Subir/Bajar, utilizables por teclado. El orden enviado contiene todos los IDs de la comunidad. `INVALID_ORDER` exige recargar; no se presenta el orden local como guardado.
 
+Tipos ofrecidos: Texto y Voz. Un canal `VIDEO` creado antes (o por API) se etiqueta Voz, abre el mismo panel de llamada y al editarlo se guarda como `VOZ` (ver [comunidades.md](comunidades.md)).
+
 Eliminar exige confirmación. Crear/editar bloquean envíos repetidos y conservan borradores ante error. `CHANNEL_HAS_MESSAGES` impide convertir TEXTO a VOZ/VIDEO si hay cualquier mensaje, incluidos los eliminados lógicamente.
 
 El formulario Permisos consulta `/channels/:id/access` y la lista de integrantes solo al abrirlo. Permite canal privado, habilitaciones MODERADOR/INTEGRANTE y usuarios individuales. Escribir/Hablar/Transmitir implica Ver; quitar una habilitación no deniega lo concedido por otra vía. Los públicos conservan sus defaults; para solo lectura se configura privado y Ver. ADMIN/PROPIETARIO conservan todos los permisos aplicables.
@@ -108,8 +110,8 @@ El chat usa la altura disponible y desplaza el historial separado del compositor
 
 `CallProvider` (`context/CallContext.jsx`) se monta en `AppShell`, debajo de las rutas protegidas: sobrevive a la navegación y se desmonta al cerrar sesión, lo que corta la llamada y avisa al backend. Las páginas lo usan con `useCall()` y no llaman a `callsService` ni a `livekit-client`. Hay una sola llamada por pestaña. El contrato HTTP y de LiveKit está en [llamadas.md](llamadas.md).
 
-- Datos: `estado` (`DESCONECTADO`, `CONECTANDO`, `CONECTADO`, `RECONECTANDO`, `SALIENDO`, `ERROR`), `canal`, `error` (`{ code, message, details }`), `misPermisos`, `participantes` (`{ idUsuario, nombre, local, microfono, hablando }`), `microfono` y `audioBloqueado`.
-- Funciones: `entrar(canal, { reemplazar })`, `salir()`, `alternarMicrofono()` y `activarAudio()`.
+- Datos: `estado` (`DESCONECTADO`, `CONECTANDO`, `CONECTADO`, `RECONECTANDO`, `SALIENDO`, `ERROR`), `canal`, `error` (`{ code, message, details }`), `misPermisos`, `participantes` (`{ idUsuario, nombre, local, microfono, hablando, camara, video }`), `microfono`, `camara` y `audioBloqueado`.
+- Funciones: `entrar(canal, { reemplazar })`, `salir()`, `alternarMicrofono()`, `alternarCamara()` y `activarAudio()`.
 - `entrar` pone `CONECTANDO`, pide el token con `POST /call/join`, guarda los permisos, crea el `Room`, registra los listeners y recién después conecta. Un segundo `entrar` al mismo canal se ignora; a otro canal sale primero del actual.
 - El micrófono no se pide al entrar: solo con `alternarMicrofono()` y si hay HABLAR. Un usuario con solo VER escucha sin que el navegador le pida permisos. Permiso denegado, micrófono ausente u ocupado dejan un `error` con mensaje y la llamada sigue en `CONECTADO`.
 - `hablando` viene de la detección de actividad de LiveKit, no del micrófono abierto.
@@ -129,6 +131,16 @@ El chat usa la altura disponible y desplaza el historial separado del compositor
 - La política de listado es la del backend: alguien aparece cuando LiveKit confirma su conexión y desaparece al salir, desconectarse o en la reconciliación de 60 s.
 - Estilos en `styles-calls.css`: foco visible heredado, controles de 44 px, indicador de habla con borde y etiqueta de texto (no solo color) y botones a ancho completo en móvil.
 
+## Cámara (F-10/T-38)
+
+- `alternarCamara()` publica o apaga la cámara solo si los permisos de la llamada incluyen TRANSMITIR; el micrófono se controla aparte y no cambia. El botón aparece en el panel y en la barra solo con TRANSMITIR vigente.
+- Apagarla (o salir) detiene la captura: LiveKit para el track de cámara al silenciarlo y al desconectar, y se apaga la luz del dispositivo.
+- Permiso denegado, cámara ausente u ocupada, o un `MediaDevicesError` de LiveKit (por ejemplo, la cámara se desconecta) dejan un `error` de cámara y la llamada y el audio siguen.
+- Cada participante expone `video`: el track de cámara si está encendida y no silenciada. `VideoGrid` aparece cuando al menos uno tiene video y muestra una tarjeta por participante con nombre, "(vos)" y "sin cámara". La propia se ve espejada.
+- Los `<video>` van siempre `muted`: el audio se reproduce una sola vez desde el contenedor oculto del provider. El contexto no adjunta ni quita tracks de video; cada tarjeta hace `attach` al montarse y `detach` al desmontarse o cambiar de track.
+- Sin TRANSMITIR se recibe el video de los demás (alcanza VER), pero no se puede publicar: el token no incluye la fuente cámara.
+- La grilla usa `auto-fit` con mínimo de 220 px y relación 16:9, así que en móvil queda una columna y se reacomoda al entrar o salir gente.
+
 ### Recorrido manual con tres participantes
 
 Requiere las claves de LiveKit en `apps/backend/.env` (`GET /api/media/health` en `{ "disponible": true }`) y, para la lista de participantes, el webhook de LiveKit apuntando al backend (ver [llamadas.md](llamadas.md)). Fuera de `localhost` el navegador exige HTTPS para el micrófono.
@@ -139,8 +151,9 @@ Requiere las claves de LiveKit en `apps/backend/.env` (`GET /api/media/health` e
 4. Activar micrófono en dos cuentas y hablar por turnos: "Hablando" sigue a quien habla, no a quien tiene el micrófono abierto. Silenciar muestra "Silenciado" en los demás.
 5. Navegar a Amigos durante la llamada: la barra sigue visible, el audio no se corta y "Volver al canal" regresa.
 6. Salir desde la barra: los demás ven la salida sin recargar. Cerrar la pestaña de otro participante: desaparece al llegar el webhook.
-7. Denegar el micrófono en el navegador: aparece el error y la llamada sigue. Cortar la red unos segundos: "Reconectando…" y vuelta a "Estás en la llamada."
-8. Repetir con teclado y a 360 px de ancho.
+7. Con TRANSMITIR, encender y apagar la cámara: los demás la ven aparecer y desaparecer sin recargar y la luz se apaga. Una cuenta sin TRANSMITIR ve el video pero no tiene botón de cámara. Abrir la cámara en otra app y encenderla en Dialo: aparece el error y el audio sigue.
+8. Denegar el micrófono en el navegador: aparece el error y la llamada sigue. Cortar la red unos segundos: "Reconectando…" y vuelta a "Estás en la llamada."
+9. Repetir con teclado y a 360 px de ancho, con tres cámaras encendidas.
 
 ## Pruebas
 

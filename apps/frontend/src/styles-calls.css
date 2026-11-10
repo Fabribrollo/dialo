@@ -17,3 +17,10 @@
   .call-panel { padding: 12px; }
   .call-controls button, .active-call-bar .community-actions > * { flex: 1 1 100%; }
 }
+.call-video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+.call-video-tile { position: relative; margin: 0; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden; background: var(--navy); }
+.call-video-tile.is-speaking { box-shadow: 0 0 0 3px var(--success); }
+.call-video-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.call-video-tile.is-local video { transform: scaleX(-1); }
+.call-video-off { display: grid; place-items: center; height: 100%; color: var(--paper); font: 600 28px/1 var(--mono); }
+.call-video-tile figcaption { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); padding: 2px 8px; border-radius: 3px; background: rgb(38 48 46 / .82); color: var(--paper); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -22,6 +22,7 @@ El chat privado (conversations y eventos message:\*) no cambia.
 - Una comunidad privada o un canal sin acceso responden 404, como si no existieran.
 - Los canales de voz y video se crean y configuran, pero no hay llamadas (eso es F-10).
 - Cambio de tipo de canal: libre entre VOZ y VIDEO y hacia TEXTO. De TEXTO a VOZ o VIDEO solo si no tiene mensajes.
+- Decisión de interfaz (F-10): el front solo ofrece TEXTO y VOZ. VIDEO sigue en el modelo y en la API por compatibilidad, pero se muestra como Voz; la cámara y la pantalla se usan dentro de un canal de voz con TRANSMITIR. Editar un canal VIDEO desde la interfaz lo guarda como VOZ.
 - Mensajes de canal: se envian por socket con ack, como el chat privado. El historial se pide por HTTP.
 - Moderacion: MODERADOR o mas puede eliminar mensajes ajenos (nunca editarlos), salvo de alguien con rol igual o mayor.
 - Invitaciones: codigo aleatorio, con vencimiento y cantidad de usos opcionales. Ver una invitacion no hace ingresar.
