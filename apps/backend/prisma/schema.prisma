@@ -83,6 +83,7 @@ model Usuario {
   baneosRecibidos      ComunidadBaneo[] @relation("UsuarioBaneado")
   baneosAplicados      ComunidadBaneo[] @relation("AutorBaneo")
   invitacionesCreadas  Invitacion[]          @relation("InvitacionCreador")
+  participacionLlamada ParticipanteLlamada?
 
   @@map("usuario")
 }
@@ -96,6 +97,7 @@ model Sesion {
   fechaRevocacion DateTime? @map("fecha_revocacion")
 
   usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  participacionesLlamada ParticipanteLlamada[]
 
   @@index([idUsuario])
   @@map("sesion")
@@ -263,6 +265,7 @@ model Canal {
   habilitacionesUsuario CanalUsuario[]
   habilitacionesRolPersonalizado CanalRolPersonalizado[]
   mensajes              Mensaje[]
+  participantesLlamada  ParticipanteLlamada[]
 
   @@unique([id, idComunidad])
   @@index([idComunidad, posicion])
@@ -334,4 +337,22 @@ model CanalRolPersonalizado {
   @@id([idCanal, idRol])
   @@index([idRol])
   @@map("canal_rol_personalizado")
+}
+
+// Una fila por usuario: la clave primaria asegura una sola llamada activa por persona.
+model ParticipanteLlamada {
+  idUsuario         Int       @id @map("id_usuario")
+  idCanal           Int       @map("id_canal")
+  ingreso           String    @unique @db.VarChar(36)
+  idSesion          Int?      @map("id_sesion")
+  conectado         Boolean   @default(false)
+  fechaAutorizacion DateTime  @default(now()) @map("fecha_autorizacion")
+  fechaConexion     DateTime? @map("fecha_conexion")
+
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  canal   Canal   @relation(fields: [idCanal], references: [id], onDelete: Cascade)
+  sesion  Sesion? @relation(fields: [idSesion], references: [id], onDelete: SetNull)
+
+  @@index([idCanal, conectado])
+  @@map("participante_llamada")
 }

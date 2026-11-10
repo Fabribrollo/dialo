@@ -15,6 +15,10 @@ const FUENTES = {
 
 export const salaDeCanal = (idCanal) => `canal-${idCanal}`;
 export const identidadDeUsuario = (idUsuario) => `usuario-${idUsuario}`;
+export function idCanalDeSala(sala) {
+  const match = /^canal-(\d+)$/.exec(sala ?? '');
+  return match ? Number(match[1]) : null;
+}
 export function idUsuarioDeIdentidad(identidad) {
   const match = /^usuario-(\d+)$/.exec(identidad ?? '');
   return match ? Number(match[1]) : null;
