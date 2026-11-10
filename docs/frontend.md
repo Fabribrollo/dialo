@@ -104,6 +104,20 @@ Los borradores administrativos se marcan obsoletos ante cambios del canal, desco
 
 El chat usa la altura disponible y desplaza el historial separado del compositor. En pantallas bajas la página puede desplazarse también. Abrir el catálogo devuelve altura natural; editar datos/permisos reemplaza temporalmente el chat y conserva su borrador. Integrantes abre un panel sobre el historial; Escape cierra y devuelve el foco. La eliminación tiene confirmación y devuelve foco al cancelar.
 
+## Estado global de llamada (F-10/T-36)
+
+`CallProvider` (`context/CallContext.jsx`) se monta en `AppShell`, debajo de las rutas protegidas: sobrevive a la navegación y se desmonta al cerrar sesión, lo que corta la llamada y avisa al backend. Las páginas lo usan con `useCall()` y no llaman a `callsService` ni a `livekit-client`. Hay una sola llamada por pestaña. El contrato HTTP y de LiveKit está en [llamadas.md](llamadas.md).
+
+- Datos: `estado` (`DESCONECTADO`, `CONECTANDO`, `CONECTADO`, `RECONECTANDO`, `SALIENDO`, `ERROR`), `canal`, `error` (`{ code, message, details }`), `misPermisos`, `participantes` (`{ idUsuario, nombre, local, microfono, hablando }`), `microfono` y `audioBloqueado`.
+- Funciones: `entrar(canal, { reemplazar })`, `salir()`, `alternarMicrofono()` y `activarAudio()`.
+- `entrar` pone `CONECTANDO`, pide el token con `POST /call/join`, guarda los permisos, crea el `Room`, registra los listeners y recién después conecta. Un segundo `entrar` al mismo canal se ignora; a otro canal sale primero del actual.
+- El micrófono no se pide al entrar: solo con `alternarMicrofono()` y si hay HABLAR. Un usuario con solo VER escucha sin que el navegador le pida permisos. Permiso denegado, micrófono ausente u ocupado dejan un `error` con mensaje y la llamada sigue en `CONECTADO`.
+- `hablando` viene de la detección de actividad de LiveKit, no del micrófono abierto.
+- Audio remoto: cada track de audio se adjunta a un contenedor oculto del provider y se quita al salir. Si el navegador bloquea la reproducción, `audioBloqueado` es `true` y `activarAudio()` la destraba desde un clic.
+- Errores del join: `409 ALREADY_IN_CALL` deja `ERROR`; `entrar(canal, { reemplazar: true })` hace `leave` del canal de `details[0].idCanal` y vuelve a entrar. `503 MEDIA_UNAVAILABLE`, red o falla de conexión a LiveKit dejan `ERROR` y se puede reintentar. El chat de texto no depende de este provider.
+- Reconexión: los cortes cortos los resuelve el SDK (`RECONECTANDO` → `CONECTADO`). Si el SDK se desconecta por otra razón, se pide un token nuevo y se reintenta una vez; si falla, `ERROR`. Si LiveKit lo saca de la sala, la identidad se duplica en otra pestaña o la sala se borra, queda en `ERROR` sin reconectar ni llamar a `leave`.
+- `salir()` y el desmontaje cortan la conexión (LiveKit detiene los tracks propios), quitan listeners y audios, y llaman a `POST /call/leave`. Una respuesta tardía de un `entrar` cancelado se descarta y libera en el backend.
+
 ## Pruebas
 
 Desde la raíz:
