@@ -24,3 +24,6 @@
 .call-video-tile.is-local video { transform: scaleX(-1); }
 .call-video-off { display: grid; place-items: center; height: 100%; color: var(--paper); font: 600 28px/1 var(--mono); }
 .call-video-tile figcaption { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); padding: 2px 8px; border-radius: 3px; background: rgb(38 48 46 / .82); color: var(--paper); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-video-tile.is-screen { grid-column: 1 / -1; aspect-ratio: auto; max-height: 70vh; }
+.call-video-tile.is-screen video { object-fit: contain; max-height: 70vh; }
+.call-badge.sharing { color: var(--navy); background: var(--sand); }
