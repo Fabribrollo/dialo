@@ -85,8 +85,21 @@ export function closeChannel(idCanal) {
   io?.in(rooms.channel(idCanal)).socketsLeave(rooms.channel(idCanal));
 }
 
+const sessionListeners = new Set();
+// Lo usa T-40 para cortar las llamadas de una sesion cerrada.
+export function onSessionEnded(listener) {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+}
+function notifySessionEnded(fin) {
+  for (const listener of sessionListeners) {
+    try { listener(fin); } catch (error) { console.error(error); }
+  }
+}
+
 // Avisa a las pestanas de la sesion y las desconecta.
 export function endSession(idSesion, motivo) {
+  notifySessionEnded({ idSesion, motivo });
   if (!io) return;
   io.to(rooms.session(idSesion)).emit(EVENTS.SESSION_ENDED, { motivo });
   io.in(rooms.session(idSesion)).disconnectSockets();
@@ -94,6 +107,7 @@ export function endSession(idSesion, motivo) {
 
 // Lo mismo para todas las sesiones de un usuario.
 export function endUserSessions(idUsuario, motivo) {
+  notifySessionEnded({ idUsuario, motivo });
   if (!io) return;
   io.to(rooms.user(idUsuario)).emit(EVENTS.SESSION_ENDED, { motivo });
   io.in(rooms.user(idUsuario)).disconnectSockets();
