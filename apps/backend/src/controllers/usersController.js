@@ -16,6 +16,6 @@ export async function getUserById(req, res) {
 }
 
 export async function updateAvatar(req, res) {
-  const usuario = await usersService.updateAvatar(req.user.id, req.file.buffer);
+  const usuario = await usersService.updateAvatar(req.user.id, req.file.buffer, req.file.mimetype);
   res.json({ usuario });
 }
