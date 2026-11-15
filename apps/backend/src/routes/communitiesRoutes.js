@@ -10,6 +10,7 @@ import {
   updateCommunityImage,
   updateMemberRoles,
 } from '../controllers/communitiesController.js';
+import { getModeration, replaceModeration } from '../controllers/communityModerationController.js';
 import { createInvitation, listInvitations, revokeInvitation } from '../controllers/invitationsController.js';
 import { listBans, banMember, removeBan } from '../controllers/communityBansController.js';
 import { authenticate } from '../middlewares/authenticate.js';
@@ -23,6 +24,7 @@ import {
   createCommunitySchema,
   updateCommunitySchema,
 } from '../validations/communitiesValidation.js';
+import { updateModerationSchema } from '../validations/communityModerationValidation.js';
 import { createInvitationSchema, invitationIdParamsSchema } from '../validations/invitationsValidation.js';
 import { listChannels, createChannel, reorderChannels } from '../controllers/channelsController.js';
 import { createChannelSchema, orderChannelsSchema } from '../validations/channelsValidation.js';
@@ -51,5 +53,7 @@ router.delete('/:id/invitations/:idInvitacion', validate({ params: invitationIdP
 router.get('/:id/channels', validate({ params: communityIdParamsSchema }), listChannels);
 router.post('/:id/channels', validate({ params: communityIdParamsSchema, body: createChannelSchema }), createChannel);
 router.put('/:id/channels/order', validate({ params: communityIdParamsSchema, body: orderChannelsSchema }), reorderChannels);
+router.get('/:id/moderation', validate({ params: communityIdParamsSchema }), getModeration);
+router.put('/:id/moderation', validate({ params: communityIdParamsSchema, body: updateModerationSchema }), replaceModeration);
 
 export default router;

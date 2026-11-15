@@ -1,4 +1,5 @@
-import { withChannelPermission } from './channelsService.js';
+import { getChannelPermissions, withChannelPermission } from './channelsService.js';
+import { moderateChannelMessage } from './communityModerationService.js';
 import { prisma } from '../prisma/client.js';
 import { JERARQUIA } from './communitiesService.js';
 import { canModerateChannel } from '../utils/channelPermissions.js';
@@ -17,7 +18,13 @@ function requireWrite(permisos) {
   if (!permisos.includes('ESCRIBIR')) throw new AppError(403, 'NO_WRITE_PERMISSION', 'No tenés permiso para escribir en este canal');
 }
 
+async function moderateIfWritable(idCanal, idUsuario, contenido) {
+  const permisos = await getChannelPermissions(idCanal, idUsuario);
+  if (permisos.includes('ESCRIBIR')) await moderateChannelMessage(idCanal, contenido);
+}
+
 export async function sendChannelMessage(idUsuario, { idCanal, contenido }, authorize) {
+  await moderateIfWritable(idCanal, idUsuario, contenido);
   const saved = await withChannelPermission(idCanal, idUsuario, 'VER', async (tx, { canal, permisos }) => {
     if (authorize) await authorize(tx);
     requireText(canal); requireWrite(permisos);
@@ -46,6 +53,8 @@ async function modifyMessage(idMensaje, idUsuario, authorize, operation, publish
 }
 
 export async function editChannelMessage(idUsuario, { idMensaje, contenido }, authorize) {
+  const actual = await prisma.mensaje.findUnique({ where: { id: idMensaje }, select: { idCanal: true, idAutor: true } });
+  if (actual?.idCanal && actual.idAutor === idUsuario) await moderateIfWritable(actual.idCanal, idUsuario, contenido);
   const mensaje = await modifyMessage(idMensaje, idUsuario, authorize, async (tx, { permisos }, original) => {
     if (original.idAutor !== idUsuario) throw new AppError(403, 'NOT_AUTHOR', 'Solo el autor puede editar el mensaje');
     requireWrite(permisos);
