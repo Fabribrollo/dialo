@@ -27,6 +27,14 @@ function leerIngreso(metadata) {
   try { return JSON.parse(metadata).ingreso ?? null; } catch { return null; }
 }
 
+// Permisos de publicacion para un conjunto de fuentes. Siempre puede escuchar y ver.
+const permisosDe = (fuentes) => ({
+  canSubscribe: true,
+  canPublish: fuentes.length > 0,
+  canPublishData: false,
+  canPublishSources: fuentes.flatMap((fuente) => FUENTES[fuente] ?? []),
+});
+
 const noDisponible = () => new AppError(503, 'MEDIA_UNAVAILABLE', 'Las llamadas no estan disponibles en este momento');
 const esNoEncontrado = (error) => error?.code === 'not_found' || error?.status === 404;
 
@@ -57,14 +65,7 @@ export function crearAdaptadorMedia({ url, apiKey, apiSecret, roomService } = {}
         ttl: TOKEN_TTL_SEGUNDOS,
         metadata: JSON.stringify({ ingreso }),
       });
-      token.addGrant({
-        room: salaDeCanal(idCanal),
-        roomJoin: true,
-        canSubscribe: true,
-        canPublish: fuentes.length > 0,
-        canPublishData: false,
-        canPublishSources: fuentes.flatMap((fuente) => FUENTES[fuente] ?? []),
-      });
+      token.addGrant({ room: salaDeCanal(idCanal), roomJoin: true, ...permisosDe(fuentes) });
       return { token: await token.toJwt(), url, sala: salaDeCanal(idCanal), ingreso, expiraEn: TOKEN_TTL_SEGUNDOS };
     },
 
@@ -76,6 +77,40 @@ export function crearAdaptadorMedia({ url, apiKey, apiSecret, roomService } = {}
         return true;
       } catch (error) {
         if (esNoEncontrado(error)) return false;
+        throw noDisponible();
+      }
+    },
+
+    // Cambia en vivo lo que puede publicar; LiveKit corta las fuentes que ya no estan permitidas.
+    async actualizarPermisos(idCanal, idUsuario, fuentes) {
+      exigir();
+      try {
+        await conLimite(rooms.updateParticipant(salaDeCanal(idCanal), identidadDeUsuario(idUsuario), { permission: permisosDe(fuentes) }));
+        return true;
+      } catch (error) {
+        if (esNoEncontrado(error)) return false;
+        throw noDisponible();
+      }
+    },
+
+    // Desconecta a todos los participantes de la sala (canal borrado o que dejo de ser de voz o video).
+    async cerrarSala(idCanal) {
+      exigir();
+      try {
+        await conLimite(rooms.deleteRoom(salaDeCanal(idCanal)));
+        return true;
+      } catch (error) {
+        if (esNoEncontrado(error)) return false;
+        throw noDisponible();
+      }
+    },
+
+    async listarSalas() {
+      exigir();
+      try {
+        const salas = await conLimite(rooms.listRooms());
+        return salas.map((sala) => idCanalDeSala(sala.name)).filter(Boolean);
+      } catch {
         throw noDisponible();
       }
     },

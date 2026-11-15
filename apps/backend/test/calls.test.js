@@ -75,6 +75,9 @@ before(async () => {
   ({ media } = await import('../src/services/mediaService.js'));
   media.sacarParticipante = async (idCanal, idUsuario) => { expulsados.push([idCanal, idUsuario]); return true; };
   media.listarParticipantes = async () => enLiveKit;
+  media.listarSalas = async () => [...new Set((await prisma.participanteLlamada.findMany()).map((p) => p.idCanal))];
+  media.actualizarPermisos = async () => true;
+  media.cerrarSala = async () => true;
   const { app } = await import('../src/app.js');
   const { initSockets } = await import('../src/sockets/index.js');
   server = createServer(app); io = new Server(server); initSockets(io);
@@ -204,8 +207,11 @@ test('no se conecta con una sesion cerrada ni sin VER al momento de entrar a la 
   await entrar(ch, dani);
   const ingreso = await ingresoDe(dani);
   await request(`/channels/${ch.id}/access`, { method: 'PUT', as: ana, body: { privado: true, habilitaciones: [] } });
+  await pausa(50);
+  // Desde T-40 perder VER ya corta la autorizacion; el ingreso posterior tambien se rechaza.
+  assert.equal(await prisma.participanteLlamada.findUnique({ where: { idUsuario: dani.id } }), null);
   await evento('participant_joined', ch, dani, ingreso);
-  assert.deepEqual(expulsados, [[ch.id, dani.id]]);
+  assert.deepEqual(expulsados.at(-1), [ch.id, dani.id]);
 
   const abierto = await canal(c, { nombre: 'abierto' });
   const login = await request('/auth/login', { method: 'POST', body: { identificador: 'dani', contrasena: 'ClaveDePrueba123' } });
