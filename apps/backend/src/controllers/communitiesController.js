@@ -30,6 +30,7 @@ export async function updateCommunityImage(req, res) {
     req.validated.params.id,
     req.user.id,
     req.file.buffer,
+    req.file.mimetype
   );
   res.json({ comunidad });
 }

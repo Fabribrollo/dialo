@@ -9,6 +9,7 @@ import { uploadImage } from "../utils/storage.js";
 import { emitToUser } from "../sockets/emitter.js";
 import { EVENTS } from "../sockets/events.js";
 import { getFriendIds } from "./friendsService.js";
+import { moderateImage } from "./imageModerationService.js";
 
 async function emitUserUpdated(usuario) {
   const payload = { usuario: toUsuarioPublico(usuario) };
@@ -44,7 +45,8 @@ export async function getUserById(id) {
   return toUsuarioPublico(usuario);
 }
 
-export async function updateAvatar(id, buffer) {
+export async function updateAvatar(id, buffer, mimetype) {
+  await moderateImage(buffer, mimetype);
   const fotoUrl = await uploadImage(buffer, {
     folder: "dialo/avatars",
     publicId: `usuario-${id}`,

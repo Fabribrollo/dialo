@@ -5,6 +5,7 @@ import { AppError } from '../utils/AppError.js';
 import { toUsuarioPublico, usuarioPublicoSelect } from '../utils/selects.js';
 import { uploadImage } from '../utils/storage.js';
 import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
+import { moderateImage } from './imageModerationService.js';
 import { cerrarSalas, sacarDeLlamada } from './callCleanup.js';
 
 export const JERARQUIA = { INTEGRANTE: 1, MODERADOR: 2, ADMIN: 3, PROPIETARIO: 4 };
@@ -135,8 +136,9 @@ export async function updateCommunity(idComunidad, idUsuario, cambios) {
   return saveChanges(idComunidad, rol, cambios);
 }
 
-export async function updateCommunityImage(idComunidad, idUsuario, buffer) {
+export async function updateCommunityImage(idComunidad, idUsuario, buffer, mimetype) {
   const { rol } = await requireRole(idComunidad, idUsuario, 'ADMIN');
+  await moderateImage(buffer, mimetype);
   const imagenUrl = await uploadImage(buffer, {
     folder: 'dialo/communities',
     publicId: `comunidad-${idComunidad}`,
