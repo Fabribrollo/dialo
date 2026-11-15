@@ -188,15 +188,29 @@ model Comunidad {
   imagenUrl     String?       @map("imagen_url")
   tipo          TipoComunidad @default(PRIVADA)
   fechaCreacion DateTime      @default(now()) @map("fecha_creacion")
+  moderacionActiva Boolean    @default(false) @map("moderacion_activa")
 
   membresias   Membresia[]
   invitaciones Invitacion[]
   canales      Canal[]
   rolesPersonalizados RolPersonalizado[]
   baneos ComunidadBaneo[]
+  reglasModeracion ReglaModeracion[]
 
   @@index([tipo])
   @@map("comunidad")
+}
+
+model ReglaModeracion {
+  id            Int      @id @default(autoincrement()) @map("id_regla")
+  idComunidad   Int      @map("id_comunidad")
+  descripcion   String   @db.VarChar(100)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+
+  comunidad Comunidad @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+
+  @@index([idComunidad])
+  @@map("regla_moderacion")
 }
 
 model ComunidadBaneo {

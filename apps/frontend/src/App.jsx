@@ -21,6 +21,7 @@ import CommunityMembersPage from "./pages/CommunityMembersPage.jsx";
 import CommunityInvitationsPage from "./pages/CommunityInvitationsPage.jsx";
 import InvitationPage from "./pages/InvitationPage.jsx";
 import CommunityChannelsPage from "./pages/CommunityChannelsPage.jsx";
+import CommunityModerationPage from "./pages/CommunityModerationPage.jsx";
 
 export default function App() {
   const { estado, usuario } = useAuth();
@@ -53,6 +54,7 @@ export default function App() {
               <Route path=":id/roles" element={<CommunityRolesPage />} />
               <Route path=":id/integrantes" element={<CommunityMembersPage />} />
               <Route path=":id/invitaciones" element={<CommunityInvitationsPage />} />
+              <Route path=":id/moderacion" element={<CommunityModerationPage />} />
               <Route path=":id/canales" element={<CommunityChannelsPage />} />
               <Route path=":id/canales/:canalId" element={<CommunityChannelsPage />} />
             </Route>
