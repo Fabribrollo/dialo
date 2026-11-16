@@ -1,5 +1,6 @@
 import { requireSocketUser } from './authenticate.js';
 import { AppError } from '../utils/AppError.js';
+import { requireMessageQuota } from '../utils/rateLimit.js';
 import { EVENTS } from './events.js';
 import * as service from '../services/channelMessagesService.js';
 import { sendChannelMessageSchema, editChannelMessageSchema, deleteChannelMessageSchema } from '../validations/channelMessagesValidation.js';
@@ -14,6 +15,7 @@ export function registerChannelMessageHandlers(socket, ready) {
     try {
       await ready;
       const user = await requireSocketUser(socket);
+      if (event !== EVENTS.CHANNEL_MESSAGE_DELETE) requireMessageQuota(user.id);
       const parsed = schema.safeParse(payload);
       if (!parsed.success) throw new AppError(400, 'VALIDATION_ERROR', 'Datos inválidos', parsed.error.issues.map((issue) => ({ campo: issue.path.join('.'), message: issue.message })));
       const data = await operation(user.id, parsed.data, (tx) => requireSocketUser(socket, tx));

@@ -16,6 +16,7 @@ import { listBans, banMember, removeBan } from '../controllers/communityBansCont
 import { authenticate } from '../middlewares/authenticate.js';
 import { parseImage } from '../middlewares/parseImage.js';
 import { validate } from '../middlewares/validate.js';
+import { limitImageUploads } from '../utils/rateLimit.js';
 import {
   communityIdParamsSchema,
   communityMemberParamsSchema,
@@ -39,7 +40,7 @@ router.get('/', listCommunities);
 router.post('/', validate({ body: createCommunitySchema }), createCommunity);
 router.get('/:id', validate({ params: communityIdParamsSchema }), getCommunity);
 router.patch('/:id', validate({ params: communityIdParamsSchema, body: updateCommunitySchema }), updateCommunity);
-router.post('/:id/imagen', validate({ params: communityIdParamsSchema }), parseImage('imagen'), updateCommunityImage);
+router.post('/:id/imagen', validate({ params: communityIdParamsSchema }), limitImageUploads, parseImage('imagen'), updateCommunityImage);
 router.delete('/:id', validate({ params: communityIdParamsSchema }), deleteCommunity);
 router.get('/:id/members', validate({ params: communityIdParamsSchema }), listMembers);
 router.patch('/:id/members/:idUsuario', validate({ params: communityMemberParamsSchema, body: updateMemberRolesSchema }), updateMemberRoles);

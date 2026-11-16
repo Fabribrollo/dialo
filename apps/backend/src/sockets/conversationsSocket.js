@@ -5,6 +5,7 @@ import {
   sendMessageSchema, editMessageSchema, deleteMessageSchema,
 } from '../validations/messagesValidation.js';
 import { AppError } from '../utils/AppError.js';
+import { requireMessageQuota } from '../utils/rateLimit.js';
 
 export function registerConversationHandlers(socket, ready) {
   for (const [event, schema, service] of [
@@ -19,6 +20,7 @@ export function registerConversationHandlers(socket, ready) {
         // la unión a rooms, sin perder eventos enviados al conectar.
         await ready;
         const user = await requireSocketUser(socket);
+        if (event !== EVENTS.MESSAGE_DELETE) requireMessageQuota(user.id);
         const parsed = schema.safeParse(payload);
         if (!parsed.success) {
           throw new AppError(400, 'VALIDATION_ERROR', 'Datos inválidos', parsed.error.issues.map((i) => ({
