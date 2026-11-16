@@ -11,7 +11,7 @@ import { useAuth } from "../hooks/useAuth.js";
 import { EVENTS } from "../constants/events.js";
 import { getMe } from "../services/authService.js";
 import * as service from "../services/conversationsService.js";
-import { sortConversations } from "../utils-chat.js";
+import { sortConversations } from "../utils/chat.js";
 
 const Context = createContext(null);
 export const useConversations = () => useContext(Context);

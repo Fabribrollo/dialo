@@ -21,7 +21,7 @@ El chat privado (conversations y eventos message:\*) no cambia.
 - Los permisos se suman. No hay permisos de denegacion en esta entrega.
 - Una comunidad privada o un canal sin acceso responden 404, como si no existieran.
 - Los canales de voz y video se crean y configuran, pero no hay llamadas (eso es F-10).
-- Cambio de tipo de canal: libre entre VOZ y VIDEO y hacia TEXTO. De TEXTO a VOZ o VIDEO solo si no tiene mensajes.
+- El tipo de canal se elige al crearlo y no se puede cambiar después.
 - Decisión de interfaz (F-10): el front solo ofrece TEXTO y VOZ. VIDEO sigue en el modelo y en la API por compatibilidad, pero se muestra como Voz; la cámara y la pantalla se usan dentro de un canal de voz con TRANSMITIR. Editar un canal VIDEO desde la interfaz lo guarda como VOZ.
 - Mensajes de canal: se envian por socket con ack, como el chat privado. El historial se pide por HTTP.
 - Moderacion: MODERADOR o mas puede eliminar mensajes ajenos (nunca editarlos), salvo de alguien con rol igual o mayor.
@@ -391,15 +391,14 @@ Errores: 404 CHANNEL_NOT_FOUND si no existe o no tiene VER.
 ### PATCH /api/channels/:id
 
 Auth: si. ADMIN o mas.
-Body (al menos uno): { "nombre": "avisos", "tipo": "VOZ", "privado": true }
+Body (al menos uno): { "nombre": "avisos", "privado": true }. `tipo` no se acepta: el tipo no se cambia después de crear el canal.
 200: { "canal": Canal }
 Socket: channel:updated a quienes tienen VER y channel:access-lost a quienes lo perdieron.
 Errores:
 
-- 400 VALIDATION_ERROR.
+- 400 VALIDATION_ERROR (incluye mandar `tipo`).
 - 403 INSUFFICIENT_ROLE.
 - 404 CHANNEL_NOT_FOUND.
-- 409 CHANNEL_HAS_MESSAGES: pasar de TEXTO a VOZ o VIDEO con mensajes guardados.
 
 ### PUT /api/communities/:id/channels/order
 
@@ -641,7 +640,6 @@ anteriores que no lo utilizan. No hay nueva migracion ni dependencia.
 - INVITATION_REVOKED (410): invitations.
 - INVITATION_EXHAUSTED (410): invitations.
 - CHANNEL_NOT_FOUND (404): channels.
-- CHANNEL_HAS_MESSAGES (409): channels.
 - INVALID_ORDER (400): channels.
 - CHANNEL_NOT_TEXT (400): historial y mensajes de canal.
 - NO_WRITE_PERMISSION (403): mensajes de canal (socket).

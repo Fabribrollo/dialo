@@ -8,7 +8,7 @@ import { useCommunity } from '../hooks/useCommunity.js';
 import { useCommunityCollection } from '../hooks/useCommunityCollection.js';
 import { CommunityState, useLostCommunity } from './CommunityPage.jsx';
 import * as service from '../services/invitationsService.js';
-import { invitationStatus } from '../utils-invitations.js';
+import { invitationStatus } from '../utils/invitations.js';
 
 const STATES = { ACTIVA: 'Activa', REVOCADA: 'Revocada', VENCIDA: 'Vencida', AGOTADA: 'Agotada' };
 

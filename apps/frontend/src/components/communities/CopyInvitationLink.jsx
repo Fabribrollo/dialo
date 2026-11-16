@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react';
-import { invitationPath } from '../../utils-invitations.js';
+import { invitationPath } from '../../utils/invitations.js';
 
 export default function CopyInvitationLink({ codigo, disabled = false }) {
   const id = useId(), messageId = useId(), input = useRef(null);

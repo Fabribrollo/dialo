@@ -4,7 +4,7 @@ import { channelSubscription } from '../services/channelSubscriptions.js';
 import { EVENTS } from '../constants/events.js';
 import { getChannel, getChannelMessages } from '../services/channelsService.js';
 import { getCommunityMembers } from '../services/communitiesService.js';
-import { emitWithAck, mergeMessages } from '../utils-chat.js';
+import { emitWithAck, mergeMessages } from '../utils/chat.js';
 
 const denied = (e) => [401, 403, 404].includes(e.status) ||
   ['UNAUTHORIZED', 'CHANNEL_NOT_FOUND', 'CHANNEL_NOT_TEXT'].includes(e.code);

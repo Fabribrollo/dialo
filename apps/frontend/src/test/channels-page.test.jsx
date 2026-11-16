@@ -108,13 +108,15 @@ it('rechaza espacios inválidos y conserva el formulario ante un error de creaci
   fireEvent.change(name, { target: { value: 'nuevo' } }); fireEvent.submit(name.closest('form'));
   expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión'); expect(name).toHaveValue('nuevo');
 });
-it('edita nombre y tipo; explica conflicto por mensajes sin perder los cambios', async () => {
-  channels.updateChannel.mockRejectedValue(fail(409, 'CHANNEL_HAS_MESSAGES')); show();
+it('edita solo el nombre, el tipo queda fijo y un error no pierde los cambios', async () => {
+  channels.updateChannel.mockRejectedValue(fail(400, 'VALIDATION_ERROR', 'Datos inválidos')); show();
   fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
+  expect(screen.queryByLabelText('Tipo de canal')).not.toBeInTheDocument();
+  expect(screen.getByText(/El tipo no se puede cambiar después de crearlo/)).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Nombre del canal'), { target: { value: 'avisos' } });
-  fireEvent.change(screen.getByLabelText('Tipo de canal'), { target: { value: 'VOZ' } }); fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('debe conservar el tipo Texto');
-  expect(channels.updateChannel).toHaveBeenCalledWith(1, { nombre: 'avisos', tipo: 'VOZ' });
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Datos inválidos');
+  expect(channels.updateChannel).toHaveBeenCalledWith(1, { nombre: 'avisos' });
   expect(screen.getByLabelText('Nombre del canal')).toHaveValue('avisos');
 });
 it('eliminar exige confirmar, cancelar devuelve el foco y confirmar retira el canal', async () => {
@@ -324,13 +326,12 @@ it('un rol borrado durante el guardado conserva el editor y exige recargar', asy
   expect(save).toBeDisabled();
   expect(screen.queryByText('Permisos guardados.')).not.toBeInTheDocument();
 });
-it('solo ofrece Texto y Voz; un canal VIDEO existente se muestra y edita como Voz', async () => {
+it('solo ofrece Texto y Voz al crear; un canal VIDEO existente se muestra como Voz y no cambia de tipo', async () => {
   show('/comunidades/4/canales/3');
   expect(await screen.findByText('Voz · Privado')).toBeInTheDocument();
   fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
-  const tipo = screen.getByLabelText('Tipo de canal');
-  expect(within(tipo).getAllByRole('option').map((o) => o.textContent)).toEqual(['Texto', 'Voz']);
-  expect(tipo).toHaveValue('VOZ');
+  expect(screen.queryByLabelText('Tipo de canal')).not.toBeInTheDocument();
+  expect(screen.getByText(/Tipo: Voz/)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
-  await waitFor(() => expect(channels.updateChannel).toHaveBeenCalledWith(3, { nombre: 'reunión', tipo: 'VOZ' }));
+  await waitFor(() => expect(channels.updateChannel).toHaveBeenCalledWith(3, { nombre: 'reunión' }));
 });

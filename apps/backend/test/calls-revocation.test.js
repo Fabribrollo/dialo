@@ -153,21 +153,13 @@ test('abandonar la comunidad corta la llamada', async () => {
   assert.equal(await registro(), null);
 });
 
-test('borrar el canal, cambiarlo a texto o borrar la comunidad cierra la sala', async () => {
+test('borrar el canal o borrar la comunidad cierra la sala', async () => {
   const c = await comunidad();
   const a = await canal(c, { nombre: 'a' });
   await conectar(a);
   assert.equal((await request(`/channels/${a.id}`, { method: 'DELETE', as: ana })).status, 204);
   await pausa(50);
   assert.deepEqual(de('cerrar'), [[a.id]]);
-  assert.equal(await registro(), null);
-
-  ops = [];
-  const b = await canal(c, { nombre: 'b' });
-  await conectar(b);
-  assert.equal((await request(`/channels/${b.id}`, { method: 'PATCH', as: ana, body: { tipo: 'TEXTO' } })).status, 200);
-  await pausa(50);
-  assert.deepEqual(de('cerrar'), [[b.id]]);
   assert.equal(await registro(), null);
 
   ops = [];

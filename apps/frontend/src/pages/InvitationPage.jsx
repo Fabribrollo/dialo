@@ -4,7 +4,7 @@ import { useCommunities } from '../context/CommunitiesContext.jsx';
 import { useSocket } from '../hooks/useSocket.js';
 import { EVENTS } from '../constants/events.js';
 import * as service from '../services/invitationsService.js';
-import { clearPendingInvitation, validInvitationCode } from '../utils-invitations.js';
+import { clearPendingInvitation, validInvitationCode } from '../utils/invitations.js';
 import CommunityImage from '../components/communities/CommunityImage.jsx';
 
 const ERRORS = {

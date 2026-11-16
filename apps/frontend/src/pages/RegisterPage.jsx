@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router';
 import FormField from '../components/FormField.jsx';
 import { useAuth } from '../hooks/useAuth.js';
 import { useSubmit } from '../hooks/useSubmit.js';
-import { invitationReturnPath, pendingInvitation } from '../utils-invitations.js';
+import { invitationReturnPath, pendingInvitation } from '../utils/invitations.js';
 
 export default function RegisterPage() {
   const { register } = useAuth();

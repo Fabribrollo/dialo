@@ -33,7 +33,7 @@ La paleta es carbón `#26302E`, crema `#EBE4CF`, mostaza `#BBA149` y naranja que
 
 Conversaciones y comunidades usan grillas adaptables. Amigos distribuye búsqueda/solicitudes y contactos por zonas; perfil separa identidad/foto y formulario. En móvil estas zonas se apilan. El resumen de comunidad muestra hasta ocho canales visibles y seis integrantes reales, con acceso a las listas completas, estados de carga y reintentos independientes. Rol, fecha y administración quedan agrupados al pie.
 
-Los estilos son `styles.css`, `styles-chat.css`, `styles-communities.css`, `styles-channels.css`, `styles-workspace.css` y `styles-sidebar.css`. Usan variables compartidas, fuentes del sistema y fallbacks monoespaciados; no requieren una biblioteca visual ni fuentes remotas.
+Los estilos viven en `src/styles/`: `index.css` (lo importa `main.jsx` y trae al resto), `chat.css`, `communities.css`, `channels.css`, `workspace.css`, `sidebar.css` y `calls.css`. Las funciones auxiliares viven en `src/utils/` (`chat.js` e `invitations.js`). Usan variables compartidas, fuentes del sistema y fallbacks monoespaciados; no requieren una biblioteca visual ni fuentes remotas.
 
 ## Sesión y conexión
 
@@ -81,7 +81,7 @@ El catálogo muestra canales visibles, su tipo y privacidad. Al seleccionar uno 
 
 Tipos ofrecidos: Texto y Voz. Un canal `VIDEO` creado antes (o por API) se etiqueta Voz, abre el mismo panel de llamada y al editarlo se guarda como `VOZ` (ver [comunidades.md](comunidades.md)).
 
-Eliminar exige confirmación. Crear/editar bloquean envíos repetidos y conservan borradores ante error. `CHANNEL_HAS_MESSAGES` impide convertir TEXTO a VOZ/VIDEO si hay cualquier mensaje, incluidos los eliminados lógicamente.
+Eliminar exige confirmación. Crear/editar bloquean envíos repetidos y conservan borradores ante error. El tipo se elige solo al crear; al editar se muestra fijo ("El tipo no se puede cambiar después de crearlo.").
 
 El formulario Permisos consulta `/channels/:id/access` y la lista de integrantes solo al abrirlo. Permite canal privado, habilitaciones MODERADOR/INTEGRANTE y usuarios individuales. Escribir/Hablar/Transmitir implica Ver; quitar una habilitación no deniega lo concedido por otra vía. Los públicos conservan sus defaults; para solo lectura se configura privado y Ver. ADMIN/PROPIETARIO conservan todos los permisos aplicables.
 
@@ -129,7 +129,7 @@ El chat usa la altura disponible y desplaza el historial separado del compositor
 - Controles: Unirse (o "Cambiar a esta llamada" si está en otra), micrófono, Activar audio y Salir. El micrófono aparece solo con HABLAR en los permisos vigentes del canal y en los de la llamada, y queda deshabilitado mientras no esté `CONECTADO`. Sin HABLAR se avisa que es solo recepción.
 - Estados: `CONECTANDO` y `RECONECTANDO` tienen texto propio en un `role=status`. `ERROR` muestra el mensaje en `role=alert` con "Reintentar"; para `ALREADY_IN_CALL` ofrece "Salir de la otra llamada y unirme". Si LiveKit lo saca de la sala (pérdida de permisos o ingreso desde otro lugar), la barra muestra la llamada interrumpida con "Cerrar".
 - La política de listado es la del backend: alguien aparece cuando LiveKit confirma su conexión y desaparece al salir, desconectarse o en la reconciliación de 60 s.
-- Estilos en `styles-calls.css`: foco visible heredado, controles de 44 px, indicador de habla con borde y etiqueta de texto (no solo color) y botones a ancho completo en móvil.
+- Estilos en `styles/calls.css`: foco visible heredado, controles de 44 px, indicador de habla con borde y etiqueta de texto (no solo color) y botones a ancho completo en móvil.
 
 ## Cámara (F-10/T-38)
 

@@ -1,0 +1,66 @@
+/* Navegación lateral estable; el contenido ocupa todo el espacio restante. */
+.app-layout.sidebar-layout { display: grid; grid-template-columns: 244px minmax(0,1fr); grid-template-rows: minmax(0,1fr); padding: 0; background: var(--background); }
+.sidebar-layout > .app-header { grid-column: 1; grid-row: 1; display: flex; flex-direction: column; align-items: stretch; gap: 0; width: auto; height: 100%; min-height: 0; padding: 32px 18px 20px; border-right: 1px solid #465044; overflow-y: auto; }
+.sidebar-layout .app-header .wordmark { padding: 0 14px 30px; font-size: 32px; }
+.sidebar-layout .brand-star { color: var(--accent); }
+.sidebar-layout .sidebar-navigation { flex: 1; padding-top: 18px; }
+.sidebar-layout .sidebar-caption { color: #d4c994; padding: 0 14px; margin-bottom: 14px; font: 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.sidebar-layout .top-navigation { display: flex; flex-direction: column; justify-content: flex-start; gap: 8px; margin: 0; }
+.sidebar-layout .top-navigation a { display: flex; align-items: center; gap: 14px; min-height: 52px; padding: 13px 16px; color: #ebe4cf; border: 0; border-radius: 4px; font-size: 15px; box-shadow: none; }
+.sidebar-layout .top-navigation svg { display: block; width: 21px; height: 21px; }
+.sidebar-layout .top-navigation a.active { background: var(--accent); color: var(--navy); font-weight: 650; }
+.sidebar-layout .top-navigation a:hover { background: #39423a; color: #ebe4cf; }
+.sidebar-layout .top-navigation a.active:hover { background: #c7af60; color: var(--navy); }
+.sidebar-layout .header-account { display: grid; grid-template-columns: minmax(0,1fr) 44px; align-items: center; gap: 8px; margin-top: 40px; padding: 20px 8px 0; border-top: 1px solid #586052; }
+.sidebar-layout .header-profile { display: flex; align-items: center; gap: 11px; min-width: 0; grid-column: 1/-1; padding: 5px 0; }
+.sidebar-layout .header-profile:hover { text-decoration: none; }
+.sidebar-layout .header-profile:hover small { text-decoration: underline; }
+.sidebar-layout .sidebar-identity { min-width: 0; display: grid; gap: 2px; }
+.sidebar-layout .sidebar-identity strong { color: #ebe4cf; font-size: 15px; }
+.sidebar-layout .sidebar-identity small { color: #d4c994; font-size: 12px; }
+.sidebar-layout .app-header .user-avatar { background: var(--accent); color: var(--navy); width: 40px; height: 40px; }
+.sidebar-layout .connection-status { display: flex; color: #ebe4cf; font-size: 11px; }
+.sidebar-layout .header-account > .icon-button { grid-column: 2; grid-row: 2; }
+.sidebar-layout > .app-content { grid-column: 2; grid-row: 1; min-height: 0; }
+.sidebar-layout > .notice.error { position: fixed; top: 12px; left: 264px; right: 20px; z-index: 20; box-shadow: 0 4px 18px rgb(38 48 46 / .15); }
+.sidebar-layout .app-content .page-container, .sidebar-layout .app-content .conversations-layout { padding: 32px clamp(22px,2.4vw,46px); }
+.sidebar-layout .app-content .sidebar-title { background: var(--navy); color: var(--paper); border-left: 7px solid var(--accent); }
+.sidebar-layout .app-content .sidebar-title h1, .sidebar-layout .app-content .sidebar-title p { color: var(--paper); }
+.sidebar-layout .app-content .sidebar-title h1 span { color: var(--accent); border-color: #7d7958; }
+.sidebar-layout .app-content .sidebar-title .new-chat { background: var(--accent); color: var(--navy); border-color: var(--accent); }
+.sidebar-layout .app-content .sidebar-title .new-chat:hover { background: #c7af60; }
+.sidebar-layout .app-content .conversation-item { border-top-color: var(--accent); }
+.sidebar-layout .app-content .page-heading:not(.channel-compact-heading) { border-left-color: var(--red); }
+.sidebar-layout .app-content .community-home > .community-overview { background: var(--accent); }
+.sidebar-layout .app-content .friends-page .panel:first-of-type { background: var(--sand); border-color: var(--line); border-top: 5px solid var(--red); }
+.sidebar-layout .app-content .community-hub-channels { border-top-color: var(--red); }
+.sidebar-layout .app-content .profile-header { border-bottom: 5px solid var(--accent); }
+.sidebar-layout .app-content .hub-channel-symbol { background: var(--navy); color: var(--accent); }
+.sidebar-layout .community-tabs a.active { background: var(--navy); color: var(--paper); box-shadow: inset 0 -3px var(--accent); }
+.sidebar-layout .community-tabs a.active:hover { background: #39423a; }
+.sidebar-layout .message.own .user-avatar { background: var(--accent); color: var(--navy); }
+.sidebar-layout .mobile-navigation a.active { background: var(--accent); color: var(--navy); }
+@media (max-width:1100px) and (min-width:761px) {
+  .app-layout.sidebar-layout { grid-template-columns: 208px minmax(0,1fr); }
+  .sidebar-layout > .app-header { padding: 26px 12px 18px; }
+  .sidebar-layout .top-navigation a { padding: 12px; gap: 10px; font-size: 14px; }
+  .sidebar-layout .app-content .friends-page { grid-template-columns: minmax(0,1fr); }
+  .sidebar-layout .app-content .friends-page .panel { grid-column: 1; grid-row: auto; }
+  .sidebar-layout > .notice.error { left: 222px; }
+}
+@media (max-width:760px) {
+  .app-layout.sidebar-layout { display: flex; flex-direction: column; padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+  .sidebar-layout > .app-header { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; height: 64px; min-height: 64px; padding: 8px 16px; overflow: visible; border: 0; }
+  .sidebar-layout .app-header .wordmark { padding: 0; font-size: 27px; }
+  .sidebar-layout .sidebar-navigation { display: none; }
+  .sidebar-layout .header-account { display: flex; margin: 0; padding: 0; border: 0; gap: 6px; }
+  .sidebar-layout .header-profile { padding: 0; }
+  .sidebar-layout .sidebar-identity, .sidebar-layout .connection-status { display: none; }
+  .sidebar-layout .app-header .user-avatar { width: 36px; height: 36px; }
+  .sidebar-layout > .app-content { flex: 1; min-height: 0; }
+  .sidebar-layout .app-content .page-container, .sidebar-layout .app-content .conversations-layout { padding: 18px 14px; }
+  .sidebar-layout .app-content .channels-page:has(.has-channel-chat) { padding: 12px; }
+  .sidebar-layout .mobile-navigation a:hover { background: #39423a; }
+  .sidebar-layout .mobile-navigation a.active:hover { background: var(--accent); color: var(--navy); }
+  .sidebar-layout > .notice.error { top: 72px; left: 12px; right: 12px; }
+}
