@@ -7,7 +7,7 @@ const TIPOS_ELEGIBLES = ['TEXTO', 'VOZ'];
 
 export default function ChannelForm({ idComunidad, canal, version, onSaved, onCancel, onReload, onUnavailable }) {
   const [nombre, setNombre] = useState(canal?.nombre ?? '');
-  const [tipo, setTipo] = useState(canal?.tipo === 'VIDEO' ? 'VOZ' : canal?.tipo ?? 'TEXTO');
+  const [tipo, setTipo] = useState('TEXTO');
   const [privado, setPrivado] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [stale, setStale] = useState(false);
   const initialVersion = useRef(version), pending = useRef(false), alive = useRef(false);
@@ -21,12 +21,12 @@ export default function ChannelForm({ idComunidad, canal, version, onSaved, onCa
     }
     pending.current = true; setBusy(true); setError('');
     try {
-      const datos = { nombre, tipo, ...(!canal && { privado }) };
+      const datos = canal ? { nombre } : { nombre, tipo, privado };
       const { canal: saved } = canal ? await service.updateChannel(canal.id, datos) : await service.createChannel(idComunidad, datos);
       if (alive.current) onSaved(saved);
     } catch (e) {
       if (alive.current) {
-        setError(e.code === 'CHANNEL_HAS_MESSAGES' ? 'Este canal tiene mensajes y debe conservar el tipo Texto.' : e.message);
+        setError(e.message);
         if ([403, 404].includes(e.status)) onUnavailable();
       }
     } finally { pending.current = false; if (alive.current) setBusy(false); }
@@ -37,12 +37,12 @@ export default function ChannelForm({ idComunidad, canal, version, onSaved, onCa
       <button type="button" className="secondary" onClick={onReload}>Recargar formulario</button></p>}
     <fieldset disabled={busy || stale}>
       <FormField label="Nombre del canal" value={nombre} maxLength={32} required onChange={(e) => setNombre(e.target.value)} autoFocus />
-      <FormField as="select" label="Tipo de canal" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-        {TIPOS_ELEGIBLES.map((value) => <option key={value} value={value}>{CHANNEL_TYPES[value]}</option>)}
-      </FormField>
+      {canal ? <p className="community-help">Tipo: {CHANNEL_TYPES[canal.tipo]}. El tipo no se puede cambiar después de crearlo.</p>
+        : <FormField as="select" label="Tipo de canal" value={tipo} onChange={(e) => setTipo(e.target.value)}>
+          {TIPOS_ELEGIBLES.map((value) => <option key={value} value={value}>{CHANNEL_TYPES[value]}</option>)}
+        </FormField>}
       {!canal && <label className="channel-checkbox"><input type="checkbox" checked={privado} onChange={(e) => setPrivado(e.target.checked)} /> Canal privado</label>}
       {!canal && privado && <p className="community-help">Al crearlo, solo propietarios y administradores podrán verlo. Después podés habilitar roles e integrantes en Permisos.</p>}
-      {canal?.tipo === 'TEXTO' && <p className="community-help">Un canal con mensajes debe conservar el tipo Texto.</p>}
       <button type="submit">{busy ? 'Guardando…' : canal ? 'Guardar canal' : 'Crear canal'}</button>
     </fieldset>
     {error && <p role="alert" className="notice error">{error}</p>}

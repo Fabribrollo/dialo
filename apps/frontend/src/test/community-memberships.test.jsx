@@ -12,7 +12,7 @@ import CommunitiesPage from '../pages/CommunitiesPage.jsx';
 import * as communities from '../services/communitiesService.js';
 import * as invitations from '../services/invitationsService.js';
 import { useSocket } from '../hooks/useSocket.js';
-import { invitationStatus } from '../utils-invitations.js';
+import { invitationStatus } from '../utils/invitations.js';
 
 vi.mock('../components/communities/CommunityDashboard.jsx', async () => { const { Link } = await import('react-router'); return { default: ({ comunidad }) => <><Link to={`/comunidades/${comunidad.id}/canales`}>Ver canales</Link><Link to={`/comunidades/${comunidad.id}/integrantes`}>Ver integrantes</Link></> }; });
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));

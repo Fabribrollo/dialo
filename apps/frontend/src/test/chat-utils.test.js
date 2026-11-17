@@ -3,7 +3,7 @@ import {
   mergeMessages,
   emitWithAck,
   sortConversations,
-} from "../utils-chat.js";
+} from "../utils/chat.js";
 const m = (id, extra = {}) => ({
   id,
   fechaCreacion: "2026-10-06T00:00:00Z",

@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useAuth } from '../hooks/useAuth.js';
 import SesionNoVerificada from './SesionNoVerificada.jsx';
-import { invitationReturnPath, pendingInvitation } from '../utils-invitations.js';
+import { invitationReturnPath, pendingInvitation } from '../utils/invitations.js';
 
 export default function GuestRoute() {
   const { estado } = useAuth();

@@ -7,7 +7,7 @@ import ProtectedRoute from '../components/ProtectedRoute.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import RegisterPage from '../pages/RegisterPage.jsx';
 import * as auth from '../services/authService.js';
-import { invitationReturnPath, pendingInvitation, rememberInvitation } from '../utils-invitations.js';
+import { invitationReturnPath, pendingInvitation, rememberInvitation } from '../utils/invitations.js';
 
 vi.mock('../services/authService.js', () => ({ getMe: vi.fn(), login: vi.fn(), register: vi.fn(), logout: vi.fn(), forgotPassword: vi.fn(), resetPassword: vi.fn() }));
 function Destination() { return <h1>Invitación {useParams().codigo}</h1>; }

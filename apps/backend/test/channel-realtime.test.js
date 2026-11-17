@@ -293,13 +293,6 @@ test('envío y revocación concurrentes respetan el orden de eventos sin publica
   assert(!logs.slice(loss + 1).some((e) => e.event.startsWith('channel-message:')));
   assert.equal((await send(d, ch)).error.code, 'CHANNEL_NOT_FOUND');
 });
-test('envío concurrente con cambio de tipo nunca deja un mensaje dentro de VOZ', async () => {
-  const c = await community(), ch = await create(c), a = await socketFor(ana);
-  const [sent, typed] = await Promise.all([send(a, ch), request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'VOZ' } })]);
-  const row = await prisma.canal.findUnique({ where: { id: ch.id } }), count = await prisma.mensaje.count({ where: { idCanal: ch.id } });
-  if (sent.ok) { assert.equal(row.tipo, 'TEXTO'); assert.equal(count, 1); assert.equal(typed.status, 409); }
-  else { assert.equal(sent.error.code, 'CHANNEL_NOT_TEXT'); assert.equal(row.tipo, 'VOZ'); assert.equal(count, 0); }
-});
 test('borrar un canal cierra suscripciones y rechaza mensajes posteriores', async () => {
   const c = await community(), ch = await create(c), a = await subscribe(ana, ch);
   const m = (await send(a, ch)).data.mensaje;

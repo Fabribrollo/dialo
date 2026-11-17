@@ -186,17 +186,14 @@ test('una actualización parcial conserva los otros campos y persiste', async ()
   assert.equal((await request(`/channels/${channel.id}`, { as: ana })).body.canal.nombre, 'renombrado');
 });
 
-test('permite cambios de tipo sin contenido y rechaza TEXTO a VOZ/VIDEO con mensajes, incluso eliminados', async () => {
+test('rechaza cambiar el tipo de un canal después de crearlo', async () => {
   const c = await community(); const channel = await create(c);
-  for (const tipo of ['VOZ', 'VIDEO', 'TEXTO']) assert.equal((await request(`/channels/${channel.id}`, { method: 'PATCH', as: ana, body: { tipo } })).status, 200);
-  await prisma.mensaje.create({ data: { idAutor: ana.id, idCanal: channel.id, contenido: 'Conservar', fechaEliminacion: new Date(), idUsuarioEliminacion: ana.id } });
-  for (const tipo of ['VOZ', 'VIDEO']) {
+  for (const tipo of ['VOZ', 'VIDEO', 'TEXTO']) {
     const result = await request(`/channels/${channel.id}`, { method: 'PATCH', as: ana, body: { tipo, nombre: 'no debe guardarse' } });
-    assert.equal(result.status, 409); assert.equal(result.body.error.code, 'CHANNEL_HAS_MESSAGES');
+    assert.equal(result.status, 400); assert.equal(result.body.error.code, 'VALIDATION_ERROR');
   }
   const result = await request(`/channels/${channel.id}`, { as: ana });
   assert.equal(result.body.canal.tipo, 'TEXTO'); assert.equal(result.body.canal.nombre, 'avisos');
-  assert.equal(await prisma.mensaje.count({ where: { idCanal: channel.id } }), 1);
 });
 
 test('reordenar valida el conjunto completo sin alterar otros canales y permite la lista vacía si no hay canales', async () => {

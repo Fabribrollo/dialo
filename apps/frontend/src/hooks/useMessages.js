@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useSocket } from "./useSocket.js";
 import { EVENTS } from "../constants/events.js";
 import { getMessages } from "../services/conversationsService.js";
-import { mergeMessages, emitWithAck } from "../utils-chat.js";
+import { mergeMessages, emitWithAck } from "../utils/chat.js";
 
 export function useMessages(id) {
   const socket = useSocket();

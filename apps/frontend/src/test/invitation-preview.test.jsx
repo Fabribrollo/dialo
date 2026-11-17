@@ -6,7 +6,7 @@ import InvitationPage from '../pages/InvitationPage.jsx';
 import * as service from '../services/invitationsService.js';
 import { getCommunities } from '../services/communitiesService.js';
 import { useSocket } from '../hooks/useSocket.js';
-import { pendingInvitation, rememberInvitation } from '../utils-invitations.js';
+import { pendingInvitation, rememberInvitation } from '../utils/invitations.js';
 
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));
 vi.mock('../services/communitiesService.js', () => ({ getCommunities: vi.fn() }));

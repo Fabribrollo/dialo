@@ -181,9 +181,6 @@ export async function mutateChannel(idCanal, idUsuario, operation, afterCommit) 
 
 export async function updateChannel(idCanal, idUsuario, cambios) {
   const saved = await mutateChannel(idCanal, idUsuario, async (tx, { canal: previous, rol }, miembros) => {
-    if (previous.tipo === 'TEXTO' && cambios.tipo && cambios.tipo !== 'TEXTO' && await tx.mensaje.count({ where: { idCanal } })) {
-      throw new AppError(409, 'CHANNEL_HAS_MESSAGES', 'No podés cambiar el tipo de un canal de texto que tiene mensajes');
-    }
     const canal = await tx.canal.update({ where: { id: idCanal }, data: cambios, select: channelSelect });
     return { canal, rol, before: audience(previous, miembros), after: audience(canal, miembros) };
   }, (saved) => publishChannelChange(saved.canal, saved.before, saved.after));
