@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 it('conserva el destino de la invitación al iniciar sesión', async () => {
   show('/invitacion/test_code');
-  await screen.findByRole('heading', { name: 'Iniciar sesión' });
+  await screen.findByRole('heading', { name: 'Iniciá sesión' });
   expect(pendingInvitation()).toBe('/invitacion/test_code');
   fireEvent.change(screen.getByLabelText('Usuario o correo'), { target: { value: 'valen' } });
   fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'ClavePrueba123' } });
@@ -35,18 +35,19 @@ it('conserva el destino de la invitación al iniciar sesión', async () => {
 it('pasar a registro conserva la invitación y vuelve a ella después de registrarse', async () => {
   show('/invitacion/otro_codigo');
   fireEvent.click(await screen.findByRole('link', { name: 'Registrate' }));
-  await screen.findByRole('heading', { name: 'Crear cuenta' });
-  fireEvent.change(screen.getByLabelText('Nombre de usuario'), { target: { value: 'nuevo' } });
-  fireEvent.change(screen.getByLabelText('Nombre visible'), { target: { value: 'Nuevo' } });
+  await screen.findByRole('heading', { name: 'Creá tu cuenta' });
   fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'nuevo@example.test' } });
   fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'ClavePrueba123' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  fireEvent.change(screen.getByLabelText('Nombre de usuario'), { target: { value: 'nuevo' } });
+  fireEvent.change(screen.getByLabelText('Nombre visible'), { target: { value: 'Nuevo' } });
   fireEvent.click(screen.getByRole('button', { name: 'Registrarme' }));
   await screen.findByRole('heading', { name: 'Invitación otro_codigo' });
 });
 it('recupera el destino de la invitación después de recargar el formulario de acceso', async () => {
   rememberInvitation('/invitacion/persistida');
   show('/login');
-  await screen.findByRole('heading', { name: 'Iniciar sesión' });
+  await screen.findByRole('heading', { name: 'Iniciá sesión' });
   fireEvent.change(screen.getByLabelText('Usuario o correo'), { target: { value: 'valen' } });
   fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'ClavePrueba123' } });
   fireEvent.click(screen.getByRole('button', { name: 'Entrar' }));

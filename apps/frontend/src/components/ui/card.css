@@ -1,0 +1,12 @@
+.card {
+  position: relative; border-radius: 26px; padding: 10px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; margin: 0;
+  background: rgba(255, 255, 255, .66); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .75), 0 5.4px 16px -9.8px rgba(19, 19, 22, .158), 0 .3px 1.2px rgba(19, 19, 22, .023);
+}
+.li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 18px; transition: background-color .2s; list-style: none; flex-wrap: wrap; }
+.li:hover { background: rgba(255, 255, 255, .7); }
+.li-text { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.li-title { font-weight: 600; font-size: 15px; }
+.li-sub { font-size: 12.5px; color: rgba(19, 19, 22, .56); line-height: 1.45; }
+.li-quiet { height: 36px; padding: 0 10px; border: 0; border-radius: 18px; background: none; font: inherit; font-weight: 600; font-size: 13px; color: rgba(19, 19, 22, .56); cursor: pointer; }
+.li-quiet:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; }
+.li-error { flex-basis: 100%; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: #B4142C; padding-left: 56px; }

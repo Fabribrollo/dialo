@@ -5,7 +5,11 @@ import { useSocket } from '../hooks/useSocket.js';
 import { EVENTS } from '../constants/events.js';
 import * as service from '../services/invitationsService.js';
 import { clearPendingInvitation, validInvitationCode } from '../utils/invitations.js';
-import CommunityImage from '../components/communities/CommunityImage.jsx';
+import Button from '../components/ui/Button.jsx';
+import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Notice from '../components/ui/Notice.jsx';
+import { initials } from '../components/ui/Avatar.jsx';
+import '../styles/invitationPage.css';
 
 const ERRORS = {
   INVITATION_NOT_FOUND: 'La invitación no existe o el enlace es incorrecto.',
@@ -20,7 +24,7 @@ export default function InvitationPage() {
   const { codigo } = useParams();
   const valid = validInvitationCode(codigo);
   const [result, setResult] = useState({ codigo: null, comunidad: null, error: null });
-  const [busy, setBusy] = useState(false), [acceptError, setAcceptError] = useState('');
+  const [busy, setBusy] = useState(false), [acceptError, setAcceptError] = useState(''), [rejected, setRejected] = useState(false);
   const request = useRef(0), pending = useRef(false), mounted = useRef(false), activeCode = useRef(codigo), preview = useRef(null);
   const lifecycle = useRef(0);
   const { remember } = useCommunities();
@@ -107,23 +111,53 @@ export default function InvitationPage() {
   function reject() {
     if (pending.current) return;
     clearPendingInvitation();
-    navigate('/comunidades', { replace: true, state: { notice: 'No ingresaste a la comunidad.' } });
+    setRejected(true);
   }
-  return <section className="page-container communities-page invitation-preview">
-    <header className="page-heading"><h1>Invitación a comunidad</h1></header>
-    {!valid ? <p role="alert">El enlace de invitación es inválido.</p> : !current ? <p role="status">Cargando invitación…</p> :
-      current.error ? <div className="community-empty"><p role="alert">{ERRORS[current.error.code] || current.error.message || 'No se pudo consultar la invitación.'}</p>
-        {![400, 401, 404, 410].includes(current.error.status) && <button type="button" onClick={reload}>Reintentar</button>}</div> : <>
-        <div className="community-overview"><CommunityImage nombre={current.comunidad.nombre} url={current.comunidad.imagenUrl} large />
-          <div><h2>{current.comunidad.nombre}</h2><p>{current.comunidad.tipo === 'PUBLICA' ? 'Pública' : 'Privada'} · {current.comunidad.cantidadIntegrantes} {current.comunidad.cantidadIntegrantes === 1 ? 'integrante' : 'integrantes'}</p></div></div>
-        {current.comunidad.esIntegrante ? <><p>Ya sos integrante de esta comunidad.</p>
-          <Link className="button-link" to={`/comunidades/${current.comunidad.id}`}>Abrir comunidad</Link></> : <>
-          <p>Ingresarás como integrante si aceptás la invitación.</p>
-          {acceptError && <p role="alert" className="notice error">{acceptError}</p>}
-          <div className="community-actions"><button type="button" disabled={busy} onClick={accept}>{busy ? 'Ingresando…' : 'Aceptar invitación'}</button>
-            <button type="button" className="secondary" disabled={busy} onClick={reject}>Rechazar</button></div>
-        </>}
-      </>}
-    {!busy && <Link className="community-back invitation-back" to="/comunidades">Volver a comunidades</Link>}
-  </section>;
-}
+  const comunidad = current?.comunidad;
+  const integrantes = comunidad ? `${comunidad.cantidadIntegrantes} ${comunidad.cantidadIntegrantes === 1 ? 'integrante' : 'integrantes'}` : '';
+  const code = current?.error?.code;
+  const errorTitle = !valid || code === 'INVITATION_NOT_FOUND' ? 'No encontramos esta invitación'
+    : ['INVITATION_EXPIRED', 'INVITATION_REVOKED'].includes(code) ? 'Esta invitación ya no está activa'
+      : ERRORS[code] || current?.error?.message || 'No se pudo consultar la invitación.';
+  const errorText = !valid || code === 'INVITATION_NOT_FOUND' ? 'Revisá que el enlace esté completo.'
+    : ['INVITATION_EXPIRED', 'INVITATION_REVOKED'].includes(code) ? 'Venció o la revocaron. Pedí un enlace nuevo a quien te la pasó.'
+      : code === 'INVITATION_EXHAUSTED' ? 'Pedí un enlace nuevo a quien te la pasó.' : '';
+
+  return <div className="iv">
+    <div className="iv-art" aria-hidden="true">
+      <span className="iv-ring iv-ring-1" />
+      <span className="iv-ring iv-ring-2" />
+      {comunidad && <span className="iv-tile">{comunidad.imagenUrl ? <img src={comunidad.imagenUrl} alt="" /> : initials(comunidad.nombre)}</span>}
+    </div>
+    <div className="iv-body">
+      {!valid || (current && !comunidad) ? <div className="iv-in iv-state">
+        <span className="iv-state-ic"><Icon name="enlace" size={26} stroke={1.9} /></span>
+        <h1 className="dsp iv-h-sm" role="alert">{errorTitle}</h1>
+        {errorText && <span className="iv-sub">{errorText}</span>}
+        <div className="iv-actions">
+          {valid && ![400, 401, 404, 410].includes(current.error.status) && <Button className="iv-btn" onClick={reload}>Reintentar</Button>}
+          <Button variant="secundario" className="iv-btn" onClick={() => navigate('/')}>Ir al inicio</Button>
+        </div>
+      </div> : !current ? <span className="iv-loading" role="status"><Spinner size={17} />Cargando…</span>
+        : rejected ? <div className="iv-in iv-state">
+          <h1 className="dsp iv-h-md">Rechazaste la invitación</h1>
+          <span className="iv-sub">Si cambiás de idea, volvé a abrir el enlace mientras siga activo.</span>
+          <Button variant="secundario" className="iv-btn" onClick={() => navigate('/')}>Ir al inicio</Button>
+        </div>
+        : comunidad.esIntegrante ? <div className="iv-in iv-state">
+          <h1 className="dsp iv-h-md">Ya sos integrante de {comunidad.nombre}</h1>
+          <span className="iv-sub">{integrantes}</span>
+          <Link className="btn ac pr iv-btn" to={`/comunidades/${comunidad.id}`}>Abrir comunidad</Link>
+        </div>
+          : <div className="iv-in iv-state">
+            <h1 className="dsp iv-h">{comunidad.nombre}</h1>
+            <span className="iv-count">{integrantes}</span>
+            <span className="iv-sub">Te invitaron a unirte.</span>
+            {acceptError && <Notice tone="error" title={acceptError} />}
+            <div className="iv-actions">
+              <Button className="iv-btn" loading={busy} disabled={busy} onClick={accept}>{busy ? 'Entrando…' : 'Aceptar'}</Button>
+              <Button variant="secundario" className="iv-btn" disabled={busy} onClick={reject}>Rechazar</Button>
+            </div>
+          </div>}
+    </div>
+  </div>;}

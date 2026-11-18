@@ -1,44 +1,30 @@
-import { NavLink, Outlet, useLocation } from 'react-router';
 import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth.js';
-import { ConversationsProvider, useConversations } from '../context/ConversationsContext.jsx';
+import { Outlet, useLocation } from 'react-router';
+import { RightPanelContext } from './shell/RightPanel.jsx';
+import { ConversationsProvider } from '../context/ConversationsContext.jsx';
+import { CommunitiesProvider } from '../context/CommunitiesContext.jsx';
 import { CallProvider } from '../context/CallContext.jsx';
 import ActiveCallBar from './calls/ActiveCallBar.jsx';
-import Avatar from './Avatar.jsx';
-import Icon from './Icon.jsx';
+import Sidebar from './shell/Sidebar.jsx';
+import MobileNav from './shell/MobileNav.jsx';
+import './shell/shell.css';
 
-function Navigation({ mobile = false }) {
-  const { pathname } = useLocation();
-  return <nav className={mobile ? 'mobile-navigation' : 'top-navigation'} aria-label={mobile ? 'Navegación móvil' : 'Navegación principal'}>
-    <NavLink to="/" end className={() => pathname === '/' || pathname.startsWith('/conversaciones/') ? 'active' : ''}>
-      <Icon name="chat" /><span>Mensajes</span></NavLink>
-    <NavLink to="/comunidades"><Icon name="communities" /><span>Comunidades</span></NavLink>
-    <NavLink to="/amigos"><Icon name="people" /><span>Amigos</span></NavLink>
-    <NavLink to="/perfil"><Icon name="profile" /><span>Perfil</span></NavLink>
-  </nav>;
-}
 function Shell() {
-  const { usuario, logout } = useAuth();
-  const { connected } = useConversations();
-  const [error, setError] = useState('');
-  return <div className="app-layout sidebar-layout">
+  const [slot, setSlot] = useState(null);
+  const { pathname } = useLocation();
+  const home = pathname === '/';
+  const chat = /^\/conversaciones\/[^/]+$/.test(pathname) || /^\/comunidades\/[^/]+\/canales\/\d+$/.test(pathname);
+  return <div className={`shell ${home ? 'shell-home' : ''} ${chat ? 'shell-chat' : ''}`}>
     <a className="skip-link" href="#contenido">Saltar al contenido</a>
-    <header className="app-header">
-      <NavLink to="/" className="wordmark" aria-label="Dialo, inicio"><span aria-hidden="true" className="brand-star">✳</span> dialo.</NavLink>
-      <div className="sidebar-navigation"><p className="sidebar-caption">Tu espacio</p><Navigation /></div>
-      <div className="header-account">
-        <NavLink to="/perfil" className="header-profile" aria-label="Mi perfil"><Avatar usuario={usuario} /><span className="sidebar-identity"><strong>{usuario?.nombreVisible || usuario?.nombreUsuario}</strong><small>Ver mi perfil</small></span></NavLink>
-        <span className="connection-status"><span className={`connection-dot ${connected ? 'online' : ''}`} />{connected ? 'Conectado' : 'Reconectando…'}</span>
-        <button type="button" className="icon-button" title="Cerrar sesión" aria-label="Cerrar sesión" onClick={async () => {
-          try { await logout(); } catch (e) { setError(e.message); }
-        }}><Icon name="logout" /></button>
-      </div>
-    </header>
-    {error && <p role="alert" className="notice error">{error}</p>}
-    <main id="contenido" className="app-content" tabIndex={-1}><ActiveCallBar /><Outlet /></main>
-    <Navigation mobile />
+    <Sidebar />
+    <RightPanelContext.Provider value={slot}>
+      <main id="contenido" className="win shell-main" tabIndex={-1}><ActiveCallBar /><Outlet /></main>
+    </RightPanelContext.Provider>
+    <div ref={setSlot} className="shell-right-slot" />
+    {!chat && <MobileNav />}
   </div>;
 }
+
 export default function AppShell() {
-  return <ConversationsProvider><CallProvider><Shell /></CallProvider></ConversationsProvider>;
+  return <ConversationsProvider><CommunitiesProvider><CallProvider><Shell /></CallProvider></CommunitiesProvider></ConversationsProvider>;
 }

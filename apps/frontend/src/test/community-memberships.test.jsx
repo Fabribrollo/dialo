@@ -61,25 +61,25 @@ it('un integrante no puede administrar invitaciones ni consulta sus códigos', a
   show();
   expect(await screen.findByRole('alert')).toHaveTextContent('Tu rol no permite');
   expect(invitations.getInvitations).not.toHaveBeenCalled();
-  expect(screen.queryByRole('button', { name: 'Generar invitación' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Crear invitación' })).not.toBeInTheDocument();
 });
 it.each(['MODERADOR', 'ADMIN', 'PROPIETARIO'])('%s crea invitaciones con los límites elegidos', async (miRol) => {
   communities.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol } });
   show();
-  const button = await screen.findByRole('button', { name: 'Generar invitación' });
-  fireEvent.change(screen.getByLabelText('Vencimiento'), { target: { value: '168' } });
-  fireEvent.change(screen.getByLabelText('Máximo de usos (opcional)'), { target: { value: '1' } });
+  const button = await screen.findByRole('button', { name: 'Crear invitación' });
+  fireEvent.change(screen.getByLabelText('Vence'), { target: { value: '168' } });
+  fireEvent.change(screen.getByLabelText('Máximo de usos'), { target: { value: '1' } });
   fireEvent.click(button);
   await screen.findByText('Invitación creada.');
   expect(invitations.createInvitation).toHaveBeenCalledExactlyOnceWith(4, { duracionHoras: 168, usosMaximos: 1 });
-  expect(screen.getAllByLabelText('Enlace de invitación')).toHaveLength(2);
+  expect(screen.getAllByRole('button', { name: 'Copiar enlace' })).toHaveLength(2);
 });
 it('crear sin límites usa null y un envío repetido no duplica la operación', async () => {
   let resolve;
   invitations.createInvitation.mockReturnValue(new Promise((r) => { resolve = r; }));
   show();
-  const form = (await screen.findByRole('button', { name: 'Generar invitación' })).closest('form');
-  fireEvent.change(screen.getByLabelText('Vencimiento'), { target: { value: '' } });
+  const form = (await screen.findByRole('button', { name: 'Crear invitación' })).closest('form');
+  fireEvent.change(screen.getByLabelText('Vence'), { target: { value: '' } });
   fireEvent.submit(form); fireEvent.submit(form);
   expect(invitations.createInvitation).toHaveBeenCalledExactlyOnceWith(4, { duracionHoras: null, usosMaximos: null });
   await act(async () => resolve({ invitacion: invitation }));
@@ -88,11 +88,11 @@ it('crear sin límites usa null y un envío repetido no duplica la operación', 
 it('un error de creación conserva los límites para reintentar', async () => {
   invitations.createInvitation.mockRejectedValue(new Error('Sin conexión'));
   show();
-  await screen.findByRole('button', { name: 'Generar invitación' });
-  fireEvent.change(screen.getByLabelText('Máximo de usos (opcional)'), { target: { value: '12' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Generar invitación' }));
+  await screen.findByRole('button', { name: 'Crear invitación' });
+  fireEvent.change(screen.getByLabelText('Máximo de usos'), { target: { value: '12' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Crear invitación' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
-  expect(screen.getByLabelText('Máximo de usos (opcional)')).toHaveValue(12);
+  expect(screen.getByLabelText('Máximo de usos')).toHaveValue(12);
 });
 it('copia el enlace de la app actual y solo confirma cuando el portapapeles responde', async () => {
   show();
@@ -127,11 +127,11 @@ it('un fallo de revocación conserva la invitación activa y permite cancelar', 
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Revocar invitación' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo revocar');
   fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
-  expect(screen.getByText('Activa')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Revocar invitación' })).toBeInTheDocument();
 });
 it('actualiza el listado al volver al foco para recuperar revocaciones de otra pestaña', async () => {
   show();
-  await screen.findByText('Activa');
+  await screen.findByRole('button', { name: 'Revocar invitación' });
   invitations.getInvitations.mockResolvedValue({ items: [{ ...invitation, estado: 'REVOCADA' }] });
   fireEvent(window, new Event('focus'));
   await screen.findByText('Revocada');
@@ -279,7 +279,7 @@ it('asigna varios roles, respeta la jerarquía y permite quitar todos', async ()
   expect(screen.queryByRole('button', { name: 'Editar roles de Valen' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Editar roles de Luz' }));
   const dialog = screen.getByRole('dialog');
-  expect(within(dialog).queryByRole('option', { name: 'Administrador' })).not.toBeInTheDocument();
+  expect(within(dialog).queryByRole('option', { name: 'Admin' })).not.toBeInTheDocument();
   fireEvent.change(within(dialog).getByLabelText('Rol base'), { target: { value: 'MODERADOR' } });
   fireEvent.click(within(dialog).getByLabelText('Eventos'));
   fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }));
@@ -298,7 +298,7 @@ it('bloquea guardar si un cambio remoto vuelve obsoleto el formulario de integra
   asAdmin('PROPIETARIO');
   show('/comunidades/4/integrantes');
   fireEvent.click(await screen.findByRole('button', { name: 'Editar roles de Luz' }));
-  expect(within(screen.getByRole('dialog')).getByRole('option', { name: 'Administrador' })).toBeInTheDocument();
+  expect(within(screen.getByRole('dialog')).getByRole('option', { name: 'Admin' })).toBeInTheDocument();
   communities.getCommunityMembers.mockResolvedValue({ items: [{ ...otherMember, rol: 'MODERADOR' }] });
   fire('community:member-updated', { idComunidad: 4, integrante: otherMember });
   expect(await screen.findByText(/Los roles cambiaron/)).toBeInTheDocument();

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import FormField from '../FormField.jsx';
+import Field, { CheckField } from '../ui/Field.jsx';
 import CommunityRoleFormDialog from './CommunityRoleFormDialog.jsx';
 import { COMMUNITY_ROLES } from '../../pages/CommunitiesPage.jsx';
 import { updateCommunityMemberRoles } from '../../services/communityRolesService.js';
@@ -44,12 +44,12 @@ export default function MemberRolesDialog({ id, actor, userId, original, member,
 
   return <CommunityRoleFormDialog title={`Editar roles de ${original.usuario.nombreVisible}`} blocked={blocked} onSave={save}
     onClose={onClose} returnFocusRef={returnFocusRef} fallbackFocusRef={fallbackFocusRef}>
-    <FormField as="select" label="Rol base" value={rol} onChange={(e) => setRol(e.target.value)} autoFocus>
+    <Field as="select" label="Rol base" value={rol} onChange={(e) => setRol(e.target.value)} autoFocus>
       {baseRoles.map((role) => <option key={role} value={role}>{COMMUNITY_ROLES[role]}</option>)}
-    </FormField>
-    <fieldset className="community-role-options">
-      <legend>Roles personalizados</legend>
-      {!catalog.items.length && <p className="community-help">No hay roles personalizados para asignar.</p>}
+    </Field>
+    <fieldset className="dlg-fieldset mr-options">
+      <legend className="fl">Roles personalizados</legend>
+      {!catalog.items.length && <p>No hay roles personalizados para asignar.</p>}
       {catalog.items.map((role) => <label key={role.id}>
         <input type="checkbox" checked={selected.includes(role.id)} onChange={(e) => {
           const checked = e.target.checked;

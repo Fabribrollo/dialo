@@ -1,0 +1,52 @@
+@import url('./channelForm.css');
+@import url('../ui/emptyState.css');
+
+.dlg.ccw-dialog { width: 900px; height: 640px; max-height: calc(100vh - 32px); padding: 0; border-radius: 34px; overflow: hidden; background: rgba(255, 255, 255, .94); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .8), 0 40px 90px -40px rgba(19, 19, 22, .45); }
+.dlg.ccw-dialog::backdrop { background: rgba(236, 236, 240, .55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.ccw { display: flex; width: 100%; height: 100%; }
+.ccw-side { width: 250px; flex: none; padding: 28px 18px; display: flex; flex-direction: column; gap: 6px; background: rgba(19, 19, 22, .03); border-right: 1px solid rgba(19, 19, 22, .06); }
+.ccw-title { font-size: 26px; padding: 0 12px 16px; }
+.ccw-step { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 16px; background: transparent; font: inherit; font-weight: 600; font-size: 14.5px; text-align: left; color: rgba(19, 19, 22, .56); cursor: pointer; }
+.ccw-step:disabled { cursor: default; }
+.ccw-step-on { background: #fff; color: #131316; box-shadow: 0 3px 10px -6px rgba(19, 19, 22, .3); }
+.ccw-num { width: 28px; height: 28px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: rgba(19, 19, 22, .07); color: rgba(19, 19, 22, .6); }
+.ccw-num-on { background: #131316; color: #fff; }
+.ccw-num-done { background: var(--acc); color: #fff; }
+.ccw-main { flex: 1; min-width: 0; padding: 30px 32px 24px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
+.ccw-step-body { display: flex; flex-direction: column; gap: 18px; }
+.ccw-rise { animation: ccwRise .55s cubic-bezier(.2, .8, .2, 1) both; }
+@keyframes ccwRise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.ccw-h { margin: 0; font-size: 30px; line-height: 1; }
+.ccw-tiles { display: flex; gap: 14px; align-items: stretch; }
+.ccw-tile { flex: 1; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; text-align: left; padding: 20px; border: 0; border-radius: 24px; box-sizing: border-box; background: rgba(255, 255, 255, .7); box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .08); font: inherit; color: #131316; cursor: pointer; transition: box-shadow .25s, background .25s; }
+.ccw-tile:hover { background: #fff; }
+.ccw-tile-on { box-shadow: inset 0 0 0 2px var(--acc); background: #fff; }
+.ccw-tile:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; }
+.ccw-tile-ic { width: 54px; height: 54px; border-radius: 18px; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--acc) 10%, #fff); color: var(--acc); }
+.ccw-tile-t { font-weight: 700; font-size: 17px; }
+.ccw-orb { width: 54px; height: 54px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: radial-gradient(circle at 34% 28%, rgba(255, 255, 255, .95) 0, transparent 32%), radial-gradient(circle, color-mix(in srgb, var(--acc) 70%, #fff) 0, var(--acc) 55%, color-mix(in srgb, var(--acc) 70%, #000) 100%); box-shadow: 0 0 50px 4px color-mix(in srgb, var(--acc) 30%, transparent); }
+.ccw-orb-lg { width: 96px; height: 96px; }
+.ccw-aiw { position: relative; border-radius: 22px; padding: 2px; isolation: isolate; background: conic-gradient(var(--acc), color-mix(in srgb, var(--acc) 30%, #fff), #FF8FD8, var(--acc)); }
+.ccw-aiw textarea { display: block; width: 100%; min-height: 110px; box-sizing: border-box; border: 0; border-radius: 20px; padding: 14px 16px; background: #fff; font: inherit; font-size: 15px; line-height: 1.5; resize: none; outline: none; color: #131316; }
+.ccw-card { border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; background: rgba(255, 255, 255, .8); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--acc) 12%, transparent), 0 5.4px 14.4px -8.4px rgba(19, 19, 22, .158); }
+.ccw-card .sk { align-self: stretch; }
+.ccw-thinking { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--acc); }
+.ccw-card-ic { color: rgba(19, 19, 22, .55); display: flex; }
+.ccw-card-t { font-size: 15px; font-weight: 600; }
+.ccw-badge { align-self: flex-start; }
+.ccw-name { height: 52px; }
+.ccw-group { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 20px; background: rgba(19, 19, 22, .035); }
+.ccw-group-title { font-weight: 700; font-size: 15px; }
+.ccw-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.ccw-pill { height: 36px; border-radius: 18px; padding: 0 14px; border: 0; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; background: rgba(255, 255, 255, .9); color: rgba(19, 19, 22, .55); box-shadow: inset 0 0 0 1.5px rgba(19, 19, 22, .12); }
+.ccw-pill-on { background: var(--acc); color: #fff; box-shadow: none; }
+.ccw-pill:disabled { cursor: default; }
+.ccw-ab { display: flex; gap: 10px; align-items: flex-start; }
+.ccw-aiav { width: 30px; height: 30px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, .7), transparent 45%), linear-gradient(150deg, color-mix(in srgb, var(--acc) 55%, #fff), var(--acc)); }
+.ccw-bb { flex: 1; border-radius: 18px; border-top-left-radius: 6px; padding: 11px 14px; font-size: 14px; line-height: 1.45; background: rgba(255, 255, 255, .85); box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .06); }
+.ccw-done { flex: 1; align-items: center; justify-content: center; text-align: center; gap: 16px; }
+.ccw-done-t { margin: 0; font-size: 34px; line-height: 1; }
+.ccw-done-s { font-size: 15px; }
+.ccw-foot { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 16px; border-top: 1px solid rgba(19, 19, 22, .06); }
+@media (prefers-reduced-motion: reduce) { .ccw-rise { animation: none; } }
+@media (max-width: 767px) { .ccw { flex-direction: column; } .ccw-side { width: auto; flex-direction: row; overflow-x: auto; padding: 16px; } .ccw-title { display: none; } }

@@ -46,15 +46,15 @@ it('consultar la vista previa identifica la comunidad sin ingresar y limpia el d
 it('rechazar vuelve al listado sin crear una membresía', async () => {
   show();
   fireEvent.click(await screen.findByRole('button', { name: 'Rechazar' }));
-  await screen.findByRole('heading', { name: 'Mis comunidades' });
+  await screen.findByRole('heading', { name: 'Rechazaste la invitación' });
   expect(service.acceptInvitation).not.toHaveBeenCalled();
 });
 it('aceptar incorpora la comunidad sin duplicar el evento y abre su detalle', async () => {
   let resolve;
   service.acceptInvitation.mockReturnValueOnce(new Promise((r) => { resolve = r; }));
   show();
-  fireEvent.click(await screen.findByRole('button', { name: 'Aceptar invitación' }));
-  expect(screen.getByRole('button', { name: 'Ingresando…' })).toBeDisabled();
+  fireEvent.click(await screen.findByRole('button', { name: 'Aceptar' }));
+  expect(screen.getByRole('button', { name: 'Entrando…' })).toBeDisabled();
   fire('community:new', { comunidad: community });
   await act(async () => resolve({ comunidad: community }));
   await screen.findByRole('heading', { name: 'Comunidad 4' });
@@ -62,21 +62,21 @@ it('aceptar incorpora la comunidad sin duplicar el evento y abre su detalle', as
   expect(service.acceptInvitation).toHaveBeenCalledExactlyOnceWith('valida');
 });
 it.each([
-  ['INVITATION_NOT_FOUND', 404, /no existe/],
-  ['INVITATION_REVOKED', 410, /revocada/],
-  ['INVITATION_EXPIRED', 410, /venció/],
+  ['INVITATION_NOT_FOUND', 404, /No encontramos esta invitación/],
+  ['INVITATION_REVOKED', 410, /ya no está activa/],
+  ['INVITATION_EXPIRED', 410, /ya no está activa/],
   ['INVITATION_EXHAUSTED', 410, /máximo de usos/],
 ])('presenta %s sin ofrecer ingreso', async (code, status, message) => {
   service.previewInvitation.mockRejectedValue({ code, status });
   show();
   expect(await screen.findByRole('alert')).toHaveTextContent(message);
-  expect(screen.queryByRole('button', { name: 'Aceptar invitación' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Aceptar' })).not.toBeInTheDocument();
 });
 it('una revocación entre la vista previa y la aceptación se comunica sin confirmar ingreso', async () => {
   service.acceptInvitation.mockRejectedValue({ code: 'INVITATION_REVOKED', status: 410 });
   show();
-  fireEvent.click(await screen.findByRole('button', { name: 'Aceptar invitación' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('revocada');
+  fireEvent.click(await screen.findByRole('button', { name: 'Aceptar' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('ya no está activa');
   expect(screen.queryByRole('heading', { name: 'Comunidad 4' })).not.toBeInTheDocument();
 });
 it('un integrante existente abre el espacio sin consumir otra invitación', async () => {
@@ -91,21 +91,21 @@ it('una falla de red permite reintentar la consulta', async () => {
   show();
   expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
   fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
-  await screen.findByRole('button', { name: 'Aceptar invitación' });
+  await screen.findByRole('button', { name: 'Aceptar' });
 });
 it('una falla de aceptación conserva la vista previa y permite reintentar', async () => {
   service.acceptInvitation.mockRejectedValueOnce({ status: 0, message: 'Sin conexión' });
   show();
-  fireEvent.click(await screen.findByRole('button', { name: 'Aceptar invitación' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Aceptar' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
-  fireEvent.click(screen.getByRole('button', { name: 'Aceptar invitación' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Aceptar' }));
   await screen.findByRole('heading', { name: 'Comunidad 4' });
 });
 it('si se pierde la respuesta HTTP, un evento autenticado de ingreso evita volver a aceptar', async () => {
   let reject;
   service.acceptInvitation.mockReturnValueOnce(new Promise((_, r) => { reject = r; }));
   show();
-  fireEvent.click(await screen.findByRole('button', { name: 'Aceptar invitación' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Aceptar' }));
   fire('community:new', { comunidad: community });
   await act(async () => reject({ status: 0, message: 'Respuesta perdida' }));
   await screen.findByRole('heading', { name: 'Comunidad 4' });
@@ -122,7 +122,7 @@ it('cambiar de código descarta la respuesta anterior', async () => {
 });
 it('un código inválido no consulta la API', () => {
   show('/invitacion/codigo-demasiado-largo');
-  expect(screen.getByRole('alert')).toHaveTextContent('inválido');
+  expect(screen.getByRole('alert')).toHaveTextContent('No encontramos esta invitación');
   expect(service.previewInvitation).not.toHaveBeenCalled();
 });
 it('foco y reconexión vuelven a verificar la invitación y se limpian los listeners', async () => {
@@ -130,7 +130,7 @@ it('foco y reconexión vuelven a verificar la invitación y se limpian los liste
   await screen.findByRole('heading', { name: 'Club' });
   service.previewInvitation.mockRejectedValue({ code: 'INVITATION_REVOKED', status: 410 });
   fireEvent(window, new Event('focus'));
-  expect(await screen.findByRole('alert')).toHaveTextContent('revocada');
+  expect(await screen.findByRole('alert')).toHaveTextContent('ya no está activa');
   fire('connect');
   await waitFor(() => expect(service.previewInvitation).toHaveBeenCalledTimes(3));
   unmount();

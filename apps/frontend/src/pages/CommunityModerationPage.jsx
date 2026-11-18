@@ -1,76 +1,100 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
-import CommunityNav from '../components/communities/CommunityNav.jsx';
-import FormField from '../components/FormField.jsx';
+import { useParams } from 'react-router';
+import { CommunityShell } from '../components/communities/CommunityNav.jsx';
+import Button from '../components/ui/Button.jsx';
+import Card from '../components/ui/Card.jsx';
+import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Notice from '../components/ui/Notice.jsx';
+import '../styles/members.css';
+import '../styles/moderation.css';
 import { useCommunity } from '../hooks/useCommunity.js';
 import { useCommunityModeration } from '../hooks/useCommunityModeration.js';
 import { CommunityState, useLostCommunity } from './CommunityPage.jsx';
-
 const MAX_REGLAS = 10;
 const MAX_LARGO = 100;
-
+const SUGERIDAS = ['acoso', 'spam', 'política', 'spoilers', 'insultos', 'datos personales', 'links a otros sitios'];
 function ModerationForm({ moderacion, onSave }) {
   const [activa, setActiva] = useState(moderacion.activa);
   const [reglas, setReglas] = useState(moderacion.reglas);
+  const [guardada, setGuardada] = useState(moderacion);
   const [nueva, setNueva] = useState('');
-  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [ok, setOk] = useState(false), [saveError, setSaveError] = useState('');
+  const dirty = activa !== guardada.activa || reglas.join('\n') !== guardada.reglas.join('\n');
+  const bajas = reglas.map((r) => r.toLowerCase());
+  const sugeridas = SUGERIDAS.filter((g) => !bajas.includes(g)).slice(0, 6);
 
-  function add() {
-    const regla = nueva.trim();
+  function add(texto = nueva) {
+    const regla = texto.trim();
     if (!regla) return;
     if (regla.length > MAX_LARGO) { setError(`Cada regla puede tener hasta ${MAX_LARGO} caracteres.`); return; }
-    if (reglas.some((r) => r.toLowerCase() === regla.toLowerCase())) { setError('Esa regla ya está en la lista.'); return; }
+    if (bajas.includes(regla.toLowerCase())) { setError('Esa regla ya está en la lista.'); return; }
     setReglas([...reglas, regla]);
-    setNueva(''); setError(''); setNotice('');
+    if (texto === nueva) setNueva('');
+    setError(''); setOk(false);
   }
   function remove(regla) {
     setReglas(reglas.filter((r) => r !== regla));
-    setNotice('');
+    setOk(false);
   }
-  async function submit(event) {
-    event.preventDefault();
-    setBusy(true); setError(''); setNotice('');
+  async function save() {
+    setBusy(true); setSaveError(''); setOk(false);
     try {
       const saved = await onSave({ activa, reglas });
-      setActiva(saved.activa); setReglas(saved.reglas);
-      setNotice('Moderación guardada.');
+      setActiva(saved.activa); setReglas(saved.reglas); setGuardada(saved);
+      setOk(true);
     } catch (e) {
-      setError(e.message);
+      setSaveError(e.message);
     } finally { setBusy(false); }
   }
 
-  return <form className="community-form moderation-form" onSubmit={submit} aria-busy={busy}>
-    <fieldset disabled={busy}>
-      <label className="channel-checkbox"><input type="checkbox" checked={activa} onChange={(e) => { setActiva(e.target.checked); setNotice(''); }} /> Moderar mensajes con IA</label>
-      <p className="community-help">{activa
-        ? 'Antes de publicarse, cada mensaje de los canales se revisa con estas reglas. Si cumple alguna, se bloquea y el autor ve cuál fue.'
-        : 'Desactivada: los mensajes se publican sin revisión. Las reglas se guardan para cuando la actives.'}</p>
-      <h2>Bloquear el mensaje si contiene…</h2>
-      {!reglas.length && <p className="community-help">{activa ? 'Sin reglas no se bloquea ningún mensaje.' : 'Todavía no hay reglas.'}</p>}
-      {reglas.length > 0 && <ul className="community-list">{reglas.map((regla) => <li key={regla} className="community-member-row community-role-row">
-        <strong>{regla}</strong>
-        <button type="button" className="secondary danger" onClick={() => remove(regla)} aria-label={`Quitar ${regla}`}>Quitar</button>
-      </li>)}</ul>}
-      {reglas.length < MAX_REGLAS
-        ? <div className="moderation-add">
-          <FormField label="Nueva regla" value={nueva} maxLength={MAX_LARGO} placeholder="acoso o violencia"
-            onChange={(e) => setNueva(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
-          <button type="button" className="secondary" onClick={add} disabled={!nueva.trim()}>Agregar</button>
+  return <div className="md">
+    <Card className="md-card">
+      <div className="md-switch-row">
+        <span className={`md-ico ${activa ? 'md-ico-on' : ''}`}><Icon name="moderacion" size={23} stroke={2} /></span>
+        <h2 className="page-h2 md-h2" id="mod-ia">Moderar mensajes con IA</h2>
+        <button type="button" className={`md-sw ${activa ? 'md-sw-on' : ''}`} role="switch" aria-checked={activa} aria-labelledby="mod-ia" disabled={busy}
+          onClick={() => { setActiva(!activa); setOk(false); }}><span /></button>
+      </div>
+    </Card>
+    <Card className={`md-card md-rules ${activa ? '' : 'md-off'}`}>
+      <div className="md-rules-head"><h2 className="page-h2 md-h2">Bloquear el mensaje si contiene…</h2><span className="bdg bdg-base md-count">{reglas.length} de {MAX_REGLAS}</span></div>
+      {reglas.length > 0 && <div className="md-list">{reglas.map((regla) => <span key={regla} className="md-rule">{regla}
+        <button type="button" className="pr" onClick={() => remove(regla)} aria-label={`Quitar ${regla}`}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button></span>)}</div>}
+      {reglas.length < MAX_REGLAS ? <>
+        <div className="md-new">
+          <label className="fl" htmlFor="nueva-regla">Nueva regla</label>
+          <div className="md-new-row">
+            <span className={`inp md-inp ${error || nueva.length > MAX_LARGO ? 'inp-error' : ''}`}>
+              <input id="nueva-regla" type="text" maxLength={120} placeholder="acoso o violencia" value={nueva} disabled={busy}
+                onChange={(e) => { setNueva(e.target.value); setError(''); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
+              <span className="md-len">{nueva.length}/{MAX_LARGO}</span>
+            </span>
+            <Button variant="secundario" onClick={() => add()} disabled={!nueva.trim() || busy}><Icon name="mas" size={17} stroke={2.4} />Agregar</Button>
+          </div>
+          {error && <span className="fld-error" role="alert"><Icon name="error" size={15} stroke={2} />{error}</span>}
         </div>
-        : <p className="community-help">Llegaste al máximo de {MAX_REGLAS} reglas.</p>}
-      <button type="submit">{busy ? 'Guardando…' : 'Guardar cambios'}</button>
-    </fieldset>
-    {error && <p role="alert" className="notice error">{error}</p>}
-    {notice && <p role="status" className="community-success">{notice}</p>}
-  </form>;
+        {sugeridas.length > 0 && <div className="md-sug-wrap"><span className="li-sub">Sugeridas</span><div className="md-list">
+          {sugeridas.map((g) => <button key={g} type="button" className="md-sug pr" onClick={() => add(g)}><Icon name="mas" size={14} stroke={2.4} />{g}</button>)}
+        </div></div>}
+      </> : <div className="md-max"><Icon name="info" size={18} stroke={2.1} /><span>Llegaste al máximo de {MAX_REGLAS} reglas.</span></div>}
+    </Card>
+    {saveError && <Notice tone="error" title={saveError} />}
+    {dirty && <div className="lg dk md-bar">
+      <Icon name="info" size={18} stroke={2.1} />
+      <span className="md-bar-text">Tenés cambios sin guardar</span>
+      <button type="button" className="btn pr md-discard" disabled={busy} onClick={() => { setActiva(guardada.activa); setReglas(guardada.reglas); setError(''); }}>Descartar</button>
+      <Button className="md-save" loading={busy} onClick={save}>{busy ? 'Guardando…' : 'Guardar cambios'}</Button>
+    </div>}
+    {!dirty && ok && <div className="md-ok" role="status"><span className="md-ok-ic"><Icon name="check" size={15} stroke={2.6} /></span>Moderación guardada</div>}
+  </div>;
 }
-
 function ModerationSettings({ detail }) {
-  const { id, miRol, nombre } = detail.comunidad;
+  const { id, miRol } = detail.comunidad;
   const allowed = ['ADMIN', 'PROPIETARIO'].includes(miRol);
   const config = useCommunityModeration(id, allowed);
-
   async function save(datos) {
     try {
       return await config.save(datos);
@@ -79,28 +103,18 @@ function ModerationSettings({ detail }) {
       throw error;
     }
   }
-
-  return <>
-    <header className="page-heading community-page-heading">
-      <div><h1>Moderación</h1><p>{nombre}</p></div>
-    </header>
-    {!allowed ? <p className="center-note">Solo propietarios y administradores pueden configurar la moderación.</p>
-      : config.loading ? <p role="status">Cargando moderación…</p>
-        : config.error ? <p role="alert" className="notice error">{config.error.message} <button type="button" className="secondary" onClick={config.reload}>Reintentar</button></p>
-          : <ModerationForm moderacion={config.moderacion} onSave={save} />}
-  </>;
+  return !allowed ? <Notice tone="conflicto" title="Solo propietarios y administradores pueden configurar la moderación." />
+    : config.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando moderación…</span>
+      : config.error ? <Notice tone="error" title={config.error.message} actionLabel="Reintentar" onAction={config.reload} />
+        : <ModerationForm moderacion={config.moderacion} onSave={save} />;
 }
-
 export default function CommunityModerationPage() {
   const { id: param } = useParams();
   const id = /^\d+$/.test(param ?? '') ? Number(param) : NaN;
   const detail = useCommunity(id);
   useLostCommunity(detail.lost);
-  return <section className="page-container communities-page">
-    <Link className="community-back" to={detail.valid ? `/comunidades/${id}` : '/comunidades'}>← Volver a la comunidad</Link>
-    {!detail.comunidad ? <CommunityState {...detail} /> : <>
-      <CommunityNav comunidad={detail.comunidad} />
+  if (!detail.comunidad) return <div className="page"><div className="page-body"><CommunityState {...detail} /></div></div>;
+  return <CommunityShell comunidad={detail.comunidad}>
       <ModerationSettings key={id} detail={detail} />
-    </>}
-  </section>;
+  </CommunityShell>;
 }

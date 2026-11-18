@@ -1,0 +1,46 @@
+.side { flex: 0 0 300px; border-radius: 32px; box-sizing: border-box; padding: 22px 12px 14px; display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+.side-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 8px; }
+.side-brand { display: flex; align-items: center; gap: 9px; color: #131316; text-decoration: none; }
+.side-brand .dsp { font-size: 26px; }
+.side-new { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+.side-search { height: 44px; border-radius: 22px; padding: 0 6px 0 14px; margin: 0 4px; display: flex; align-items: center; gap: 10px; box-sizing: border-box; }
+.side-search input { flex: 1; min-width: 0; width: auto; height: auto; padding: 0; border: 0; border-radius: 0; background: none; outline: none; font: inherit; font-size: 14px; color: #131316; }
+.side-search:focus-within { outline: 2.5px solid var(--acc); outline-offset: 2px; }
+.side-filter { margin: 0 4px; }
+
+.side-state { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 13px; font-weight: 600; color: rgba(19, 19, 22, .56); }
+.side .empty { margin: 0 4px; }
+.side-list { position: relative; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; }
+.side-lens { left: 0; right: 0; height: 58px; border-radius: 18px; background: rgba(255, 255, 255, .95); }
+
+.row { position: relative; z-index: 1; width: 100%; height: 58px; flex: none; display: flex; align-items: center; gap: 12px; padding: 0 10px; box-sizing: border-box; border-radius: 18px; transition: background-color .2s; color: inherit; text-decoration: none; }
+.row:hover { background: rgba(255, 255, 255, .45); text-decoration: none; }
+.row:focus-visible { outline: 2.5px solid var(--acc); outline-offset: -2px; }
+.row-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nm { font-weight: 600; font-size: 14.5px; color: #131316; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pv { font-size: 13px; color: rgba(19, 19, 22, .56); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tm { font-size: 11.5px; color: rgba(19, 19, 22, .5); font-variant-numeric: tabular-nums; }
+
+.side-friends { --av: 40px; background: color-mix(in srgb, var(--acc) 12%, #fff); color: var(--acc); }
+.side-accent { color: var(--acc); font-weight: 500; }
+.side-badge { background: var(--acc); color: #fff; border-radius: 999px; min-width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+
+.side-me { margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px 8px 0; border-top: 1px solid rgba(19, 19, 22, .07); color: inherit; text-decoration: none; }
+.side-me:hover { text-decoration: none; }
+.side-me-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.side-me-gear { display: flex; flex: none; color: rgba(19, 19, 22, .5); transition: transform .4s, color .2s; }
+.side-me:hover .side-me-gear { color: #131316; transform: rotate(45deg); }
+.side-me-name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-me-reconnect { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: #B07A00; }
+
+@media (max-width: 767px) {
+  .side-head .dsp { font-size: 26px; }
+  .side .segm { background: none; box-shadow: none; padding: 0; gap: 8px; height: auto; }
+  .side .segm::before, .side .segm::after, .side .segm-lens, .side-lens { display: none; }
+  .side .seg { flex: none !important; height: 36px; padding: 0 16px; border-radius: 18px; font-size: 13.5px; background: rgba(255, 255, 255, .55); -webkit-backdrop-filter: blur(18px) saturate(170%); backdrop-filter: blur(18px) saturate(170%); box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .05); }
+  .side .seg[aria-selected='true'] { background: #131316; color: #fff; box-shadow: none; }
+  .side .row { height: 68px; padding: 10px 12px; }
+  .side .row:active { background: rgba(255, 255, 255, .8); }
+  .side-search, .side-filter { margin: 0; }
+}

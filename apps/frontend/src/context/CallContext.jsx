@@ -89,6 +89,7 @@ export function CallProvider({ children }) {
   const [misPermisos, setMisPermisos] = useState([]);
   const [participantes, setParticipantes] = useState([]);
   const [audioBloqueado, setAudioBloqueado] = useState(false);
+  const [desde, setDesde] = useState(null);
   const roomRef = useRef(null);
   const canalRef = useRef(null);
   const intentoRef = useRef(0);
@@ -107,6 +108,7 @@ export function CallProvider({ children }) {
     setError(aError(e));
     setMisPermisos([]);
     setParticipantes([]);
+    setDesde(null);
   }
 
   function escuchar(room, destino) {
@@ -130,7 +132,7 @@ export function CallProvider({ children }) {
     room.on(RoomEvent.Disconnected, (razon) => perderConexion(destino, razon));
   }
 
-  async function conectar(destino, intento, { reemplazar = false } = {}) {
+  async function conectar(destino, intento, { reemplazar = false, microfono = false } = {}) {
     let respuesta;
     try {
       respuesta = await joinCall(destino.id);
@@ -157,6 +159,15 @@ export function CallProvider({ children }) {
       throw new Error('No se pudo conectar con el servidor de llamadas.');
     }
     if (intento !== intentoRef.current) return;
+    if (microfono && llamada.misPermisos.includes('HABLAR')) {
+      try {
+        await room.localParticipant.setMicrophoneEnabled(true);
+      } catch (e) {
+        setError(errorDeMicrofono(e));
+      }
+      if (intento !== intentoRef.current) return;
+    }
+    setDesde((d) => d ?? Date.now());
     setEstado('CONECTADO');
     setParticipantes(leerParticipantes(room));
     setAudioBloqueado(!room.canPlaybackAudio);
@@ -193,6 +204,7 @@ export function CallProvider({ children }) {
     setMisPermisos([]);
     setParticipantes([]);
     setAudioBloqueado(false);
+    setDesde(null);
     setEstado('DESCONECTADO');
   }
 
@@ -205,7 +217,7 @@ export function CallProvider({ children }) {
     setError(null);
     setEstado('CONECTANDO');
     try {
-      await conectar(destino, intento, opciones);
+      await conectar(destino, intento, { ...opciones, microfono: true });
     } catch (e) {
       if (intento === intentoRef.current) fallar(e);
     }
@@ -250,7 +262,7 @@ export function CallProvider({ children }) {
 
   const yo = participantes.find((p) => p.local);
   const value = {
-    estado, canal, error, misPermisos, participantes, audioBloqueado,
+    estado, canal, error, misPermisos, participantes, audioBloqueado, desde,
     microfono: yo?.microfono ?? false, camara: yo?.camara ?? false, pantalla: yo?.pantalla ?? false, puedeCompartirPantalla: soportaPantalla(),
     entrar, salir, alternarMicrofono, alternarCamara, alternarPantalla, activarAudio,
   };

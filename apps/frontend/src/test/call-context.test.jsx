@@ -116,7 +116,7 @@ beforeEach(() => {
   leaveCall.mockReset().mockResolvedValue(null);
 });
 
-it('arranca desconectado y entrar no pide el micrófono', async () => {
+it('arranca desconectado y entrar prende el micrófono', async () => {
   show();
   expect(estado()).toBe('DESCONECTADO');
   fireEvent.click(screen.getByRole('button', { name: 'Unirse' }));
@@ -124,8 +124,8 @@ it('arranca desconectado y entrar no pide el micrófono', async () => {
   await waitFor(() => expect(estado()).toBe('CONECTADO'));
   expect(joinCall).toHaveBeenCalledWith(2);
   expect(ultimaRoom().connect).toHaveBeenCalledWith('wss://lk.test', 'tok');
-  expect(ultimaRoom().localParticipant.setMicrophoneEnabled).not.toHaveBeenCalled();
-  expect(screen.getByTestId('microfono').textContent).toBe('cerrado');
+  expect(ultimaRoom().localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[true]]);
+  expect(screen.getByTestId('microfono').textContent).toBe('abierto');
 });
 
 it('registra los listeners antes de conectarse', async () => {
@@ -142,13 +142,21 @@ it('un doble clic no abre dos conexiones', async () => {
   expect(sdk.rooms).toHaveLength(1);
 });
 
-it('activa y silencia el micrófono solo con una acción explícita', async () => {
+it('silencia y vuelve a activar el micrófono', async () => {
   await conectado();
-  fireEvent.click(screen.getByRole('button', { name: 'Micrófono' }));
   await waitFor(() => expect(screen.getByTestId('microfono').textContent).toBe('abierto'));
   fireEvent.click(screen.getByRole('button', { name: 'Micrófono' }));
   await waitFor(() => expect(screen.getByTestId('microfono').textContent).toBe('cerrado'));
-  expect(ultimaRoom().localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[true], [false]]);
+  fireEvent.click(screen.getByRole('button', { name: 'Micrófono' }));
+  await waitFor(() => expect(screen.getByTestId('microfono').textContent).toBe('abierto'));
+  expect(ultimaRoom().localParticipant.setMicrophoneEnabled.mock.calls).toEqual([[true], [false], [true]]);
+});
+
+it('si el micrófono falla al entrar la llamada sigue', async () => {
+  sdk.micError = Object.assign(new Error('x'), { name: 'NotAllowedError' });
+  await conectado();
+  expect(error()).toBe('El navegador no dio permiso para usar el micrófono.');
+  expect(screen.getByTestId('microfono').textContent).toBe('cerrado');
 });
 
 it('un usuario de solo recepción participa sin que se le pida micrófono', async () => {
@@ -311,7 +319,6 @@ it('desmontar el provider (logout) cierra la llamada', async () => {
 it('la cámara se publica solo con TRANSMITIR y se apaga sin tocar el micrófono', async () => {
   joinCall.mockResolvedValue(llamada(['VER', 'HABLAR', 'TRANSMITIR']));
   await conectado();
-  fireEvent.click(screen.getByRole('button', { name: 'Micrófono' }));
   fireEvent.click(screen.getByRole('button', { name: 'Cámara' }));
   await waitFor(() => expect(screen.getByTestId('camara').textContent).toBe('prendida'));
   expect(screen.getByTestId('videos').textContent).toBe('Fabri');
@@ -336,7 +343,6 @@ it.each([
 ])('un fallo de cámara (%s) no corta el audio', async (name, mensaje) => {
   joinCall.mockResolvedValue(llamada(['VER', 'HABLAR', 'TRANSMITIR']));
   await conectado();
-  fireEvent.click(screen.getByRole('button', { name: 'Micrófono' }));
   await waitFor(() => expect(screen.getByTestId('microfono').textContent).toBe('abierto'));
   sdk.camError = Object.assign(new Error('x'), { name });
   fireEvent.click(screen.getByRole('button', { name: 'Cámara' }));

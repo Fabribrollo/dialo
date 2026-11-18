@@ -1,29 +1,56 @@
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useCommunities } from '../context/CommunitiesContext.jsx';
-import CommunityImage from '../components/communities/CommunityImage.jsx';
+import Button from '../components/ui/Button.jsx';
+import Card, { ListRow, RowText } from '../components/ui/Card.jsx';
+import CommunityTile from '../components/ui/CommunityTile.jsx';
+import EmptyState from '../components/ui/EmptyState.jsx';
+import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Notice from '../components/ui/Notice.jsx';
+import '../styles/page.css';
+import '../styles/communitiesList.css';
 
-export const COMMUNITY_ROLES = { PROPIETARIO: 'Propietario', ADMIN: 'Administrador', MODERADOR: 'Moderador', INTEGRANTE: 'Integrante' };
+export const COMMUNITY_ROLES = { PROPIETARIO: 'Propietario', ADMIN: 'Admin', MODERADOR: 'Moderador', INTEGRANTE: 'Integrante' };
 
 export default function CommunitiesPage() {
   const { items, loading, error, reload } = useCommunities();
   const { state } = useLocation();
-  return <section className="page-container communities-page communities-index" aria-labelledby="communities-title">
-    <header className="page-heading community-page-heading">
-      <div><h1 id="communities-title">Comunidades</h1><p>Las comunidades a las que pertenecés.</p></div>
-      <Link className="button-link" to="/comunidades/nueva">Crear comunidad</Link>
-    </header>
-    {state?.notice && <p role="status" className="community-success">{state.notice}</p>}
-    {error && <p role="alert" className="notice error">{error} <button type="button" className="secondary" onClick={reload}>Reintentar</button></p>}
-    {loading ? <p role="status" className="center-note">Cargando comunidades…</p> : items.length === 0 && !error ?
-      <div className="community-empty"><h2>No pertenecés a ninguna comunidad</h2><p>Podés crear una desde el botón «Crear comunidad».</p></div> :
-      <ul className="community-list">{items.map((comunidad) => <li key={comunidad.id}>
-        <Link className="community-row" to={`/comunidades/${comunidad.id}`}>
-          <CommunityImage nombre={comunidad.nombre} url={comunidad.imagenUrl} />
-          <span className="community-row-text"><strong>{comunidad.nombre}</strong><span>
-            {comunidad.tipo === 'PUBLICA' ? 'Pública' : 'Privada'} · {comunidad.cantidadIntegrantes} {comunidad.cantidadIntegrantes === 1 ? 'integrante' : 'integrantes'}
-          </span></span>
-          <span className="community-role">{COMMUNITY_ROLES[comunidad.miRol]}</span>
-        </Link>
-      </li>)}</ul>}
-  </section>;
+  const navigate = useNavigate();
+  const crear = () => navigate('/comunidades/nueva');
+
+  return (
+    <div className="page">
+      <header className="page-head page-head-line cl-head">
+        <span className="cl-title">
+          <h1 className="dsp">Comunidades</h1>
+          <span className="cl-sub">Las comunidades a las que pertenecés.</span>
+        </span>
+        <Button onClick={crear}><Icon name="mas" size={15} stroke={2.2} />Crear comunidad</Button>
+      </header>
+      <div className="page-body cl-body">
+        {state?.notice && <Notice tone="exito" title={state.notice} />}
+        {error && <Notice tone="error" title="No se pudieron cargar las comunidades" actionLabel="Reintentar" onAction={reload}>Revisá tu conexión.</Notice>}
+        {loading ? (
+          <span className="cl-loading" role="status"><Spinner size={15} />Cargando comunidades…</span>
+        ) : items.length === 0 && !error ? (
+          <EmptyState icon="comunidades" title="No pertenecés a ninguna comunidad" actionLabel="Crear comunidad" onAction={crear}>
+            Podés crear una o entrar con un enlace de invitación.
+          </EmptyState>
+        ) : (
+          <Card as="ul">
+            {items.map((c) => (
+              <ListRow as="li" key={c.id}>
+                <Link className="cl-link" to={`/comunidades/${c.id}`}>
+                  <CommunityTile nombre={c.nombre} imagen={c.imagenUrl} size={42} />
+                  <RowText title={c.nombre}>
+                    {c.tipo === 'PUBLICA' ? 'Pública' : 'Privada'} · {c.cantidadIntegrantes} {c.cantidadIntegrantes === 1 ? 'integrante' : 'integrantes'}
+                  </RowText>
+                  <span className="cl-role">{COMMUNITY_ROLES[c.miRol]}</span>
+                </Link>
+              </ListRow>
+            ))}
+          </Card>
+        )}
+      </div>
+    </div>
+  );
 }

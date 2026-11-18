@@ -1,25 +1,39 @@
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { invitationPath } from '../../utils/invitations.js';
+import Button from '../ui/Button.jsx';
+import Icon from '../ui/Icon.jsx';
 
 export default function CopyInvitationLink({ codigo, disabled = false }) {
-  const id = useId(), messageId = useId(), input = useRef(null);
+  const messageId = useId();
+  const input = useRef(null);
   const [message, setMessage] = useState('');
+  const [manual, setManual] = useState(false);
   const link = `${window.location.origin}${invitationPath(codigo)}`;
+
+  useEffect(() => {
+    if (manual && message) { input.current?.focus(); input.current?.select(); }
+  }, [manual, message]);
+
   async function copy() {
     setMessage('');
     try {
       if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
       await navigator.clipboard.writeText(link);
+      setManual(false);
       setMessage('Enlace copiado.');
     } catch {
-      input.current?.focus(); input.current?.select();
+      setManual(true);
       setMessage('No se pudo copiar automáticamente. El enlace quedó seleccionado para copiarlo manualmente.');
     }
   }
-  return <div className="invitation-copy">
-    <label htmlFor={id}>Enlace de invitación</label>
-    <div><input ref={input} id={id} readOnly value={link} aria-describedby={messageId} onFocus={(e) => e.target.select()} />
-      <button type="button" className="secondary" disabled={disabled} onClick={copy}>Copiar enlace</button></div>
-    <p id={messageId} role="status" className="community-help">{message}</p>
-  </div>;
+
+  return (
+    <>
+      <Button size="sm" variant="secundario" disabled={disabled} onClick={copy} aria-describedby={messageId}>
+        <Icon name="copiar" size={15} stroke={2} />Copiar enlace
+      </Button>
+      {manual && <label className="inp ci-manual"><input ref={input} readOnly value={link} aria-label="Enlace de invitación" onFocus={(e) => e.target.select()} /></label>}
+      <span id={messageId} role="status" className="ci-msg">{message}</span>
+    </>
+  );
 }

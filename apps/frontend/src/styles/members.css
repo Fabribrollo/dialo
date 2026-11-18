@@ -1,0 +1,15 @@
+﻿@import url('../components/ui/badge.css');
+
+.cm-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cm-search { width: min(320px, 100%); height: 42px; }
+.cm-count { font-size: 14px; color: rgba(19, 19, 22, .56); }
+.cm-state { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(19, 19, 22, .56); }
+.cm-who { display: flex; flex-direction: column; gap: 1px; width: 150px; flex: none; min-width: 0; }
+.cm-who .li-title { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cm-roles { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
+.li-quiet.cm-ban { color: #B4142C; }
+
+.cb { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 8px; }
+.cb > ul { align-self: stretch; }
+.mr-options { gap: 8px; }
+.cb-reason { display: block; }

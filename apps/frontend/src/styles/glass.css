@@ -1,0 +1,56 @@
+.dsp { font-family: var(--font-display); font-weight: 800; letter-spacing: -.035em; }
+
+.win {
+  position: relative; isolation: isolate;
+  background: linear-gradient(150deg, rgba(255, 255, 255, .74), rgba(255, 255, 255, .44));
+  backdrop-filter: blur(30px) saturate(1.7); -webkit-backdrop-filter: blur(30px) saturate(1.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .6), inset 0 -15px 25px -20px rgba(19, 19, 22, .08),
+    0 15px 36px -16.1px rgba(19, 19, 22, .18), 0 .9px 4px -.7px rgba(19, 19, 22, .032);
+}
+
+.lg {
+  position: relative; isolation: isolate; background: rgba(255, 255, 255, .35);
+  box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .6), inset 0 -6px 10px -7px rgba(19, 19, 22, .1),
+    0 4.8px 13.6px -5.6px rgba(19, 19, 22, .144), 0 .6px 2.4px -.7px rgba(19, 19, 22, .054);
+}
+
+.lg::before, .win::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
+  background: radial-gradient(260px circle at var(--lx, 22%) var(--ly, -30%), rgba(255, 255, 255, .9), rgba(255, 255, 255, 0) 70%);
+  mix-blend-mode: soft-light;
+}
+.win::before { background: radial-gradient(420px circle at var(--lx, 18%) var(--ly, -10%), rgba(255, 255, 255, .75), rgba(255, 255, 255, 0) 70%); }
+
+.lg::after, .win::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3; padding: 1.4px;
+  background: conic-gradient(from var(--la, -45deg), rgba(255, 255, 255, 1), rgba(255, 255, 255, .3) 16%, rgba(255, 255, 255, .05) 34%,
+    rgba(255, 255, 255, .6) 50%, rgba(255, 255, 255, .05) 66%, rgba(255, 255, 255, .3) 84%, rgba(255, 255, 255, 1));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.win::after { padding: 1.6px; }
+.lg.nr::after { display: none; }
+
+.lg.dk {
+  background: rgba(19, 19, 22, .88); color: #fff;
+  box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .2), inset 0 -7px 11px -8px rgba(0, 0, 0, .25), 0 7.8px 18.4px -6.3px rgba(19, 19, 22, .27);
+}
+.lg.dk::before { background: radial-gradient(220px circle at var(--lx, 22%) var(--ly, -30%), rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 70%); }
+.lg.dk::after { opacity: .65; }
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .win { background: rgba(255, 255, 255, .92); }
+}
+
+.pr { transition: transform .5s cubic-bezier(.3, 1.7, .5, 1), background-color .25s; }
+.pr:hover { transform: scale(1.05); }
+.pr:active { transform: scale(.94); transition-duration: .12s; }
+
+.lens { position: absolute; left: 0; top: 0; pointer-events: none; transition: transform .6s cubic-bezier(.3, 1.35, .45, 1); }
+
+.spin { animation: sp .9s linear infinite; }
+@keyframes sp { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pr, .pr:hover, .pr:active { transition: none; transform: none; }
+  .lens { transition: none; }
+}

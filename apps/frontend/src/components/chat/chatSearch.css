@@ -1,0 +1,5 @@
+.chs { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chs .srch { width: 240px; height: 40px; }
+@media (max-width: 767px) {
+  .chs .srch { width: 150px; }
+}

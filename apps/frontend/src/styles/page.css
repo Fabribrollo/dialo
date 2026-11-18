@@ -1,0 +1,33 @@
+.page { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.page-head { display: flex; align-items: flex-end; gap: 18px; padding: 30px 32px 18px; }
+.page-head h1 { margin: 0; font-size: 44px; line-height: .95; flex: 1; }
+.page-head-line { padding-bottom: 20px; border-bottom: 1px solid rgba(19, 19, 22, .07); }
+.page-body-profile { padding-top: 26px; gap: 14px; }
+.form-head { align-items: center; gap: 16px; padding: 26px 28px 10px; }
+.form-head h1 { font-size: 40px; line-height: 1; }
+.form-back { width: 44px; height: 44px; border-radius: 50%; border: 0; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer; color: #131316; }
+.form-back:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; }
+.form-back-ic { display: flex; transform: rotate(90deg); }
+.form-body { padding: 18px 28px 28px 88px; gap: 14px; }
+@media (max-width: 1023px) { .form-body { padding-left: 28px; } }
+.cs-wrap { flex: 1; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.cs-loading { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: rgba(19, 19, 22, .56); }
+.cs-error { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+.cs-title { margin: 0; font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: 0; line-height: 1.3; }
+.cs-text { margin: 0; font-size: 13.5px; color: rgba(19, 19, 22, .56); }
+.cs-actions { display: flex; gap: 8px; margin-top: 4px; }
+.cd-danger-title { margin: 0; }
+.page-tabs { padding: 0 32px 16px; border-bottom: 1px solid rgba(19, 19, 22, .07); }
+.page-body { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 32px 30px; display: flex; flex-direction: column; gap: 0; scrollbar-width: thin; scrollbar-color: rgba(19, 19, 22, .18) transparent; }
+.page-h2 { margin: 0 0 12px; font-family: var(--font-ui); font-size: 18px; font-weight: 700; letter-spacing: -.01em; line-height: 1.3; }
+.page-h2-gap { margin-top: 26px; }
+
+@media (max-width: 767px) {
+  .page-head, .cn-head, .form-head { padding: 56px 16px 14px; }
+  .page-head h1 { font-size: 38px; line-height: 1; }
+  .cn-title h1 { font-size: 30px; }
+  .page-tabs, .cn-tabs { padding: 0 16px 14px; overflow-x: auto; }
+  .page-body, .cn-body, .form-body { padding: 16px 16px 24px; }
+  .cn-seg { min-width: 560px; }
+  .li { padding: 10px 12px; }
+}

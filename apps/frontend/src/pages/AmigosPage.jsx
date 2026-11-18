@@ -1,63 +1,45 @@
-import { AmigosLista } from "../components/friends/AmigosLista.jsx";
-import { BuscadorUsuarios } from "../components/friends/BuscadorUsuarios.jsx";
-import {
-  SolicitudesEnviadas,
-  SolicitudesRecibidas,
-} from "../components/friends/SolicitudesListas.jsx";
-import { useFriends } from "../hooks/useFriends.js";
+import { useState } from 'react';
+import { AmigosLista } from '../components/friends/AmigosLista.jsx';
+import { BuscadorUsuarios } from '../components/friends/BuscadorUsuarios.jsx';
+import { SolicitudesEnviadas, SolicitudesRecibidas } from '../components/friends/SolicitudesListas.jsx';
+import Segmented from '../components/ui/Segmented.jsx';
+import Notice from '../components/ui/Notice.jsx';
+import { Spinner } from '../components/ui/Icon.jsx';
+import { useFriends } from '../hooks/useFriends.js';
+import '../styles/friends.css';
 
 export default function AmigosPage() {
   const friends = useFriends();
-
-  if (friends.estado === "cargando")
-    return (
-      <div className="empty-state app-loading" role="status">
-        Cargando amigos…
-      </div>
-    );
-  if (friends.estado === "error") {
-    return (
-      <div className="empty-state" role="alert">
-        <p>{friends.error}</p>
-        <button type="button" onClick={friends.recargar}>
-          Reintentar
-        </button>
-      </div>
-    );
-  }
+  const [tab, setTab] = useState('amigos');
+  const pendientes = friends.recibidas.length;
+  const tabs = [
+    { value: 'amigos', label: 'Mis amigos' },
+    { value: 'solicitudes', label: <>Solicitudes{pendientes > 0 && <span className="seg-count">{pendientes}</span>}</> },
+    { value: 'buscar', label: 'Buscar personas' },
+  ];
 
   return (
-    <div className="page-container friends-page">
-      <header className="page-heading">
-        <h1>Amigos</h1>
-        <p>
-          Buscá usuarios y administrá tus solicitudes de amistad.
-        </p>
+    <div className="page">
+      <header className="page-head">
+        <h1 className="dsp">Amigos</h1>
       </header>
-
-      <section className="panel" aria-labelledby="titulo-buscar">
-        <h2 id="titulo-buscar">Buscar personas</h2>
-        <BuscadorUsuarios friends={friends} />
-      </section>
-
-      <section className="panel" aria-labelledby="titulo-recibidas">
-        <h2 id="titulo-recibidas">
-          Solicitudes recibidas ({friends.recibidas.length})
-        </h2>
-        <SolicitudesRecibidas friends={friends} />
-      </section>
-
-      <section className="panel" aria-labelledby="titulo-enviadas">
-        <h2 id="titulo-enviadas">
-          Solicitudes enviadas ({friends.enviadas.length})
-        </h2>
-        <SolicitudesEnviadas friends={friends} />
-      </section>
-
-      <section className="panel" aria-labelledby="titulo-amigos">
-        <h2 id="titulo-amigos">Mis amigos ({friends.amigos.length})</h2>
-        <AmigosLista friends={friends} />
-      </section>
+      <div className="page-tabs">
+        <Segmented dark className="fr-tabs" options={tabs} value={tab} onChange={setTab} label="Secciones de amigos" />
+      </div>
+      <div className="page-body">
+        {friends.estado === 'cargando' && <span className="fr-note" role="status"><Spinner size={15} />Cargando amigos…</span>}
+        {friends.estado === 'error' && <Notice tone="error" title={friends.error} actionLabel="Reintentar" onAction={friends.recargar} />}
+        {friends.estado === 'listo' && tab === 'amigos' && <AmigosLista friends={friends} />}
+        {friends.estado === 'listo' && tab === 'solicitudes' && (
+          <>
+            <h2 className="page-h2">Recibidas</h2>
+            <SolicitudesRecibidas friends={friends} />
+            <h2 className="page-h2 page-h2-gap">Enviadas</h2>
+            <SolicitudesEnviadas friends={friends} />
+          </>
+        )}
+        {tab === 'buscar' && <BuscadorUsuarios friends={friends} />}
+      </div>
     </div>
   );
 }

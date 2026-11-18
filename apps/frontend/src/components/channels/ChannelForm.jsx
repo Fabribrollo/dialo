@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import FormField from '../FormField.jsx';
 import * as service from '../../services/channelsService.js';
+import Button from '../ui/Button.jsx';
+import Icon from '../ui/Icon.jsx';
+import Notice from '../ui/Notice.jsx';
+import './channelForm.css';
 
 export const CHANNEL_TYPES = { TEXTO: 'Texto', VOZ: 'Voz', VIDEO: 'Voz' };
-const TIPOS_ELEGIBLES = ['TEXTO', 'VOZ'];
+const TIPOS_ELEGIBLES = [['TEXTO', 'Texto', 'canalTexto'], ['VOZ', 'Voz', 'canalVoz']];
 
-export default function ChannelForm({ idComunidad, canal, version, onSaved, onCancel, onReload, onUnavailable }) {
+export default function ChannelForm({ idComunidad, canal, version, onSaved, onCancel, onReload, onUnavailable, onEditAccess, onDelete }) {
   const [nombre, setNombre] = useState(canal?.nombre ?? '');
   const [tipo, setTipo] = useState('TEXTO');
   const [privado, setPrivado] = useState(false);
@@ -13,6 +16,8 @@ export default function ChannelForm({ idComunidad, canal, version, onSaved, onCa
   const initialVersion = useRef(version), pending = useRef(false), alive = useRef(false);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => { if (canal && initialVersion.current !== version && !pending.current) setStale(true); }, [canal, version, busy]);
+  const esTexto = (canal?.tipo ?? tipo) === 'TEXTO';
+
   async function submit(event) {
     event.preventDefault();
     if (pending.current || stale) return;
@@ -31,21 +36,64 @@ export default function ChannelForm({ idComunidad, canal, version, onSaved, onCa
       }
     } finally { pending.current = false; if (alive.current) setBusy(false); }
   }
-  return <form className="community-form channel-form" onSubmit={submit} aria-busy={busy}>
-    <h2>{canal ? 'Editar canal' : 'Crear canal'}</h2>
-    {stale && <p role="alert" className="notice error">El canal pudo cambiar en otra sesión. Recargá el formulario antes de guardar.
-      <button type="button" className="secondary" onClick={onReload}>Recargar formulario</button></p>}
-    <fieldset disabled={busy || stale}>
-      <FormField label="Nombre del canal" value={nombre} maxLength={32} required onChange={(e) => setNombre(e.target.value)} autoFocus />
-      {canal ? <p className="community-help">Tipo: {CHANNEL_TYPES[canal.tipo]}. El tipo no se puede cambiar después de crearlo.</p>
-        : <FormField as="select" label="Tipo de canal" value={tipo} onChange={(e) => setTipo(e.target.value)}>
-          {TIPOS_ELEGIBLES.map((value) => <option key={value} value={value}>{CHANNEL_TYPES[value]}</option>)}
-        </FormField>}
-      {!canal && <label className="channel-checkbox"><input type="checkbox" checked={privado} onChange={(e) => setPrivado(e.target.checked)} /> Canal privado</label>}
-      {!canal && privado && <p className="community-help">Al crearlo, solo propietarios y administradores podrán verlo. Después podés habilitar roles e integrantes en Permisos.</p>}
-      <button type="submit">{busy ? 'Guardando…' : canal ? 'Guardar canal' : 'Crear canal'}</button>
-    </fieldset>
-    {error && <p role="alert" className="notice error">{error}</p>}
-    <button type="button" className="secondary channel-cancel" disabled={busy} onClick={onCancel}>Cancelar</button>
-  </form>;
+
+  return (
+    <form className="chf" onSubmit={submit} aria-busy={busy} noValidate>
+      <div className="chf-head">
+        <h2 className="dsp">{canal ? 'Editar canal' : 'Crear canal'}</h2>
+        <button type="button" className="chf-close pr" aria-label="Cerrar" disabled={busy} onClick={onCancel}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+        </button>
+      </div>
+      {stale && <Notice tone="conflicto" role="alert" title="El canal pudo cambiar en otra sesión" actionLabel="Recargar formulario" onAction={onReload}>Recargá para ver la última versión antes de guardar.</Notice>}
+      <fieldset className="chf-fields" disabled={busy || stale}>
+        {!canal && (
+          <div className="chf-types" role="radiogroup" aria-label="Tipo de canal">
+            {TIPOS_ELEGIBLES.map(([valor, texto, icono]) => (
+              <label key={valor} className={`cf-opt pr ${tipo === valor ? 'cf-opt-on' : ''}`}>
+                <input type="radio" name="tipo" value={valor} checked={tipo === valor} onChange={() => setTipo(valor)} />
+                <span className="cf-oi"><Icon name={icono} size={19} stroke={2} /></span>
+                <span className="cf-ot">{texto}</span>
+                <span className="cf-ck"><Icon name="check" size={13} stroke={3} /></span>
+              </label>
+            ))}
+          </div>
+        )}
+        <div className="fld">
+          <label className="fl" htmlFor="chf-nombre">Nombre del canal</label>
+          <span className={`inp ${error ? 'inp-error' : ''}`}>
+            {esTexto && <span className="chf-hash">#</span>}
+            <input id="chf-nombre" value={nombre} maxLength={32} onChange={(e) => setNombre(e.target.value)} autoFocus />
+          </span>
+          {error && <span className="fld-error" role="alert"><Icon name="error" size={15} stroke={2} />{error}</span>}
+        </div>
+        {canal && (
+          <div className="chf-type-row">
+            <Icon name={esTexto ? 'canalTexto' : 'canalVoz'} size={17} stroke={2} />
+            <span>{esTexto ? 'Canal de texto' : 'Canal de voz'}</span>
+          </div>
+        )}
+        {!canal ? (
+          <div className="chf-priv">
+            <span className="chf-priv-row">
+              <span className="chf-priv-label" id="chf-priv">Canal privado</span>
+              <button type="button" className={`md-sw ${privado ? 'md-sw-on' : ''}`} role="switch" aria-checked={privado} aria-labelledby="chf-priv" onClick={() => setPrivado(!privado)}><span /></button>
+            </span>
+          </div>
+        ) : onEditAccess && (
+          <div className="chf-priv">
+            <button type="button" className="lnk lnk-primario chf-access" onClick={onEditAccess}>
+              Editar permisos<span className="chf-arrow"><Icon name="chevron" size={14} stroke={2.2} /></span>
+            </button>
+          </div>
+        )}
+      </fieldset>
+      <div className="chf-actions">
+        {onDelete && <button type="button" className="chf-delete pr" disabled={busy} onClick={(e) => onDelete(e.currentTarget)}><Icon name="papelera" size={16} stroke={2} />Eliminar canal</button>}
+        <span className="chf-spacer" />
+        <Button variant="secundario" disabled={busy} onClick={onCancel}>Cancelar</Button>
+        <Button type="submit" loading={busy} disabled={stale}>{busy ? 'Guardando…' : canal ? 'Guardar canal' : 'Crear canal'}</Button>
+      </div>
+    </form>
+  );
 }

@@ -1,17 +1,21 @@
-import CommunityNav from '../components/communities/CommunityNav.jsx';
+import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import FormField from '../components/FormField.jsx';
+import { useParams } from 'react-router';
+import Button from '../components/ui/Button.jsx';
+import Card, { ListRow } from '../components/ui/Card.jsx';
+import Field from '../components/ui/Field.jsx';
+import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Notice from '../components/ui/Notice.jsx';
+import '../styles/members.css';
+import '../styles/invitations.css';
 import CopyInvitationLink from '../components/communities/CopyInvitationLink.jsx';
 import CommunityActionDialog from '../components/communities/CommunityActionDialog.jsx';
 import { useCommunity } from '../hooks/useCommunity.js';
 import { useCommunityCollection } from '../hooks/useCommunityCollection.js';
 import { CommunityState, useLostCommunity } from './CommunityPage.jsx';
 import * as service from '../services/invitationsService.js';
-import { invitationStatus } from '../utils/invitations.js';
-
+import { invitationPath, invitationStatus } from '../utils/invitations.js';
 const STATES = { ACTIVA: 'Activa', REVOCADA: 'Revocada', VENCIDA: 'Vencida', AGOTADA: 'Agotada' };
-
 function InvitationRow({ invitacion, idComunidad, onRevoked }) {
   const [confirm, setConfirm] = useState(false);
   const trigger = useRef(null);
@@ -26,23 +30,24 @@ function InvitationRow({ invitacion, idComunidad, onRevoked }) {
     return () => clearTimeout(timer);
   }, [invitacion.fechaExpiracion]);
   const status = invitationStatus(invitacion, now);
-  return <li className="invitation-row">
-    <div className="invitation-row-heading"><strong>{STATES[status]}</strong><span className="community-help">
-      {invitacion.usos} {invitacion.usosMaximos === null ? 'usos · sin límite' : `de ${invitacion.usosMaximos} usos`}
-    </span></div>
-    <p className="community-help">{invitacion.fechaExpiracion
-      ? `Vence: ${new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(invitacion.fechaExpiracion))}`
-      : 'Sin vencimiento'} · Creada por {invitacion.creador.nombreVisible}</p>
+  const sub = [
+    `${window.location.host}${invitationPath(invitacion.codigo)}`,
+    invitacion.usosMaximos === null ? `${invitacion.usos} usos` : `${invitacion.usos} de ${invitacion.usosMaximos} usos`,
+    invitacion.fechaExpiracion ? `Vence ${new Intl.DateTimeFormat('es-AR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(invitacion.fechaExpiracion))}` : 'Sin vencimiento',
+  ].join(' · ');
+  return <ListRow as="li" className="ci-row">
+    <span className="ci-ic"><Icon name="enlace" size={18} stroke={2} /></span>
+    <span className="ci-text"><span className="ci-code">{invitacion.codigo}</span><span className="li-sub">{sub}</span></span>
+    {status !== 'ACTIVA' && <span className="bdg bdg-base">{STATES[status]}</span>}
     <CopyInvitationLink codigo={invitacion.codigo} disabled={status !== 'ACTIVA'} />
-    {status === 'ACTIVA' && <button ref={trigger} type="button" className="secondary danger" onClick={() => setConfirm(true)}>Revocar invitación</button>}
+    {status === 'ACTIVA' && <button ref={trigger} type="button" className="li-quiet ci-revoke pr" aria-label="Revocar invitación" onClick={() => setConfirm(true)}>Revocar</button>}
     {confirm && <CommunityActionDialog title="¿Revocar esta invitación?" description="El enlace dejará de permitir nuevos ingresos. Las personas que ya ingresaron conservarán su membresía."
       confirmLabel="Revocar invitación" returnFocusRef={trigger} onClose={() => setConfirm(false)} onConfirm={async () => {
         await service.revokeInvitation(idComunidad, invitacion.id);
         if (alive.current) onRevoked(invitacion.id);
       }} />}
-  </li>;
+  </ListRow>;
 }
-
 export default function CommunityInvitationsPage() {
   const { id: param } = useParams();
   const id = /^\d+$/.test(param ?? '') ? Number(param) : NaN;
@@ -50,7 +55,7 @@ export default function CommunityInvitationsPage() {
   const permitted = ['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(detail.comunidad?.miRol);
   const list = useCommunityCollection(id, service.getInvitations, permitted);
   const [duration, setDuration] = useState('24'), [uses, setUses] = useState('');
-  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [usesError, setUsesError] = useState('');
   const pending = useRef(false), alive = useRef(false), operation = useRef(0);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => { operation.current++; pending.current = false; setBusy(false); setError(''); setNotice(''); setDuration('24'); setUses(''); }, [id]);
@@ -60,9 +65,9 @@ export default function CommunityInvitationsPage() {
     if (pending.current || !permitted) return;
     const usosMaximos = uses === '' ? null : Number(uses);
     if (usosMaximos !== null && (!Number.isInteger(usosMaximos) || usosMaximos < 1 || usosMaximos > 100)) {
-      setError('La cantidad máxima de usos debe estar entre 1 y 100.'); return;
+      setUsesError('La cantidad máxima de usos debe estar entre 1 y 100.'); return;
     }
-    pending.current = true; setBusy(true); setError(''); setNotice('');
+    pending.current = true; setBusy(true); setError(''); setUsesError(''); setNotice('');
     const version = operation.current;
     try {
       const { invitacion } = await service.createInvitation(id, { duracionHoras: duration === '' ? null : Number(duration), usosMaximos });
@@ -72,37 +77,31 @@ export default function CommunityInvitationsPage() {
     } catch (e) { if (alive.current && version === operation.current) setError(e.message); }
     finally { if (version === operation.current) { pending.current = false; if (alive.current) setBusy(false); } }
   }
-  return <section className="page-container communities-page">
-    <Link className="community-back" to={detail.valid ? `/comunidades/${id}` : '/comunidades'}>← Volver a la comunidad</Link>
-    {!detail.comunidad ? <CommunityState {...detail} /> : <>
-      <CommunityNav comunidad={detail.comunidad} />
-      <header className="page-heading community-page-heading"><div><h1>Invitaciones</h1><p>{detail.comunidad.nombre}</p></div>
-        {permitted && <button type="button" className="secondary" disabled={list.refreshing || busy} onClick={() => { detail.reload(); list.reload(); }}>Actualizar</button>}</header>
-      {!permitted ? <p role="alert">Tu rol no permite administrar invitaciones.</p> : <>
-        {detail.error && <p role="alert" className="notice error">No se pudo actualizar la comunidad. {detail.error.message}</p>}
-        <form className="invitation-form" onSubmit={create} aria-busy={busy}>
-          <h2>Crear invitación</h2>
-          <fieldset disabled={busy}>
-            <FormField as="select" label="Vencimiento" value={duration} onChange={(e) => setDuration(e.target.value)}>
-              <option value="1">1 hora</option><option value="24">24 horas</option><option value="168">7 días</option><option value="">Sin vencimiento</option>
-            </FormField>
-            <FormField label="Máximo de usos (opcional)" type="number" min="1" max="100" step="1" value={uses} onChange={(e) => setUses(e.target.value)} />
-            <p className="community-help">Dejá el máximo de usos vacío para permitir ingresos sin límite.</p>
-            <button type="submit">{busy ? 'Creando…' : 'Generar invitación'}</button>
-          </fieldset>
-          {error && <p role="alert" className="notice error">{error}</p>}
-          {notice && <p role="status" className="community-success">{notice}</p>}
-        </form>
-        <h2>Invitaciones de la comunidad</h2>
-        {list.error && <p role="alert" className="notice error">{list.error.message} <button className="secondary" onClick={list.reload}>Reintentar</button></p>}
-        {list.loading ? <p role="status" className="center-note">Cargando invitaciones…</p> :
-          <ul className="community-list invitation-list">{list.items.map((inv) => <InvitationRow key={inv.id} invitacion={inv} idComunidad={id}
+  if (!detail.comunidad) return <div className="page"><div className="page-body"><CommunityState {...detail} /></div></div>;
+  return <CommunityShell comunidad={detail.comunidad}>
+      {!permitted ? <Notice tone="error" title="Tu rol no permite administrar invitaciones." /> : <>
+        {detail.error && <Notice tone="error" title="No se pudo actualizar la comunidad." actionLabel="Reintentar" onAction={detail.reload} />}
+        <Card as="form" className="ci-new" onSubmit={create} aria-busy={busy} noValidate>
+          <h2 className="page-h2 ci-h2">Nueva invitación</h2>
+          <div className="ci-fields">
+            <Field label="Máximo de usos" type="number" min="1" max="100" step="1" placeholder="Sin límite" value={uses} disabled={busy} onChange={(e) => setUses(e.target.value)} error={usesError} />
+            <Field as="select" label="Vence" value={duration} disabled={busy} onChange={(e) => setDuration(e.target.value)}>
+              <option value="1">En 1 hora</option><option value="24">En 24 horas</option><option value="168">En 7 días</option><option value="">Sin vencimiento</option>
+            </Field>
+            <Button type="submit" loading={busy}>{busy ? 'Creando…' : 'Crear invitación'}</Button>
+          </div>
+          {error && <Notice tone="error" title={error} />}
+          {notice && <Notice tone="exito" title={notice} />}
+        </Card>
+        <h2 className="page-h2 page-h2-gap">Activas</h2>
+        {list.error && <Notice tone="error" title={list.error.message} actionLabel="Reintentar" onAction={list.reload} />}
+        {list.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando invitaciones…</span> :
+          list.items.length > 0 && <Card as="ul">{list.items.map((inv) => <InvitationRow key={inv.id} invitacion={inv} idComunidad={id}
             onRevoked={(revoked) => {
               list.mutate((old) => old.map((item) => item.id === revoked ? { ...item, estado: 'REVOCADA' } : item));
               setNotice('Invitación revocada.');
-            }} />)}</ul>}
-        {!list.loading && !list.error && list.items.length === 0 && <p className="center-note">No hay invitaciones creadas.</p>}
+            }} />)}</Card>}
+        {!list.loading && !list.error && list.items.length === 0 && <span className="cm-state">No hay invitaciones creadas.</span>}
       </>}
-    </>}
-  </section>;
+  </CommunityShell>;
 }

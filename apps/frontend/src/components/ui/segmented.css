@@ -1,0 +1,16 @@
+.segm { height: 44px; border-radius: 22px; padding: 4px; box-sizing: border-box; display: flex; background: rgba(19, 19, 22, .045); }
+.segm-lens {
+  top: 4px; height: 36px; border-radius: 18px; background: rgba(255, 255, 255, .95); transform: none;
+  transition: left .32s cubic-bezier(.2, .8, .2, 1), width .32s cubic-bezier(.2, .8, .2, 1);
+}
+.seg {
+  flex: 1; height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px; position: relative; z-index: 1;
+  border: 0; padding: 0; background: none; font: inherit; font-size: 13px; letter-spacing: -.005em; font-weight: 600;
+  color: rgba(19, 19, 22, .62); text-align: center; cursor: pointer; border-radius: 18px;
+}
+.segm-lens.dk { background: rgba(19, 19, 22, .88); }
+.segm-dk .seg { font-size: 13.5px; transition: color .3s; }
+.segm-dk .seg[aria-selected='true'] { color: #fff; }
+.seg-count { min-width: 18px; height: 18px; border-radius: 9px; background: var(--acc); color: #fff; font-size: 10.5px; display: flex; align-items: center; justify-content: center; }
+.seg:focus-visible { outline: 2.5px solid var(--acc); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) { .segm-lens { transition: none; } }

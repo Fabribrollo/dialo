@@ -1,4 +1,4 @@
-import { emitWithAck } from '../utils-chat.js';
+import { emitWithAck } from '../utils/chat.js';
 
 // Serializar las altas/bajas de una misma room conserva el orden A → B → A
 // incluso si el primer ack llega después de desmontar su vista.

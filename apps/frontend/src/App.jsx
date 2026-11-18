@@ -1,8 +1,11 @@
-import { Navigate, Route, Routes } from "react-router";
+import { lazy, Suspense } from "react";
+import { Route, Routes } from "react-router";
+import NotFoundPage from "./pages/NotFoundPage.jsx";
 import GuestRoute from "./components/GuestRoute.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { SocketProvider } from "./context/SocketContext.jsx";
 import { useAuth } from "./hooks/useAuth.js";
+import { useGlassLight } from "./hooks/useGlassLight.js";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import ProfilePage from "./pages/ProfilePage.jsx";
@@ -23,8 +26,11 @@ import InvitationPage from "./pages/InvitationPage.jsx";
 import CommunityChannelsPage from "./pages/CommunityChannelsPage.jsx";
 import CommunityModerationPage from "./pages/CommunityModerationPage.jsx";
 
+const DevComponentsPage = import.meta.env.DEV ? lazy(() => import("./pages/DevComponentsPage.jsx")) : null;
+
 export default function App() {
   const { estado, usuario } = useAuth();
+  useGlassLight();
 
   return (
     <SocketProvider
@@ -61,9 +67,12 @@ export default function App() {
             <Route path="/invitacion" element={<CommunitiesLayout />}>
               <Route path=":codigo" element={<InvitationPage />} />
             </Route>
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {DevComponentsPage && (
+          <Route path="/dev/componentes" element={<Suspense><DevComponentsPage /></Suspense>} />
+        )}
       </Routes>
     </SocketProvider>
   );

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import CommunitiesLayout from '../context/CommunitiesContext.jsx';
@@ -48,13 +48,13 @@ it('lista, abre y consulta una comunidad con su rol', async () => {
   show();
   fireEvent.click(await screen.findByRole('link', { name: /Club de lectura/ }));
   await screen.findByRole('heading', { name: 'Club de lectura' });
-  expect(screen.getByText('Propietario')).toBeInTheDocument();
+  expect(screen.getByText('Tu rol: Propietario')).toBeInTheDocument();
   expect(service.getCommunity).toHaveBeenCalledWith(4);
 });
 it('distingue lista vacía de error y permite recuperar el listado', async () => {
   service.getCommunities.mockRejectedValueOnce(new Error('Sin conexión')).mockResolvedValue({ items: [] });
   show();
-  expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
+  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar las comunidades');
   expect(screen.queryByText('No pertenecés a ninguna comunidad')).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
   await screen.findByText('No pertenecés a ninguna comunidad');
@@ -63,13 +63,13 @@ it.each(['INTEGRANTE', 'MODERADOR'])('un %s no recibe controles de edición o el
   service.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol } });
   show('/comunidades/4');
   await screen.findByRole('heading', { name: 'Club de lectura' });
-  expect(screen.queryByRole('link', { name: 'Editar comunidad' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Editar comunidad' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Eliminar comunidad' })).not.toBeInTheDocument();
 });
 it('un administrador puede editar y no eliminar', async () => {
   service.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol: 'ADMIN' } });
   show('/comunidades/4');
-  expect(await screen.findByRole('link', { name: 'Editar comunidad' })).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Editar comunidad' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Eliminar comunidad' })).not.toBeInTheDocument();
 });
 it('impide editar abriendo la URL directamente sin permiso', async () => {
@@ -78,19 +78,25 @@ it('impide editar abriendo la URL directamente sin permiso', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('No tenés permiso');
   expect(screen.queryByLabelText('Nombre de la comunidad')).not.toBeInTheDocument();
 });
-it('cancelar la eliminación no llama a la API y restaura el foco', async () => {
+it('el resumen no muestra eliminar; está en editar comunidad', async () => {
   show('/comunidades/4');
+  await screen.findByRole('heading', { name: 'Club de lectura' });
+  expect(screen.queryByRole('button', { name: 'Eliminar comunidad' })).not.toBeInTheDocument();
+});
+it('cancelar la eliminación no llama a la API y restaura el foco', async () => {
+  show('/comunidades/4/editar');
   const trigger = await screen.findByRole('button', { name: 'Eliminar comunidad' });
   trigger.focus(); fireEvent.click(trigger);
   expect(screen.getByRole('dialog')).toHaveTextContent('Club de lectura');
-  fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar' }));
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(service.deleteCommunity).not.toHaveBeenCalled();
   expect(trigger).toHaveFocus();
 });
 it('eliminar confirma, retira el espacio y vuelve al listado', async () => {
-  show('/comunidades/4');
+  show('/comunidades/4/editar');
   fireEvent.click(await screen.findByRole('button', { name: 'Eliminar comunidad' }));
+  fireEvent.change(screen.getByLabelText('Escribí «Club de lectura» para confirmar'), { target: { value: 'Club de lectura' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar comunidad' }).at(-1));
   await screen.findByRole('heading', { name: 'Comunidades', exact: true });
   expect(service.deleteCommunity).toHaveBeenCalledWith(4);
@@ -98,8 +104,9 @@ it('eliminar confirma, retira el espacio y vuelve al listado', async () => {
 });
 it('una falla de eliminación conserva el diálogo y la comunidad', async () => {
   service.deleteCommunity.mockRejectedValue(new Error('No se pudo eliminar'));
-  show('/comunidades/4');
+  show('/comunidades/4/editar');
   fireEvent.click(await screen.findByRole('button', { name: 'Eliminar comunidad' }));
+  fireEvent.change(screen.getByLabelText('Escribí «Club de lectura» para confirmar'), { target: { value: 'Club de lectura' } });
   fireEvent.click(screen.getAllByRole('button', { name: 'Eliminar comunidad' }).at(-1));
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo eliminar');
   expect(screen.getByRole('dialog')).toBeInTheDocument();
@@ -133,11 +140,11 @@ it('un error al guardar conserva el texto y tipo elegidos', async () => {
   service.createCommunity.mockRejectedValue(new Error('Sin conexión'));
   show('/comunidades/nueva');
   fireEvent.change(screen.getByLabelText('Nombre de la comunidad'), { target: { value: 'Mi comunidad' } });
-  fireEvent.change(screen.getByLabelText('Tipo de comunidad'), { target: { value: 'PUBLICA' } });
+  fireEvent.click(screen.getByRole('radio', { name: 'Pública' }));
   fireEvent.click(screen.getByRole('button', { name: 'Crear comunidad' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
   expect(screen.getByLabelText('Nombre de la comunidad')).toHaveValue('Mi comunidad');
-  expect(screen.getByLabelText('Tipo de comunidad')).toHaveValue('PUBLICA');
+  expect(screen.getByRole('radio', { name: 'Pública' })).toBeChecked();
 });
 it('una actualización remota no reemplaza el borrador de edición', async () => {
   show('/comunidades/4/editar');
@@ -150,7 +157,7 @@ it('una actualización remota no reemplaza el borrador de edición', async () =>
 });
 it('rechaza imágenes inválidas sin intentar subirlas', async () => {
   show('/comunidades/nueva');
-  fireEvent.change(screen.getByLabelText('Imagen (opcional)'), { target: { files: [new File(['test'], 'test.txt', { type: 'text/plain' })] } });
+  fireEvent.change(screen.getByLabelText('Subir imagen'), { target: { files: [new File(['test'], 'test.txt', { type: 'text/plain' })] } });
   expect(screen.getByRole('alert')).toHaveTextContent('hasta 2 MB');
   expect(service.uploadCommunityImage).not.toHaveBeenCalled();
 });
@@ -159,7 +166,7 @@ it('si falla la imagen tras crear, reintentar conserva el ID y no duplica la com
     .mockResolvedValue({ comunidad: { ...community, imagenUrl: '/foto.webp' } });
   show('/comunidades/nueva');
   fireEvent.change(screen.getByLabelText('Nombre de la comunidad'), { target: { value: 'Club de lectura' } });
-  fireEvent.change(screen.getByLabelText('Imagen (opcional)'), { target: { files: [new File(['png'], 'foto.png', { type: 'image/png' })] } });
+  fireEvent.change(screen.getByLabelText('Subir imagen'), { target: { files: [new File(['png'], 'foto.png', { type: 'image/png' })] } });
   fireEvent.click(screen.getByRole('button', { name: 'Crear comunidad' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Los datos de la comunidad se guardaron');
   fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
@@ -171,7 +178,7 @@ it('si falla la imagen tras crear, reintentar conserva el ID y no duplica la com
 });
 it('cargar imagen en una edición conserva el ID y usa el servicio de imagen', async () => {
   show('/comunidades/4/editar');
-  const input = await screen.findByLabelText('Cambiar imagen');
+  const input = await screen.findByLabelText('Subir imagen');
   const file = new File(['png'], 'foto.png', { type: 'image/png' });
   fireEvent.change(input, { target: { files: [file] } });
   fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
@@ -196,10 +203,10 @@ it('impide guardados duplicados mientras la creación está pendiente', async ()
 it('una imagen de más de 2 MB bloquea el envío hasta quitar la selección o corregirla', () => {
   show('/comunidades/nueva');
   const file = new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'grande.png', { type: 'image/png' });
-  fireEvent.change(screen.getByLabelText('Imagen (opcional)'), { target: { files: [file] } });
+  fireEvent.change(screen.getByLabelText('Subir imagen'), { target: { files: [file] } });
   expect(screen.getByRole('alert')).toHaveTextContent('hasta 2 MB');
   expect(screen.getByRole('button', { name: 'Crear comunidad' })).toBeDisabled();
-  fireEvent.click(screen.getByRole('button', { name: 'Quitar selección' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Quitar' }));
   expect(screen.getByRole('button', { name: 'Crear comunidad' })).toBeEnabled();
 });
 
