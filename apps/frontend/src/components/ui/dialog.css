@@ -1,0 +1,21 @@
+.dlg {
+  width: 520px; max-width: calc(100vw - 32px); border: 0; border-radius: 30px; padding: 26px; box-sizing: border-box;
+  flex-direction: column; gap: 18px; color: var(--ink);
+  background: rgba(255, 255, 255, .96); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .8), 0 30px 70px -30px rgba(19, 19, 22, .4);
+}
+.dlg[open] { display: flex; }
+.dlg::backdrop { background: rgba(236, 236, 240, .5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+
+.dlg-confirm {
+  width: 440px; border-radius: 28px; padding: 22px; gap: 14px; background: #fff;
+  box-shadow: 0 24px 60px -24px rgba(19, 19, 22, .45), inset 0 0 0 1px rgba(19, 19, 22, .05);
+}
+.dlg-confirm h3 { margin: 0; font-family: var(--font-ui); font-size: 19px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
+.dlg-sub { font-size: 14px; color: rgba(19, 19, 22, .56); line-height: 1.45; }
+.dlg-error { border-radius: 20px; background: rgba(215, 38, 61, .08); padding: 10px 12px; font-size: 13px; display: flex; gap: 10px; align-items: center; line-height: 1.4; }
+.dlg-error svg { color: #D7263D; flex: none; }
+.dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+.dlg-form { display: flex; flex-direction: column; gap: 14px; }
+.dlg-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.dlg-fieldset p { margin: 0; font-size: 14px; color: rgba(19, 19, 22, .56); line-height: 1.45; }

@@ -2,7 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useState } from 'react';
 import ChannelChat from '../components/channel-chat/ChannelChat.jsx';
-import ChannelSelector from '../components/channels/ChannelSelector.jsx';
+
 import { useChannelMessages } from '../hooks/useChannelMessages.js';
 vi.mock('../hooks/useChannelMessages.js', () => ({ useChannelMessages: vi.fn() }));
 vi.mock('../hooks/useAuth.js', () => ({ useAuth: () => ({ usuario: { id: 1, nombreVisible: 'Valen', nombreUsuario: 'valen' }, refresh: vi.fn() }) }));
@@ -12,8 +12,8 @@ const message = (id, autor, extra={}) => ({ id, idCanal:4, autor, contenido:`Tex
 let state;
 function View() { const [draft,setDraft]=useState('');return <ChannelChat canal={canal} draft={draft} setDraft={setDraft} />; }
 const view=()=>render(<View />);
-const own=()=>screen.getByText('Texto 1').closest('.message');
-const other=()=>screen.getByText('Texto 2').closest('.message');
+const own=()=>screen.getByText('Texto 1').closest('.msg');
+const other=()=>screen.getByText('Texto 2').closest('.msg');
 beforeEach(()=>{
  state={canal,ready:true,connected:true,loading:false,messages:[message(1,person(1,'Valen')),message(2,person(2,'Feli'))],members:[{usuario:person(1,'Valen'),rol:'PROPIETARIO'},{usuario:person(2,'Felipe'),rol:'INTEGRANTE'}],membersReady:true,cursor:null,error:'',memberError:'',reload:vi.fn(),older:vi.fn(),action:vi.fn().mockResolvedValue({})};
  useChannelMessages.mockImplementation(()=>state);
@@ -62,14 +62,20 @@ it('pérdida de acceso retira el historial y el formulario',()=>{
 it('los integrantes son consultables bajo demanda',()=>{
  view();expect(screen.queryByText('Integrantes de la comunidad')).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Integrantes'}));expect(screen.getByText('Integrantes de la comunidad')).toBeInTheDocument();fireEvent.keyDown(screen.getByRole('region',{name:'Chat de general'}),{key:'Escape'});expect(screen.queryByText('Integrantes de la comunidad')).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Integrantes'})).toHaveFocus();
 });
-it('la lista de canales se despliega en el catálogo y se contrae al abrir un canal',()=>{
- const mounted=render(<ChannelSelector><a href="#canal">general</a></ChannelSelector>);expect(screen.getByText('general')).toBeVisible();
- mounted.rerender(<ChannelSelector selected="4"><a href="#canal">general</a></ChannelSelector>);
- expect(screen.getByText('general')).not.toBeVisible();fireEvent.click(screen.getByText('Cambiar canal')); // jsdom no implementa toggle nativo; se comprueba el control semántico.
- expect(screen.getByText('Cambiar canal').tagName).toBe('SUMMARY');
-});
 it('reconectar no vuelve a abrir una confirmación invalidada por la desconexión',()=>{
  const mounted=view();fireEvent.click(within(other()).getByRole('button',{name:/Eliminar mensaje/}));expect(screen.getByRole('dialog')).toBeInTheDocument();
  state={...state,ready:false,connected:false,messages:[]};mounted.rerender(<View/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
  state={...state,ready:true,connected:true,messages:[message(2,person(2,'Feli'))]};mounted.rerender(<View/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+it('un mensaje bloqueado por moderación queda en el chat con Editar y Descartar, sin volver al compositor', async () => {
+  state.action = vi.fn().mockRejectedValue(Object.assign(new Error('Bloqueado: contiene insultos'), { code: 'MESSAGE_BLOCKED' }));
+  view();
+  const input = screen.getByLabelText('Mensaje en general');
+  fireEvent.change(input, { target: { value: 'sos un tonto' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Enviar mensaje al canal' }));
+  expect(await screen.findByText('Bloqueado: contiene insultos')).toBeInTheDocument();
+  expect(input).toHaveValue('');
+  fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
+  expect(screen.queryByText('sos un tonto')).not.toBeInTheDocument();
 });

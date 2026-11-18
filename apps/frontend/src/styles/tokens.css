@@ -1,0 +1,23 @@
+:root {
+  --acc: #6A3CF5;
+  --ink: #131316;
+  --ink-2: rgba(19, 19, 22, .56);
+  --ink-3: rgba(19, 19, 22, .5);
+  --bg: #ECEDF0;
+  --bg-board: #E0E1E6;
+  --chat-bg: #F9F9FB;
+  --av-bg: #D8D9DF;
+  --danger: #D7263D;
+  --danger-text: #B4142C;
+  --online: #1FAE5B;
+  --away: #F2B01E;
+  --font-display: 'Schibsted Grotesk', system-ui, sans-serif;
+  --font-ui: 'Geist', system-ui, sans-serif;
+  --r-panel: 32px;
+  --r-pill: 22px;
+  --r-row: 18px;
+  --r-input: 16px;
+  --r-menu: 24px;
+}
+
+html, body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); margin: 0; }

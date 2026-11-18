@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useSocket } from '../../hooks/useSocket.js';
 import { EVENTS } from '../../constants/events.js';
 import { getCommunityRoles } from '../../services/communityRolesService.js';
-import FormField from '../FormField.jsx';
+import Field, { CheckField } from '../ui/Field.jsx';
+import Button from '../ui/Button.jsx';
+import Card from '../ui/Card.jsx';
+import Notice from '../ui/Notice.jsx';
+import { Spinner } from '../ui/Icon.jsx';
+import './channelAccess.css';
 import { getCommunityMembers } from '../../services/communitiesService.js';
 import { getChannelAccess, replaceChannelAccess } from '../../services/channelsService.js';
 
@@ -51,21 +56,21 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
       return { ...old, [key]: { ...grant, permisos: [...values] } };
     });
   }
-  function row(key, label) {
+  function row(key, label, sub, aria = label) {
     const grant = grants[key];
     const extra = grant?.permisos.filter((p) => !allowed.includes(p)) ?? [];
-    return <fieldset key={key} className="channel-permission-row">
-      <legend>{label}</legend>
-      <div className="channel-permission-options">{allowed.map((permission) => <label key={permission} className="channel-checkbox">
-        <input type="checkbox" aria-label={`${label}: ${LABELS[permission]}`} checked={grant?.permisos.includes(permission) ?? false}
-          onChange={(e) => toggle(key, permission, e.target.checked)} />{LABELS[permission]}</label>)}</div>
-      {extra.length > 0 && <p className="community-help">También conserva permisos para otros tipos: {extra.map((p) => LABELS[p]).join(', ')}.</p>}
-      {!key.startsWith('rol:') && <button type="button" className="secondary" onClick={() => setGrants((old) => {
+    return <fieldset key={key} className="cpa-row">
+      <legend className="sr-only">{aria}</legend>
+      <span className="cpa-who"><span className="li-title">{label}</span>{sub && <span className="li-sub">{sub}</span>}
+        {extra.length > 0 && <span className="li-sub">También conserva permisos para otros tipos: {extra.map((p) => LABELS[p]).join(', ')}.</span>}</span>
+      <span className="cpa-pills">{allowed.map((permission) => <label key={permission} className={`cpa-pill ${grant?.permisos.includes(permission) ? 'cpa-on' : ''}`}>
+        <input type="checkbox" aria-label={`${aria}: ${LABELS[permission]}`} checked={grant?.permisos.includes(permission) ?? false}
+          onChange={(e) => toggle(key, permission, e.target.checked)} />{LABELS[permission]}</label>)}</span>
+      {!key.startsWith('rol:') && <button type="button" className="li-quiet cm-ban pr" aria-label={`Quitar habilitación de ${aria}`} onClick={() => setGrants((old) => {
         const next = { ...old }; delete next[key]; return next;
-      })}>Quitar habilitación de {label}</button>}
+      })}>Quitar</button>}
     </fieldset>;
-  }
-  async function submit(event) {
+  }  async function submit(event) {
     event.preventDefault();
     if (pending.current || stale || !config) return;
     const habilitaciones = Object.values(grants).filter((g) => g.permisos.length).map((g) => ({
@@ -86,50 +91,55 @@ export default function ChannelAccessForm({ canal, version, onSaved, onCancel, o
       }
     } finally { pending.current = false; if (alive.current) setBusy(false); }
   }
-  return <form className="channel-access-form" onSubmit={submit} aria-busy={busy}>
-    <h2>Permisos de {canal.nombre}</h2>
-    {stale && <p role="alert" className="notice error">La configuración pudo cambiar. Recargá el formulario antes de guardar.
-      <button type="button" className="secondary" onClick={onReload}>Recargar formulario</button></p>}
-    {error && <p role="alert" className="notice error">{error} {!config && <button type="button" className="secondary" onClick={() => setAttempt((n) => n + 1)}>Reintentar permisos</button>}</p>}
-    {!config && !error && <p role="status">Cargando permisos, roles e integrantes…</p>}
-    {config && <fieldset disabled={busy || stale} className="channel-access-fields">
-      <label className="channel-checkbox"><input type="checkbox" checked={privado} onChange={(e) => setPrivado(e.target.checked)} /> Canal privado</label>
-      <p className="community-help">{privado ? 'Solo tendrán acceso los roles e integrantes habilitados.' : canal.tipo === 'TEXTO'
-        ? 'Todos los integrantes pueden ver y escribir. Las habilitaciones agregan permisos; no los restringen.'
-        : 'Todos los integrantes pueden ver y hablar. Las habilitaciones agregan permisos; no los restringen.'}</p>
-      <p className="community-help">Propietario y administradores siempre tienen acceso completo. Para un canal de solo lectura, elegí privado y habilitá únicamente Ver.</p>
-      <h3>Por rol</h3>
-      {row('rol:MODERADOR', 'Moderadores')}{row('rol:INTEGRANTE', 'Integrantes')}
-      <h3>Por rol personalizado</h3>
-      {custom.map(([key, grant]) => row(key, grant.rolPersonalizado.nombre))}
-      {roles.length ? <div className="channel-add-member">
-        <FormField as="select" label="Rol personalizado a habilitar" value={roleTarget} onChange={(e) => setRoleTarget(e.target.value)}>
-          <option value="">Elegir rol</option>
-          {roles.filter((role) => !grants[`custom:${role.id}`])
-            .map((role) => <option key={role.id} value={role.id}>{role.nombre}</option>)}
-        </FormField>
-        <button type="button" className="secondary" disabled={!roleTarget} onClick={() => {
-          const role = roles.find((item) => String(item.id) === roleTarget);
-          if (role) setGrants((old) => ({ ...old, [`custom:${role.id}`]: { rolPersonalizado: role, permisos: ['VER'] } }));
-          setRoleTarget('');
-        }}>Agregar rol</button>
-      </div> : <p className="community-help">No hay roles personalizados. Podés crearlos desde la pestaña Roles.</p>}
-      <h3>Por integrante</h3>
-      {individual.map(([key, grant]) => row(key, `${grant.usuario.nombreVisible} (@${grant.usuario.nombreUsuario})`))}
-      <div className="channel-add-member">
-        <FormField as="select" label="Integrante a habilitar" value={target} onChange={(e) => setTarget(e.target.value)}>
-          <option value="">Elegir integrante</option>
-          {members.filter((m) => !['PROPIETARIO', 'ADMIN'].includes(m.rol) && !grants[`user:${m.usuario.id}`])
-            .map(({ usuario }) => <option key={usuario.id} value={usuario.id}>{usuario.nombreVisible} (@{usuario.nombreUsuario})</option>)}
-        </FormField>
-        <button type="button" className="secondary" disabled={!target} onClick={() => {
-          const member = members.find((m) => String(m.usuario.id) === target);
-          if (member) setGrants((old) => ({ ...old, [`user:${target}`]: { usuario: member.usuario, permisos: ['VER'] } }));
-          setTarget('');
-        }}>Agregar integrante</button>
+  return <form className="cpa" onSubmit={submit} aria-busy={busy}>
+    <div className="cpa-head">
+      <h2 className="dsp">Permisos de {canal.tipo === 'TEXTO' ? '#' : ''}{canal.nombre}</h2>
+      {privado && <span className="li-sub cpa-sub">Solo tienen acceso los roles e integrantes habilitados.</span>}
+    </div>
+    {stale && <Notice tone="conflicto" role="alert" title="La configuración cambió" actionLabel="Recargar formulario" onAction={onReload}>Recargá el formulario antes de guardar.</Notice>}
+    {error && <Notice tone="error" title={error} actionLabel={!config ? 'Reintentar permisos' : undefined} onAction={() => setAttempt((n) => n + 1)} />}
+    {!config && !error && <span className="cm-state" role="status"><Spinner size={15} />Cargando permisos, roles e integrantes…</span>}
+    {config && <fieldset disabled={busy || stale} className="cpa-fields">
+      <CheckField label="Canal privado" checked={privado} onChange={(e) => setPrivado(e.target.checked)} />
+      <Notice tone="conflicto" title="Propietario y administradores siempre tienen acceso completo">Para un canal de solo lectura, habilitá únicamente Ver.</Notice>
+      <div className="cpa-cols">
+        <Card className="cpa-col">
+          <h3 className="page-h2 cpa-h3">Roles</h3>
+          {row('rol:MODERADOR', 'Moderador', 'Rol base', 'Moderadores')}{row('rol:INTEGRANTE', 'Integrante', 'Rol base', 'Integrantes')}
+          <span className="cpa-sep">Personalizados</span>
+          {custom.map(([key, grant]) => row(key, grant.rolPersonalizado.nombre))}
+          {roles.length ? <div className="cpa-add">
+            <Field as="select" label="Rol personalizado a habilitar" value={roleTarget} onChange={(e) => setRoleTarget(e.target.value)}>
+              <option value="">Elegir rol</option>
+              {roles.filter((role) => !grants[`custom:${role.id}`]).map((role) => <option key={role.id} value={role.id}>{role.nombre}</option>)}
+            </Field>
+            <Button size="sm" variant="secundario" disabled={!roleTarget} onClick={() => {
+              const role = roles.find((item) => String(item.id) === roleTarget);
+              if (role) setGrants((old) => ({ ...old, [`custom:${role.id}`]: { rolPersonalizado: role, permisos: ['VER'] } }));
+              setRoleTarget('');
+            }}>Agregar rol</Button>
+          </div> : <span className="li-sub">No hay roles personalizados. Podés crearlos desde la pestaña Roles.</span>}
+        </Card>
+        <Card className="cpa-col">
+          <h3 className="page-h2 cpa-h3">Integrantes</h3>
+          {individual.map(([key, grant]) => row(key, grant.usuario.nombreVisible, `@${grant.usuario.nombreUsuario}`, `${grant.usuario.nombreVisible} (@${grant.usuario.nombreUsuario})`))}
+          <div className="cpa-add">
+            <Field as="select" label="Integrante a habilitar" value={target} onChange={(e) => setTarget(e.target.value)}>
+              <option value="">Elegir integrante</option>
+              {members.filter((m) => !['PROPIETARIO', 'ADMIN'].includes(m.rol) && !grants[`user:${m.usuario.id}`])
+                .map(({ usuario }) => <option key={usuario.id} value={usuario.id}>{usuario.nombreVisible} (@{usuario.nombreUsuario})</option>)}
+            </Field>
+            <Button size="sm" variant="secundario" disabled={!target} onClick={() => {
+              const member = members.find((m) => String(m.usuario.id) === target);
+              if (member) setGrants((old) => ({ ...old, [`user:${target}`]: { usuario: member.usuario, permisos: ['VER'] } }));
+              setTarget('');
+            }}>Agregar integrante</Button>
+          </div>
+        </Card>
       </div>
-      <button type="submit">{busy ? 'Guardando…' : 'Guardar permisos'}</button>
     </fieldset>}
-    <button type="button" className="secondary channel-cancel" disabled={busy} onClick={onCancel}>Cancelar</button>
-  </form>;
-}
+    <div className="cpa-actions">
+      <Button variant="secundario" disabled={busy} onClick={onCancel}>Cancelar</Button>
+      {config && <Button type="submit" loading={busy} disabled={stale}>{busy ? 'Guardando…' : 'Guardar permisos'}</Button>}
+    </div>
+  </form>;}

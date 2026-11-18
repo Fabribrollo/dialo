@@ -1,26 +1,39 @@
-import CommunityDashboard from '../components/communities/CommunityDashboard.jsx';
-import CommunityNav from '../components/communities/CommunityNav.jsx';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
+import CommunityDashboard from '../components/communities/CommunityDashboard.jsx';
+import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import { useCommunities } from '../context/CommunitiesContext.jsx';
 import { useCommunity } from '../hooks/useCommunity.js';
-import { deleteCommunity, leaveCommunity } from '../services/communitiesService.js';
-import CommunityImage from '../components/communities/CommunityImage.jsx';
-import DeleteCommunityDialog from '../components/communities/DeleteCommunityDialog.jsx';
-import CommunityActionDialog from '../components/communities/CommunityActionDialog.jsx';
-import { COMMUNITY_ROLES } from './CommunitiesPage.jsx';
+import { leaveCommunity } from '../services/communitiesService.js';
+import Button from '../components/ui/Button.jsx';
+import Card from '../components/ui/Card.jsx';
+import Notice from '../components/ui/Notice.jsx';
+import { Spinner } from '../components/ui/Icon.jsx';
+import { ConfirmDialog } from '../components/ui/Dialog.jsx';
+import '../styles/page.css';
+import '../components/communities/communityDashboard.css';
 
 export function CommunityState({ valid, lost, loading, error, comunidad, reload }) {
-  if (!valid) return <div className="community-empty"><h1>Comunidad inválida</h1><Link to="/comunidades">Volver a comunidades</Link></div>;
-  if (lost) return <p role="status">Volviendo a comunidades…</p>;
-  if (loading) return <p role="status" className="center-note">Cargando comunidad…</p>;
-  if (!comunidad) return <div className="community-empty">
-    <h1>No pudimos abrir la comunidad</h1>
-    <p role="alert">{[403, 404].includes(error?.status) ? 'La comunidad no existe o no tenés acceso.' : error?.message || 'No se pudo cargar la comunidad.'}</p>
-    <div className="community-actions">{![401, 403, 404].includes(error?.status) && <button type="button" onClick={reload}>Reintentar</button>}
-      <Link to="/comunidades">Volver a comunidades</Link></div>
-  </div>;
-  return null;
+  const navigate = useNavigate();
+  const volver = () => navigate('/comunidades');
+  let content = null;
+  if (!valid) content = <div className="cs-error"><h1 className="cs-title">Comunidad inválida</h1><Button size="sm" onClick={volver}>Volver a comunidades</Button></div>;
+  else if (lost) content = <span className="cs-loading" role="status"><Spinner size={15} />Volviendo a comunidades…</span>;
+  else if (loading) content = <span className="cs-loading" role="status"><Spinner size={15} />Cargando comunidad…</span>;
+  else if (!comunidad) {
+    const sinAcceso = [403, 404].includes(error?.status);
+    content = (
+      <div className="cs-error">
+        <h1 className="cs-title">No pudimos abrir la comunidad</h1>
+        <p role="alert" className="cs-text">{sinAcceso ? 'La comunidad no existe o no tenés acceso.' : 'No se pudo cargar la comunidad.'}</p>
+        <div className="cs-actions">
+          {![401, 403, 404].includes(error?.status) && <Button size="sm" onClick={reload}>Reintentar</Button>}
+          <Button size="sm" variant={sinAcceso ? 'primario' : 'secundario'} onClick={volver}>Volver a comunidades</Button>
+        </div>
+      </div>
+    );
+  }
+  return content && <div className="cs-wrap">{content}</div>;
 }
 
 export function useLostCommunity(lost) {
@@ -36,65 +49,64 @@ export default function CommunityPage() {
   const detail = useCommunity(id);
   const { comunidad, error } = detail;
   const { forget } = useCommunities();
-  const [confirming, setConfirming] = useState(false);
-  const deleteButton = useRef(null);
-  const [leaving, setLeaving] = useState(false);
-  const leaveButton = useRef(null);
+  const [dialog, setDialog] = useState(null);
+  const [estado, setEstado] = useState({ busy: false, error: '' });
   const actionVersion = useRef(0);
   const navigate = useNavigate();
   const { state } = useLocation();
   useLostCommunity(detail.lost);
-  useEffect(() => { setConfirming(false); setLeaving(false); }, [id]);
+  useEffect(() => { setDialog(null); }, [id]);
   useEffect(() => {
     actionVersion.current++;
     return () => { actionVersion.current++; };
   }, [id]);
-  const canManage = ['ADMIN', 'PROPIETARIO'].includes(comunidad?.miRol);
   const isOwner = comunidad?.miRol === 'PROPIETARIO';
-  const canInvite = ['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(comunidad?.miRol);
-  return <section className="page-container communities-page community-home">
-    <Link className="community-back" to="/comunidades">← Comunidades</Link>
-    {!comunidad ? <CommunityState {...detail} /> : <>
-      {state?.notice && <p role="status" className="community-success">{state.notice}</p>}
-      {error && <p role="alert" className="notice error">No se pudo actualizar la información. {error.message} <button className="secondary" onClick={detail.reload}>Reintentar</button></p>}
-      <header className="community-overview">
-        <CommunityImage nombre={comunidad.nombre} url={comunidad.imagenUrl} large />
-        <div><h1>{comunidad.nombre}</h1><p>{comunidad.tipo === 'PUBLICA' ? 'Pública' : 'Privada'} · {comunidad.cantidadIntegrantes} {comunidad.cantidadIntegrantes === 1 ? 'integrante' : 'integrantes'}</p></div>
-      </header>
-      <CommunityNav comunidad={comunidad} />
-      <CommunityDashboard key={comunidad.id} comunidad={comunidad} />
-      <div className="community-management">
-      <dl className="community-facts">
-        <div><dt>Tu rol</dt><dd>{COMMUNITY_ROLES[comunidad.miRol]}</dd></div>
-        <div><dt>Creada</dt><dd>{new Intl.DateTimeFormat('es-AR', { dateStyle: 'long' }).format(new Date(comunidad.fechaCreacion))}</dd></div>
-      </dl>
-      <div className="community-actions">
-        {canInvite && <Link className="community-secondary-link" to={`/comunidades/${id}/invitaciones`}>Administrar invitaciones</Link>}
-        {canManage && <Link className="community-secondary-link" to={`/comunidades/${id}/editar`}>Editar comunidad</Link>}
+
+  function cerrar() {
+    setDialog(null);
+    setEstado({ busy: false, error: '' });
+  }
+
+  async function confirmar() {
+    const version = actionVersion.current;
+    setEstado({ busy: true, error: '' });
+    try {
+      await leaveCommunity(id);
+      forget(id);
+      if (version === actionVersion.current) {
+        navigate('/comunidades', { replace: true, state: { notice: 'Abandonaste la comunidad.' } });
+      }
+    } catch (e) {
+      setEstado({ busy: false, error: e.message || 'No se pudo completar. Probá de nuevo.' });
+    }
+  }
+
+  if (!comunidad) return <div className="page"><div className="page-body"><CommunityState {...detail} /></div></div>;
+
+  return (
+    <CommunityShell comunidad={comunidad}>
+      {state?.notice && <Notice tone="exito" title={state.notice} />}
+      {error && <Notice tone="error" title="No se pudo actualizar la información" actionLabel="Reintentar" onAction={detail.reload}>Lo que ves puede estar desactualizado.</Notice>}
+      <div className="cd-grid">
+        <CommunityDashboard key={comunidad.id} comunidad={comunidad} />
+        {!isOwner && <Card className="cd-danger">
+          <h2 className="page-h2 cd-danger-title">Salir de la comunidad</h2>
+          <div className="cd-danger-btns">
+            <Button size="sm" variant="secundario" onClick={() => setDialog('abandonar')}>Abandonar comunidad</Button>
+          </div>
+        </Card>}
       </div>
-      {!isOwner && <section className="community-danger-zone" aria-labelledby="community-leave-title">
-        <h2 id="community-leave-title">Abandonar comunidad</h2><p>Dejarás de tener acceso a esta comunidad y a sus canales.</p>
-        <button ref={leaveButton} type="button" className="secondary danger" onClick={() => setLeaving(true)}>Abandonar comunidad</button>
-      </section>}
-      {isOwner && <section className="community-danger-zone" aria-labelledby="community-delete-title">
-        <h2 id="community-delete-title">Eliminar comunidad</h2>
-        <p>Esta acción elimina también los canales, sus mensajes y las invitaciones.</p>
-        <button ref={deleteButton} type="button" className="danger-button" onClick={() => setConfirming(true)}>Eliminar comunidad</button>
-      </section>}
-      </div>
-      {confirming && isOwner && <DeleteCommunityDialog comunidad={comunidad} returnFocusRef={deleteButton} onClose={() => setConfirming(false)} onConfirm={async () => {
-        const version = actionVersion.current;
-        await deleteCommunity(id);
-        forget(id);
-        if (version === actionVersion.current) navigate('/comunidades', { replace: true, state: { notice: 'Comunidad eliminada.' } });
-      }} />}
-      {leaving && !isOwner && <CommunityActionDialog title={`¿Abandonar «${comunidad.nombre}»?`}
-        description="Perderás el acceso a la comunidad y sus canales. Para volver a una comunidad privada necesitarás una invitación válida."
-        confirmLabel="Abandonar comunidad" returnFocusRef={leaveButton} onClose={() => setLeaving(false)} onConfirm={async () => {
-          const version = actionVersion.current;
-          await leaveCommunity(id); forget(id);
-          if (version === actionVersion.current) navigate('/comunidades', { replace: true, state: { notice: 'Abandonaste la comunidad.' } });
-        }} />}
-    </>}
-  </section>;
+      <ConfirmDialog
+        open={dialog === 'abandonar'}
+        title={`¿Abandonar «${comunidad.nombre}»?`}
+        confirmLabel="Abandonar comunidad"
+        loading={estado.busy}
+        error={estado.error}
+        onCancel={cerrar}
+        onConfirm={confirmar}
+      >
+        Vas a perder el acceso a la comunidad y sus canales. Para volver a una comunidad privada vas a necesitar una invitación válida.
+      </ConfirmDialog>
+    </CommunityShell>
+  );
 }

@@ -19,7 +19,7 @@ vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));
 vi.mock('../hooks/useAuth.js', () => ({ useAuth: () => ({ usuario: { id: 1 } }) }));
 vi.mock('../services/communitiesService.js', () => ({ getCommunity: vi.fn(), getCommunities: vi.fn(), getCommunityMembers: vi.fn(), deleteCommunity: vi.fn(), leaveCommunity: vi.fn() }));
 vi.mock('../services/communityRolesService.js', () => ({ getCommunityRoles: vi.fn() }));
-vi.mock('../services/channelsService.js', () => ({ getChannels: vi.fn(), createChannel: vi.fn(), updateChannel: vi.fn(), deleteChannel: vi.fn(), orderChannels: vi.fn(), getChannelAccess: vi.fn(), replaceChannelAccess: vi.fn() }));
+vi.mock('../services/channelsService.js', () => ({ suggestChannel: vi.fn(), getChannels: vi.fn(), createChannel: vi.fn(), updateChannel: vi.fn(), deleteChannel: vi.fn(), orderChannels: vi.fn(), getChannelAccess: vi.fn(), replaceChannelAccess: vi.fn() }));
 const community = { id: 4, nombre: 'Club', tipo: 'PRIVADA', miRol: 'PROPIETARIO', cantidadIntegrantes: 2, fechaCreacion: '2026-10-19T12:00:00Z' };
 const text = { id: 1, idComunidad: 4, nombre: 'general', tipo: 'TEXTO', privado: false, posicion: 0, misPermisos: ['VER', 'ESCRIBIR'] };
 const voice = { ...text, id: 2, nombre: 'charla', tipo: 'VOZ', posicion: 1, misPermisos: ['VER', 'HABLAR'] };
@@ -64,7 +64,7 @@ it('integra navegación desde la comunidad y lista tipos en orden', async () => 
 it.each(['INTEGRANTE', 'MODERADOR'])('%s consulta canales pero no administra ni carga habilitaciones', async (miRol) => {
   communities.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol } });
   items = [{ ...text, misPermisos: ['VER'] }]; show();
-  expect(await screen.findByText('Este canal es de solo lectura para tu cuenta.')).toBeInTheDocument();
+  expect(await screen.findByText('Este canal es de solo lectura para tu cuenta')).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Crear canal' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Permisos' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /Subir/ })).not.toBeInTheDocument();
@@ -74,7 +74,7 @@ it('voz y video muestran el panel de llamada y texto no', async () => {
   show('/comunidades/4/canales/2');
   expect(await screen.findByText('Panel de llamada de charla')).toBeInTheDocument();
   fireEvent.click(screen.getAllByRole('link', { name: /general/ })[0]);
-  await screen.findByText('Tenés permisos de lectura y escritura.');
+  await within(panel()).findByRole('heading', { name: 'general' });
   expect(screen.queryByText(/Panel de llamada/)).not.toBeInTheDocument();
 });
 it('resuelve un canal inexistente sin revelar datos', async () => {
@@ -90,59 +90,88 @@ it('muestra vacío y permite recuperarse de un error de listado', async () => {
   fireEvent.click(await screen.findByRole('button', { name: 'Reintentar canales' }));
   expect(await screen.findByText('No hay canales disponibles para tu cuenta.')).toBeInTheDocument();
 });
-it('crea un canal privado de voz y abre el resultado sin duplicar envíos', async () => {
+async function wizardHastaDetalles() {
+  fireEvent.click(await screen.findByRole('radio', { name: 'Voz' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  fireEvent.click(screen.getByRole('radio', { name: /Lo armo yo/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  return screen.getByLabelText('Nombre');
+}
+it('crea un canal privado de voz en pasos y abre el resultado sin duplicar envíos', async () => {
   const pending = deferred(); channels.createChannel.mockReturnValue(pending.promise); show('/comunidades/4/canales/nuevo');
-  const name = await screen.findByLabelText('Nombre del canal'); fireEvent.change(name, { target: { value: 'audio' } });
-  fireEvent.change(screen.getByLabelText('Tipo de canal'), { target: { value: 'VOZ' } }); fireEvent.click(screen.getByLabelText('Canal privado'));
-  const form = name.closest('form'); fireEvent.submit(form); fireEvent.submit(form);
+  const name = await wizardHastaDetalles(); fireEvent.change(name, { target: { value: 'audio' } });
+  fireEvent.click(screen.getByRole('switch', { name: 'Canal privado' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  const crear = within(screen.getByRole('dialog')).getByRole('button', { name: 'Crear canal' }); fireEvent.click(crear); fireEvent.click(crear);
   expect(channels.createChannel).toHaveBeenCalledExactlyOnceWith(4, { nombre: 'audio', tipo: 'VOZ', privado: true });
   items = [...items, { ...voice, id: 8, nombre: 'audio', privado: true }];
   await act(async () => pending.resolve({ canal: items.at(-1) }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Ir al canal' }));
   expect(await within(panel()).findByRole('heading', { name: 'audio' })).toBeInTheDocument();
 });
-it('rechaza espacios inválidos y conserva el formulario ante un error de creación', async () => {
-  show('/comunidades/4/canales/nuevo'); const name = await screen.findByLabelText('Nombre del canal');
-  fireEvent.change(name, { target: { value: ' mal ' } }); fireEvent.submit(name.closest('form'));
+it('rechaza espacios inválidos en los detalles y conserva el nombre ante un error de creación', async () => {
+  show('/comunidades/4/canales/nuevo'); const name = await wizardHastaDetalles();
+  fireEvent.change(name, { target: { value: ' mal ' } }); fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Usá entre 1 y 32'); expect(channels.createChannel).not.toHaveBeenCalled();
   channels.createChannel.mockRejectedValue(fail(0, 'NETWORK_ERROR', 'Sin conexión'));
-  fireEvent.change(name, { target: { value: 'nuevo' } }); fireEvent.submit(name.closest('form'));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión'); expect(name).toHaveValue('nuevo');
+  fireEvent.change(screen.getByLabelText('Nombre'), { target: { value: 'nuevo' } }); fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Crear canal' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
+  fireEvent.click(screen.getByRole('button', { name: 'Atrás' })); expect(screen.getByLabelText('Nombre')).toHaveValue('nuevo');
+});
+it('si la IA no está disponible ofrece completar a mano', async () => {
+  show('/comunidades/4/canales/nuevo');
+  fireEvent.click(await screen.findByRole('button', { name: 'Siguiente' }));
+  fireEvent.change(screen.getByLabelText('Contale a la IA para qué es el canal'), { target: { value: 'dudas del parcial' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Proponer con IA' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Completar a mano' }));
+  expect(screen.getByLabelText('Nombre')).toBeInTheDocument();
 });
 it('edita solo el nombre, el tipo queda fijo y un error no pierde los cambios', async () => {
   channels.updateChannel.mockRejectedValue(fail(400, 'VALIDATION_ERROR', 'Datos inválidos')); show();
   fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
   expect(screen.queryByLabelText('Tipo de canal')).not.toBeInTheDocument();
-  expect(screen.getByText(/El tipo no se puede cambiar después de crearlo/)).toBeInTheDocument();
+  expect(screen.getByText('Canal de texto')).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Nombre del canal'), { target: { value: 'avisos' } });
   fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('Datos inválidos');
   expect(channels.updateChannel).toHaveBeenCalledWith(1, { nombre: 'avisos' });
   expect(screen.getByLabelText('Nombre del canal')).toHaveValue('avisos');
 });
-it('eliminar exige confirmar, cancelar devuelve el foco y confirmar retira el canal', async () => {
-  show(); const button = await screen.findByRole('button', { name: 'Eliminar canal' }); fireEvent.click(button);
-  fireEvent.click(screen.getByRole('button', { name: 'Cancelar' })); expect(button).toHaveFocus(); expect(channels.deleteChannel).not.toHaveBeenCalled();
-  fireEvent.click(button); fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar canal' }));
+it('adentro del canal no hay botón de eliminar', async () => {
+  show(); await screen.findByRole('button', { name: 'Permisos' });
+  expect(screen.queryByRole('button', { name: 'Eliminar canal' })).not.toBeInTheDocument();
+});
+it('eliminar desde editar exige confirmar, cancelar devuelve el foco y confirmar retira el canal', async () => {
+  show('/comunidades/4/canales'); fireEvent.click(await screen.findByRole('button', { name: 'Editar «general»' }));
+  const button = await screen.findByRole('button', { name: 'Eliminar canal' }); fireEvent.click(button);
+  fireEvent.click(within(screen.getAllByRole('dialog').at(-1)).getByRole('button', { name: 'Cancelar' })); expect(button).toHaveFocus(); expect(channels.deleteChannel).not.toHaveBeenCalled();
+  fireEvent.click(button); fireEvent.click(within(screen.getAllByRole('dialog').at(-1)).getByRole('button', { name: 'Eliminar canal' }));
   await waitFor(() => expect(channels.deleteChannel).toHaveBeenCalledExactlyOnceWith(1));
   await waitFor(() => expect(screen.queryByRole('link', { name: /Texto general/ })).not.toBeInTheDocument());
 });
 it('un error al eliminar mantiene la confirmación disponible', async () => {
-  channels.deleteChannel.mockRejectedValue(fail(0, 'NETWORK_ERROR', 'Sin conexión')); show();
-  fireEvent.click(await screen.findByRole('button', { name: 'Eliminar canal' })); fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Eliminar canal' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión'); expect(screen.getByRole('dialog')).toBeInTheDocument();
+  channels.deleteChannel.mockRejectedValue(fail(0, 'NETWORK_ERROR', 'Sin conexión')); show('/comunidades/4/canales');
+  fireEvent.click(await screen.findByRole('button', { name: 'Editar «general»' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Eliminar canal' })); fireEvent.click(within(screen.getAllByRole('dialog').at(-1)).getByRole('button', { name: 'Eliminar canal' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión'); expect(screen.getAllByRole('dialog').length).toBeGreaterThan(0);
 });
-it('ordena con controles accesibles enviando el conjunto completo y bloquea repeticiones', async () => {
-  const pending = deferred(); channels.orderChannels.mockReturnValue(pending.promise); show();
-  const down = await screen.findByRole('button', { name: 'Bajar «general»' }); await waitFor(() => expect(down).toBeEnabled());
-  expect(screen.getByRole('button', { name: 'Subir «general»' })).toBeDisabled();
-  fireEvent.click(down); fireEvent.click(down); expect(channels.orderChannels).toHaveBeenCalledExactlyOnceWith(4, [2, 1, 3]);
+function dragRow(from, to) {
+  const row = (name) => screen.getByRole('link', { name }).closest('li');
+  fireEvent.dragStart(row(from)); fireEvent.dragEnter(row(to)); fireEvent.drop(row(to)); fireEvent.dragEnd(row(from));
+}
+it('ordena arrastrando, envía el conjunto completo y bloquea repeticiones', async () => {
+  const pending = deferred(); channels.orderChannels.mockReturnValue(pending.promise); show('/comunidades/4/canales');
+  await screen.findByRole('link', { name: 'Texto general' });
+  dragRow('Texto general', 'Voz charla'); dragRow('Texto general', 'Voz charla');
+  expect(channels.orderChannels).toHaveBeenCalledExactlyOnceWith(4, [2, 1, 3]);
   items = [{ ...voice, posicion: 0 }, { ...text, posicion: 1 }, video]; await act(async () => pending.resolve());
   await screen.findByText('Orden de canales guardado.');
   await waitFor(() => expect(within(screen.getByRole('navigation', { name: 'Canales de la comunidad' })).getAllByRole('link')[0]).toHaveTextContent('charla'));
 });
 it('un orden obsoleto informa el conflicto y reconsulta', async () => {
-  channels.orderChannels.mockRejectedValue(fail(400, 'INVALID_ORDER')); show();
-  const down = await screen.findByRole('button', { name: 'Bajar «general»' }); await waitFor(() => expect(down).toBeEnabled()); fireEvent.click(down);
+  channels.orderChannels.mockRejectedValue(fail(400, 'INVALID_ORDER')); show('/comunidades/4/canales');
+  await screen.findByRole('link', { name: 'Texto general' }); dragRow('Texto general', 'Voz charla');
   expect(await screen.findByRole('alert')).toHaveTextContent('La lista de canales cambió');
   await waitFor(() => expect(channels.getChannels.mock.calls.length).toBeGreaterThan(1));
 });
@@ -209,7 +238,7 @@ it.each(['channel:access-lost', 'channel:deleted'])('%s retira inmediatamente el
 it('una respuesta anterior a perder acceso no restaura el canal', async () => {
   show(); await screen.findByRole('button', { name: 'Permisos' }); const old = deferred(); const current = deferred();
   channels.getChannels.mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise);
-  fireEvent.click(screen.getByRole('button', { name: 'Actualizar canales' }));
+  emit('connect');
   items = [voice, video]; emit('channel:access-lost', { idComunidad: 4, idCanal: 1 });
   await act(async () => old.resolve({ items: [text, voice, video] }));
   expect(screen.queryByRole('link', { name: /Texto general/ })).not.toBeInTheDocument();
@@ -331,7 +360,7 @@ it('solo ofrece Texto y Voz al crear; un canal VIDEO existente se muestra como V
   expect(await screen.findByText('Voz · Privado')).toBeInTheDocument();
   fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
   expect(screen.queryByLabelText('Tipo de canal')).not.toBeInTheDocument();
-  expect(screen.getByText(/Tipo: Voz/)).toBeInTheDocument();
+  expect(screen.getByText('Canal de voz')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
   await waitFor(() => expect(channels.updateChannel).toHaveBeenCalledWith(3, { nombre: 'reunión' }));
 });

@@ -1,0 +1,42 @@
+.fld { display: flex; flex-direction: column; gap: 7px; flex: 1; min-width: 0; }
+.fl { font-size: 13px; font-weight: 600; }
+
+.inp {
+  height: 46px; border-radius: 16px; padding: 0 14px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; font-size: 15px;
+  background: rgba(255, 255, 255, .82); box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .1), inset 0 .5px 1px rgba(19, 19, 22, .025);
+}
+.inp input, .inp textarea, .inp select {
+  flex: 1; min-width: 0; width: auto; height: 100%; padding: 0; margin: 0; border: 0; border-radius: 0;
+  background: none; outline: none; font: inherit; color: #131316;
+}
+.inp select { appearance: none; cursor: pointer; }
+.inp-select { position: relative; }
+.inp-select svg { position: absolute; right: 14px; pointer-events: none; }
+
+.inp-textarea { height: auto; min-height: 86px; align-items: flex-start; }
+.inp textarea { min-height: 86px; padding: 12px 0; line-height: 1.45; resize: none; }
+
+.inp:focus-within { box-shadow: inset 0 0 0 2px var(--acc), 0 0 0 5px color-mix(in srgb, var(--acc) 12%, transparent); }
+.inp-error, .inp-error:focus-within { box-shadow: inset 0 0 0 1.5px #D7263D; background: rgba(255, 255, 255, .9); }
+.inp-disabled { background: rgba(19, 19, 22, .04); color: rgba(19, 19, 22, .45); }
+.inp-disabled input { color: inherit; }
+
+.srch { color: rgba(19, 19, 22, .6); }
+.srch svg { flex: none; }
+.fld-lg .inp { height: 50px; border-radius: 17px; }
+.fld-eye { display: flex; border: 0; padding: 0; background: none; cursor: pointer; color: rgba(19, 19, 22, .56); }
+.fld-eye:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; border-radius: 4px; }
+
+.fld-error, .fld-note { font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+.fld-error { color: #B4142C; font-weight: 500; }
+.fld-note { color: rgba(19, 19, 22, .56); }
+
+.chkf { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; position: relative; }
+.chkf-input { position: absolute; opacity: 0; width: 22px; height: 22px; margin: 0; }
+.chk {
+  width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; flex: none; margin-top: 1px;
+  box-shadow: inset 0 0 0 1.5px rgba(19, 19, 22, .25); color: #fff;
+}
+.chkf-input:checked + .chk { background: var(--acc); box-shadow: none; }
+.chkf-input:focus-visible + .chk { outline: 2.5px solid var(--acc); outline-offset: 3px; }
+.chkf-label { font-size: 14.5px; font-weight: 600; }

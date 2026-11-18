@@ -1,3 +1,8 @@
+import Field from '../ui/Field.jsx';
+import Button from '../ui/Button.jsx';
+import Card, { ListRow, RowText } from '../ui/Card.jsx';
+import Notice from '../ui/Notice.jsx';
+import { Spinner } from '../ui/Icon.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useCommunityCollection } from '../../hooks/useCommunityCollection.js';
 import { useSocket } from '../../hooks/useSocket.js';
@@ -22,7 +27,7 @@ export function BanMemberDialog({ id, actor, userId, original, member, list, onC
       return 'El integrante fue baneado.';
     }}>
     <p>Perderá el acceso a la comunidad y no podrá volver por invitación hasta que levantes el baneo.</p>
-    <label>Motivo (opcional)<textarea maxLength={300} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} /></label>
+    <Field as="textarea" label="Motivo (opcional)" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
   </CommunityRoleFormDialog>;
 }
 
@@ -35,25 +40,24 @@ export default function CommunityBans({ id }) {
     socket?.on(EVENTS.COMMUNITY_BANS_CHANGED, update);
     return () => socket?.off(EVENTS.COMMUNITY_BANS_CHANGED, update);
   }, [socket, id, bans.reload]);
-  return <section className="community-bans" aria-label="Baneos">
-    <button type="button" ref={toggle} className="secondary" aria-expanded={open} onClick={() => setOpen(!open)}>
+  return <section className="cb" aria-label="Baneos">
+    <Button ref={toggle} variant="secundario" size="sm" aria-expanded={open} onClick={() => setOpen(!open)}>
       {open ? 'Ocultar baneos' : 'Ver baneos'}
-    </button>
-    {notice && <p role="status" className="community-success">{notice}</p>}
+    </Button>
+    {notice && <Notice tone="exito" title={notice} />}
     {open && <>
-      {bans.error && <p role="alert" className="notice error">{bans.error.message} <button className="secondary" onClick={bans.reload}>Reintentar</button></p>}
-      {bans.loading && <p role="status">Cargando baneos…</p>}
-      {!bans.loading && !bans.error && bans.items.length === 0 && <p>No hay baneos para mostrar.</p>}
-      <ul className="community-list">{bans.items.map((ban) => <li key={ban.usuario.id}>
-        <div className="community-member-row"><div className="community-row-text">
-          <strong>{ban.usuario.nombreVisible}</strong><span>@{ban.usuario.nombreUsuario}</span>
-          <span>{new Date(ban.fechaCreacion).toLocaleDateString('es-AR')} · {ban.autor?.nombreVisible ?? 'Autor no disponible'}</span>
-          {ban.motivo && <p>Motivo: {ban.motivo}</p>}
-        </div>
-        {!bans.error && <button type="button" className="secondary" aria-label={`Levantar baneo de ${ban.usuario.nombreVisible}`} onClick={(e) => {
+      {bans.error && <Notice tone="error" title={bans.error.message} actionLabel="Reintentar" onAction={bans.reload} />}
+      {bans.loading && <span className="cm-state" role="status"><Spinner size={15} />Cargando baneos…</span>}
+      {!bans.loading && !bans.error && bans.items.length === 0 && <span className="cm-state">No hay baneos para mostrar.</span>}
+      {bans.items.length > 0 && <Card as="ul">{bans.items.map((ban) => <ListRow as="li" key={ban.usuario.id}>
+        <RowText title={ban.usuario.nombreVisible}>
+          @{ban.usuario.nombreUsuario} · {new Date(ban.fechaCreacion).toLocaleDateString('es-AR')} · {ban.autor?.nombreVisible ?? 'Autor no disponible'}
+          {ban.motivo && <span className="cb-reason">Motivo: {ban.motivo}</span>}
+        </RowText>
+        {!bans.error && <Button size="sm" variant="secundario" aria-label={`Levantar baneo de ${ban.usuario.nombreVisible}`} onClick={(e) => {
           trigger.current = e.currentTarget; setTarget(ban); setNotice('');
-        }}>Levantar baneo</button>}</div>
-      </li>)}</ul>
+        }}>Levantar baneo</Button>}
+      </ListRow>)}</Card>}
     </>}
     {target && <CommunityRoleFormDialog title={`Levantar baneo de ${target.usuario.nombreVisible}`} confirmLabel="Confirmar desbloqueo"
       returnFocusRef={trigger} fallbackFocusRef={toggle}

@@ -1,0 +1,31 @@
+.shell { height: 100vh; height: 100dvh; box-sizing: border-box; padding: 22px; display: flex; gap: 16px; background: linear-gradient(180deg, #ECEDF0, #E0E1E6); }
+.shell-main {
+  flex: 999 1 520px; min-width: 0; border-radius: 32px; overflow: hidden; display: flex; flex-direction: column;
+  background: linear-gradient(150deg, rgba(255, 255, 255, .88), rgba(255, 255, 255, .66));
+}
+.shell-main:focus { outline: none; }
+.shell-right-slot { display: contents; }
+.shell-right { flex: 0 1 296px; min-width: 0; border-radius: 32px; box-sizing: border-box; padding: 26px 20px 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+
+@media (max-width: 1365px) {
+  .shell-right { display: none; }
+}
+.shell .skip-link {
+  position: fixed; z-index: 100; left: 12px; top: -100px; height: 36px; border-radius: 18px; padding: 0 14px; display: inline-flex; align-items: center;
+  font-weight: 600; font-size: 13px; background: rgba(19, 19, 22, .9); color: #fff; border: 0; text-decoration: none;
+}
+.shell .skip-link:focus { top: 12px; outline: 2.5px solid var(--acc); outline-offset: 3px; }
+
+@media (max-width: 767px) {
+  .shell { padding: 0; gap: 0; flex-direction: column; background: #ECEDF0; }
+  .shell .side { display: none; }
+  .shell-main { border-radius: 0; background: #ECEDF0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; padding-bottom: 110px; animation: mIn .38s cubic-bezier(.2, .8, .2, 1) both; }
+  .shell-main::before, .shell-main::after { display: none; }
+  .shell-home .side { display: flex; flex: 1; border-radius: 0; padding: 56px 16px 120px; background: #ECEDF0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .shell-home .side::before, .shell-home .side::after { display: none; }
+  .shell-home .shell-main { display: none; }
+  .shell-home .side-me { display: none; }
+  .shell-chat .shell-main { padding-bottom: 0; background: #F9F9FB; }
+  .shell .m-nav { display: flex; }
+}
+@media (prefers-reduced-motion: reduce) { .shell-main { animation: none; } }

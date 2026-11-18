@@ -166,7 +166,7 @@ it("un mensaje eliminado oculta contenido y controles propios", () => {
     action,
   });
   renderChat();
-  expect(screen.getByText("Mensaje eliminado")).toBeInTheDocument();
+  expect(screen.getByText("Este mensaje se eliminó")).toBeInTheDocument();
   expect(
     screen.queryByRole("button", { name: /^Editar mensaje de/ }),
   ).not.toBeInTheDocument();

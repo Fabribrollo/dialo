@@ -98,5 +98,6 @@ export function CommunitiesProvider({ children }) {
 }
 
 export default function CommunitiesLayout() {
-  return <CommunitiesProvider><Outlet /></CommunitiesProvider>;
+  const parent = useContext(Context);
+  return parent ? <Outlet /> : <CommunitiesProvider><Outlet /></CommunitiesProvider>;
 }

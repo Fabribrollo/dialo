@@ -63,3 +63,24 @@ export function emitWithAck(socket, event, payload) {
     }),
   );
 }
+
+export function formatListTime(fecha, ahora = new Date()) {
+  const d = new Date(fecha);
+  const dias = Math.round((new Date(ahora).setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
+  if (dias === 0) return d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (dias === 1) return 'Ayer';
+  if (dias < 7) {
+    const dia = d.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', '');
+    return dia.charAt(0).toUpperCase() + dia.slice(1, 3);
+  }
+  return d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+}
+
+export function formatDay(fecha, ahora = new Date()) {
+  const d = new Date(fecha);
+  const ayer = new Date(ahora);
+  ayer.setDate(ayer.getDate() - 1);
+  if (d.toDateString() === new Date(ahora).toDateString()) return 'Hoy';
+  if (d.toDateString() === ayer.toDateString()) return 'Ayer';
+  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' });
+}

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState } from 'react';
+import Button from '../ui/Button.jsx';
+import Icon from '../ui/Icon.jsx';
 
-// Botón que ejecuta una acción async: se deshabilita mientras espera y muestra el error si falla.
-export function BotonAccion({ accion, children, ...props }) {
+export function BotonAccion({ accion, children, variant = 'secundario', ...props }) {
   const [pendiente, setPendiente] = useState(false);
   const [error, setError] = useState(null);
 
@@ -11,7 +12,7 @@ export function BotonAccion({ accion, children, ...props }) {
     try {
       await accion();
     } catch (e) {
-      setError(e.message);
+      setError(e.message || 'No se pudo completar. Probá de nuevo.');
     } finally {
       setPendiente(false);
     }
@@ -19,10 +20,10 @@ export function BotonAccion({ accion, children, ...props }) {
 
   return (
     <>
-      <button type="button" onClick={ejecutar} disabled={pendiente} {...props}>
-        {pendiente ? "Procesando…" : children}
-      </button>
-      {error && <span role="alert"> {error}</span>}
+      <Button size="sm" variant={variant} loading={pendiente} onClick={ejecutar} {...props}>
+        {pendiente ? 'Procesando…' : children}
+      </Button>
+      {error && <span className="li-error" role="alert"><Icon name="error" size={15} stroke={2} />{error}</span>}
     </>
   );
 }

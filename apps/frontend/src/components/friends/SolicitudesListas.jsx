@@ -1,36 +1,33 @@
-import { BotonAccion } from "./BotonAccion.jsx";
-import { UsuarioInfo } from "./UsuarioInfo.jsx";
+import Card, { ListRow } from '../ui/Card.jsx';
+import Badge from '../ui/Badge.jsx';
+import { BotonAccion } from './BotonAccion.jsx';
+import { UsuarioInfo } from './UsuarioInfo.jsx';
 
 export function SolicitudesRecibidas({ friends }) {
-  if (friends.recibidas.length === 0)
-    return <p>No tenes solicitudes recibidas.</p>;
+  if (friends.recibidas.length === 0) return <p className="fr-none">No tenés solicitudes recibidas.</p>;
   return (
-    <ul>
+    <Card as="ul">
       {friends.recibidas.map((s) => (
-        <li key={s.id}>
-          <UsuarioInfo usuario={s.emisor} />{" "}
-          <BotonAccion accion={() => friends.aceptar(s.id)}>
-            Aceptar
-          </BotonAccion>{" "}
-          <BotonAccion accion={() => friends.rechazar(s.id)}>
-            Rechazar
-          </BotonAccion>
-        </li>
+        <ListRow as="li" key={s.id}>
+          <UsuarioInfo usuario={s.emisor} />
+          <BotonAccion variant="primario" accion={() => friends.aceptar(s.id)}>Aceptar</BotonAccion>
+          <BotonAccion accion={() => friends.rechazar(s.id)}>Rechazar</BotonAccion>
+        </ListRow>
       ))}
-    </ul>
+    </Card>
   );
 }
 
 export function SolicitudesEnviadas({ friends }) {
-  if (friends.enviadas.length === 0)
-    return <p>No tenes solicitudes enviadas.</p>;
+  if (friends.enviadas.length === 0) return <p className="fr-none">No tenés solicitudes enviadas.</p>;
   return (
-    <ul>
+    <Card as="ul">
       {friends.enviadas.map((s) => (
-        <li key={s.id}>
-          <UsuarioInfo usuario={s.receptor} /> <span>Pendiente</span>
-        </li>
+        <ListRow as="li" key={s.id}>
+          <UsuarioInfo usuario={s.receptor} />
+          <Badge kind="pendiente" />
+        </ListRow>
       ))}
-    </ul>
+    </Card>
   );
 }

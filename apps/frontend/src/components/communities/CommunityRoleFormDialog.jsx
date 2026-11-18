@@ -1,4 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import Button from '../ui/Button.jsx';
+import Icon from '../ui/Icon.jsx';
+import '../ui/dialog.css';
 
 export default function CommunityRoleFormDialog({ title, children, blocked, onSave, onClose, returnFocusRef, fallbackFocusRef, confirmLabel = 'Guardar', destructive = false }) {
   const dialog = useRef(null), pending = useRef(false), alive = useRef(false), confirmed = useRef(false);
@@ -35,18 +38,18 @@ export default function CommunityRoleFormDialog({ title, children, blocked, onSa
     }
   }
 
-  return <dialog ref={dialog} className="community-delete-dialog community-role-dialog" aria-labelledby={titleId}
+  return <dialog ref={dialog} className="dlg dlg-confirm" aria-labelledby={titleId}
     onCancel={(e) => { e.preventDefault(); if (!pending.current) onClose(); }}>
-    <h2 id={titleId}>{title}</h2>
-    <form onSubmit={submit} aria-busy={busy}>
-      <fieldset disabled={busy || Boolean(blocked)}>{children}</fieldset>
-      {error && <p role="alert" className="form-error">{error}</p>}
-      {blocked && <p role="alert" className="form-error">{blocked}</p>}
-      <div className="dialog-actions">
-        <button type="button" className="secondary" autoFocus={destructive} disabled={busy} onClick={() => onClose()}>Cancelar</button>
-        <button type="submit" className={destructive ? 'danger-button' : undefined} disabled={busy || Boolean(blocked)}>
+    <h3 id={titleId}>{title}</h3>
+    <form className="dlg-form" onSubmit={submit} aria-busy={busy}>
+      <fieldset className="dlg-fieldset" disabled={busy || Boolean(blocked)}>{children}</fieldset>
+      {error && <div className="dlg-error" role="alert"><Icon name="error" size={17} stroke={2.1} />{error}</div>}
+      {blocked && <div className="dlg-error" role="alert"><Icon name="error" size={17} stroke={2.1} />{blocked}</div>}
+      <div className="dlg-actions">
+        <Button variant="secundario" size="sm" autoFocus={destructive} disabled={busy} onClick={() => onClose()}>Cancelar</Button>
+        <Button type="submit" size="sm" variant={destructive ? 'peligro' : 'primario'} loading={busy} disabled={Boolean(blocked)}>
           {busy ? 'Guardando…' : confirmLabel}
-        </button>
+        </Button>
       </div>
     </form>
   </dialog>;

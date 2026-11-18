@@ -1,0 +1,8 @@
+.cr-h2 { margin: 0; }
+.cr-base { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.cr-base-card { gap: 6px; padding: 16px; }
+.cr-base-name { font-weight: 700; font-size: 15px; }
+.cr-custom-head { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.cr-dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--acc); margin: 0 8px 0 4px; }
+.cr-name { font-size: 14.5px; }
+@media (max-width: 1023px) { .cr-base { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

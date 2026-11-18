@@ -38,7 +38,7 @@ it('agrega una regla, activa la moderación y guarda la lista completa', async (
   fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
   fireEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
   await waitFor(() => expect(replaceCommunityModeration).toHaveBeenCalledWith(7, { activa: true, reglas: ['spam', 'política'] }));
-  expect(await screen.findByText('Moderación guardada.')).toBeInTheDocument();
+  expect(await screen.findByText('Moderación guardada')).toBeInTheDocument();
 });
 
 it('no permite reglas repetidas y permite quitarlas', async () => {
@@ -48,7 +48,7 @@ it('no permite reglas repetidas y permite quitarlas', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Agregar' }));
   expect(screen.getByRole('alert')).toHaveTextContent('Esa regla ya está en la lista.');
   fireEvent.click(screen.getByRole('button', { name: 'Quitar spam' }));
-  expect(screen.queryByText('spam')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Quitar spam' })).not.toBeInTheDocument();
 });
 
 it('un integrante no ve el formulario ni consulta la configuración', () => {

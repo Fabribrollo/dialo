@@ -1,16 +1,20 @@
 import { useRef, useState } from 'react';
-import { Link, useParams } from 'react-router';
-import CommunityNav from '../components/communities/CommunityNav.jsx';
+import { useParams } from 'react-router';
+import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import CommunityRoleFormDialog from '../components/communities/CommunityRoleFormDialog.jsx';
-import FormField from '../components/FormField.jsx';
+import Field from '../components/ui/Field.jsx';
+import Button from '../components/ui/Button.jsx';
+import Card, { ListRow } from '../components/ui/Card.jsx';
+import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Notice from '../components/ui/Notice.jsx';
+import '../styles/members.css';
+import '../styles/roles.css';
 import { useCommunity } from '../hooks/useCommunity.js';
 import { useCommunityCollection } from '../hooks/useCommunityCollection.js';
 import * as service from '../services/communityRolesService.js';
 import { CommunityState, useLostCommunity } from './CommunityPage.jsx';
 import { COMMUNITY_ROLES } from './CommunitiesPage.jsx';
-
 const reserved = new Set(Object.keys(COMMUNITY_ROLES).map((role) => role.toLowerCase()));
-
 function RolesCatalog({ detail }) {
   const { id, miRol } = detail.comunidad;
   const list = useCommunityCollection(id, service.getCommunityRoles);
@@ -23,7 +27,6 @@ function RolesCatalog({ detail }) {
     : list.refreshing ? 'Verificando el catálogo…'
       : list.error ? 'No se pudo verificar el catálogo. Cerrá el formulario y reintentá.'
       : stale ? 'Este rol cambió en otra pestaña. Cerrá y abrí el formulario para cargar la versión vigente.' : '';
-
   function open(event, type, role) {
     trigger.current = event.currentTarget;
     setNotice('');
@@ -46,29 +49,33 @@ function RolesCatalog({ detail }) {
       throw error;
     }
   }
-
+  const base = [['PROPIETARIO', 'Todo, incluso eliminar la comunidad.'], ['ADMIN'], ['MODERADOR'], ['INTEGRANTE', 'Ve y participa en los canales públicos.']];
   return <>
-    <header className="page-heading community-page-heading">
-      <div><h1 tabIndex={-1} ref={heading}>Roles</h1><p>{detail.comunidad.nombre}</p></div>
-      {allowed && !list.loading && !list.error && <button type="button" onClick={(e) => open(e, 'create')}>Crear rol</button>}
-    </header>
-    {detail.error && <p role="alert" className="notice error">No se pudo actualizar la comunidad. {detail.error.message}</p>}
-    {notice && <p role="status" className="community-success">{notice}</p>}
-    <h2>Roles base</h2>
-    <p className="community-help">Definen la jerarquía de la comunidad. No se pueden renombrar ni eliminar.</p>
-    <ul className="community-role-tags">{Object.values(COMMUNITY_ROLES).map((label) => <li key={label}>{label}</li>)}</ul>
-    <h2>Roles personalizados</h2>
-    <p className="community-help">Se asignan desde Integrantes. Los permisos por canal se administran por separado.</p>
-    {list.error && <p role="alert" className="notice error">{list.error.message} <button type="button" className="secondary" onClick={() => { detail.reload(); list.reload(); }}>Reintentar</button></p>}
-    {list.loading ? <p role="status">Cargando roles…</p> : <>
-      {!list.error && !list.items.length && <p className="center-note">Todavía no hay roles personalizados.</p>}
-      <ul className="community-list">{list.items.map((role) => <li key={role.id} className="community-member-row community-role-row">
-        <strong>{role.nombre}</strong>
-        {allowed && !list.error && <div className="community-role-actions">
-          <button type="button" className="secondary" onClick={(e) => open(e, 'edit', role)} aria-label={`Editar ${role.nombre}`}>Editar</button>
-          <button type="button" className="secondary danger" onClick={(e) => open(e, 'delete', role)} aria-label={`Eliminar ${role.nombre}`}>Eliminar</button>
-        </div>}
-      </li>)}</ul>
+    <h1 tabIndex={-1} ref={heading} className="sr-only">Roles</h1>
+    {detail.error && <Notice tone="error" title="No se pudo actualizar la comunidad." actionLabel="Reintentar" onAction={detail.reload} />}
+    {notice && <Notice tone="exito" title={notice} />}
+    <h2 className="page-h2 cr-h2">Roles base</h2>
+    <div className="cr-base">
+      {base.map(([rol, texto]) => <Card key={rol} className="cr-base-card">
+        <span className="cr-base-name">{COMMUNITY_ROLES[rol]}</span>
+        {texto && <span className="li-sub">{texto}</span>}
+      </Card>)}
+    </div>
+    <div className="cr-custom-head">
+      <h2 className="page-h2 cr-h2">Roles personalizados</h2>
+      {allowed && !list.loading && !list.error && <Button onClick={(e) => open(e, 'create')}><Icon name="mas" size={15} stroke={2.2} />Crear rol</Button>}
+    </div>
+    {list.error && <Notice tone="error" title={list.error.message} actionLabel="Reintentar" onAction={() => { detail.reload(); list.reload(); }} />}
+    {list.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando roles…</span> : <>
+      {!list.error && !list.items.length && <span className="cm-state">Todavía no hay roles personalizados.</span>}
+      {list.items.length > 0 && <Card as="ul">{list.items.map((role) => <ListRow as="li" key={role.id}>
+        <span className="cr-dot" />
+        <span className="li-text"><span className="li-title cr-name">{role.nombre}</span></span>
+        {allowed && !list.error && <>
+          <Button size="sm" variant="secundario" onClick={(e) => open(e, 'edit', role)} aria-label={`Editar ${role.nombre}`}>Editar</Button>
+          <button type="button" className="li-quiet cm-ban pr" onClick={(e) => open(e, 'delete', role)} aria-label={`Eliminar ${role.nombre}`}>Eliminar</button>
+        </>}
+      </ListRow>)}</Card>}
     </>}
     {action && action.type !== 'delete' && <CommunityRoleFormDialog title={action.type === 'create' ? 'Crear rol' : `Editar ${action.role.nombre}`}
       blocked={blocked} onClose={close} returnFocusRef={trigger} fallbackFocusRef={heading}
@@ -81,7 +88,7 @@ function RolesCatalog({ detail }) {
           : service.updateCommunityRole(id, action.role.id, { nombre: name }));
         return action.type === 'create' ? 'Rol creado.' : 'Rol actualizado.';
       }}>
-      <FormField label="Nombre del rol" value={nombre} maxLength={32} onChange={(e) => setNombre(e.target.value)} autoFocus required />
+      <Field label="Nombre del rol" value={nombre} maxLength={32} onChange={(e) => setNombre(e.target.value)} autoFocus required />
     </CommunityRoleFormDialog>}
     {action?.type === 'delete' && <CommunityRoleFormDialog title={`¿Eliminar ${action.role.nombre}?`}
       destructive confirmLabel="Eliminar rol" blocked={blocked} onClose={close} returnFocusRef={trigger} fallbackFocusRef={heading}
@@ -93,17 +100,13 @@ function RolesCatalog({ detail }) {
     </CommunityRoleFormDialog>}
   </>;
 }
-
 export default function CommunityRolesPage() {
   const { id: param } = useParams();
   const id = /^\d+$/.test(param ?? '') ? Number(param) : NaN;
   const detail = useCommunity(id);
   useLostCommunity(detail.lost);
-  return <section className="page-container communities-page">
-    <Link className="community-back" to={detail.valid ? `/comunidades/${id}` : '/comunidades'}>← Volver a la comunidad</Link>
-    {!detail.comunidad ? <CommunityState {...detail} /> : <>
-      <CommunityNav comunidad={detail.comunidad} />
+  if (!detail.comunidad) return <div className="page"><div className="page-body"><CommunityState {...detail} /></div></div>;
+  return <CommunityShell comunidad={detail.comunidad}>
       <RolesCatalog key={id} detail={detail} />
-    </>}
-  </section>;
+  </CommunityShell>;
 }

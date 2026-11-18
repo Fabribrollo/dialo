@@ -1,0 +1,17 @@
+.cn-head { display: flex; align-items: center; gap: 18px; padding: 26px 28px 18px; }
+.cn-head .avc { box-shadow: 0 3.6px 9.6px -4.2px rgba(19, 19, 22, .18); }
+.cn-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.cn-title h1 { margin: 0; font-size: 40px; line-height: .95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cn-badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.cn-tabs { padding: 0 28px 16px; }
+.cn-seg { width: min(760px, 100%); }
+.cn-body { padding: 22px 28px 30px; gap: 14px; }
+
+.cn-head-sm { padding: 14px 20px 10px; gap: 12px; }
+.cn-head-sm .btn { margin-left: auto; }
+.cn-toggle { display: flex; align-items: center; gap: 12px; min-width: 0; height: 52px; padding: 0 14px 0 6px; border: 0; border-radius: 26px; background: transparent; color: #131316; font: inherit; cursor: pointer; }
+.cn-toggle:hover, .cn-toggle[aria-expanded="true"] { background: rgba(19, 19, 22, .05); }
+.cn-toggle:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 2px; }
+.cn-toggle-name { font-size: 24px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cn-chev { display: flex; transition: transform .2s; }
+.cn-chev.is-open { transform: rotate(180deg); }
