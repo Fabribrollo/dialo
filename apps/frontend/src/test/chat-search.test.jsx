@@ -22,11 +22,11 @@ function Demo() {
 
 it('abre con la lupa y Escape la cierra y limpia', () => {
   render(<Demo />);
-  fireEvent.click(screen.getByRole('button', { name: 'Buscar en el chat' }));
-  const input = screen.getByLabelText('Buscar en el chat');
+  fireEvent.click(screen.getByRole('button', { name: 'Buscar en la conversación' }));
+  const input = screen.getByLabelText('Buscar en la conversación');
   fireEvent.change(input, { target: { value: 'cable' } });
   expect(screen.getByText('cable')).toBeInTheDocument();
   fireEvent.keyDown(input, { key: 'Escape' });
   expect(screen.getByText('vacío')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Buscar en el chat' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Buscar en la conversación' })).toBeInTheDocument();
 });

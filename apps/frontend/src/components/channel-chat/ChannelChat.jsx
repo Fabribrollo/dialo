@@ -5,7 +5,7 @@ import { EVENTS } from '../../constants/events.js';
 import ChatMessage from '../chat/ChatMessage.jsx';
 import LocalMessage from '../chat/LocalMessage.jsx';
 import Composer from '../chat/Composer.jsx';
-import ChatSearch, { filterMessages } from '../chat/ChatSearch.jsx';
+import { filterMessages } from '../chat/ChatSearch.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import Button from '../ui/Button.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
@@ -19,12 +19,11 @@ import CommunityActionDialog from '../communities/CommunityActionDialog.jsx';
 
 const rank = { PROPIETARIO: 4, ADMIN: 3, MODERADOR: 2, INTEGRANTE: 1 };
 
-export default function ChannelChat({ canal, draft, setDraft }) {
+export default function ChannelChat({ canal, draft, setDraft, buscar = '' }) {
   const { usuario, refresh } = useAuth();
   const history = useChannelMessages(canal.id, canal.idComunidad);
   const [sending, setSending] = useState(false), [error, setError] = useState('');
   const [deleting, setDeleting] = useState(null), [showMembers, setShowMembers] = useState(false), [local, setLocal] = useState([]);
-  const [buscar, setBuscar] = useState('');
   const pending = useRef(false), trigger = useRef(null), viewport = useRef(null), anchor = useRef(null), stick = useRef(true);
   const editor = useRef(null), membersTrigger = useRef(null);
   const current = history.canal;
@@ -83,7 +82,6 @@ export default function ChannelChat({ canal, draft, setDraft }) {
     if (event.key === 'Escape' && showMembers) { setShowMembers(false); membersTrigger.current?.focus(); }
   }}>
     <div className="cc-tools">
-      <ChatSearch value={buscar} onChange={setBuscar} />
       <Button ref={membersTrigger} size="sm" variant="secundario" aria-expanded={showMembers} aria-controls="chat-integrantes" onClick={() => setShowMembers((v) => !v)}>
         <Icon name="amigos" size={15} stroke={2} />Integrantes
       </Button>

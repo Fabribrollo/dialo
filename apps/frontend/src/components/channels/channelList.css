@@ -24,7 +24,9 @@
 .chd-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .chd-head h1 { margin: 0 6px 0 0; font-size: 40px; line-height: 1; display: flex; align-items: center; gap: 10px; }
 .chd-head h1 svg { flex: none; color: rgba(19, 19, 22, .55); }
+.chd-search { margin-left: auto; }
 .chd-actions { display: flex; gap: 8px; margin-left: auto; }
+.chd-search + .chd-actions { margin-left: 0; }
 .chd-panel { max-width: 560px; }
 .chd-title { display: flex; flex-direction: column; gap: 4px; }
 .chd-sub { font-size: 13.5px; font-weight: 500; color: rgba(19, 19, 22, .56); }

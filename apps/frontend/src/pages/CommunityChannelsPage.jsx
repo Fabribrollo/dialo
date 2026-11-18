@@ -13,6 +13,7 @@ import CreateChannelWizard from '../components/channels/CreateChannelWizard.jsx'
 import ChannelChat from '../components/channel-chat/ChannelChat.jsx';
 import CallPanel from '../components/calls/CallPanel.jsx';
 import VoiceSidePanel from '../components/calls/VoiceSidePanel.jsx';
+import ChatSearch from '../components/chat/ChatSearch.jsx';
 import Button from '../components/ui/Button.jsx';
 import Dialog from '../components/ui/Dialog.jsx';
 import Icon, { Spinner } from '../components/ui/Icon.jsx';
@@ -39,7 +40,8 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
   currentSelection.current = selectedId;
   const navigate = useNavigate();
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  useEffect(() => { setMode(null); setConfirm(false); setError(''); }, [param]);
+  const [buscar, setBuscar] = useState('');
+  useEffect(() => { setMode(null); setConfirm(false); setError(''); setBuscar(''); }, [param]);
   useEffect(() => {
     if (!mode && previousMode.current) (previousMode.current === 'edit' ? editTrigger : accessTrigger).current?.focus();
     previousMode.current = mode;
@@ -124,6 +126,7 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
           <h1 className="dsp"><Icon name={selected.tipo === 'TEXTO' ? 'canalTexto' : 'canalVoz'} size={26} stroke={2.2} />{selected.nombre}</h1>
           <span className="chd-sub">{CHANNEL_TYPES[selected.tipo]} · {selected.privado ? 'Privado' : 'Público'}</span>
         </span>
+        {selected.tipo === 'TEXTO' && !mode && <span className="chd-search"><ChatSearch key={selected.id} value={buscar} onChange={setBuscar} /></span>}
         {canManage && !mode && <span className="chd-actions">
           <Button ref={editTrigger} size="sm" variant="secundario" onClick={() => setMode('edit')}>Editar canal</Button>
           <Button ref={accessTrigger} size="sm" variant="secundario" onClick={() => setMode('access')}>Permisos</Button>
@@ -133,7 +136,7 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
       {selected.tipo === 'TEXTO' && !selected.misPermisos.includes('ESCRIBIR') && <Notice tone="conflicto" title="Este canal es de solo lectura para tu cuenta">Podés leer, pero no escribir.</Notice>}
       {selected.tipo !== 'TEXTO' && !mode && <CallPanel key={selected.id} canal={selected} />}
       {selected.tipo === 'TEXTO' && <VoiceSidePanel canales={list.items.filter((c) => c.tipo !== 'TEXTO')} base={base} />}
-      {selected.tipo === 'TEXTO' && !mode && <ChannelChat key={selected.id} canal={selected} draft={drafts[selected.id] ?? ''}
+      {selected.tipo === 'TEXTO' && !mode && <ChannelChat key={selected.id} canal={selected} buscar={buscar} draft={drafts[selected.id] ?? ''}
         setDraft={(value) => setDrafts((old) => ({ ...old, [selected.id]: typeof value === 'function' ? value(old[selected.id] ?? '') : value }))} />}
       {canManage && mode === 'edit' && <div className="chd-panel"><ChannelForm key={`${selected.id}-edit-${seed}`} canal={selected} version={list.version(selected.id)}
         onSaved={saved} onCancel={() => setMode(null)} onReload={reloadEditor} onUnavailable={refresh} /></div>}
