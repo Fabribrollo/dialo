@@ -5,12 +5,16 @@ import { useAuth } from '../hooks/useAuth.js';
 import { useCall } from '../hooks/useCall.js';
 import { api } from '../services/api.js';
 import CallStage from '../components/calls/CallStage.jsx';
+import Avatar from '../components/ui/Avatar.jsx';
+import Icon from '../components/ui/Icon.jsx';
+import { createPortal } from 'react-dom';
+import { avisosRoot } from '../components/shell/notificationsStore.js';
 
 export const PrivateCallContext=createContext(null);
 const states={LLAMANDO:'Llamando…',ACEPTADA:'Llamada en curso',RECHAZADA:'Llamada rechazada',CANCELADA:'Llamada cancelada',PERDIDA:'Sin respuesta',FINALIZADA:'Llamada finalizada'};
 export function PrivateCallProvider({children}) {
   const socket=useSocket(),{usuario}=useAuth(),channelCall=useCall();
-  const [call,setCall]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[connected,setConnected]=useState(false),[people,setPeople]=useState([]),[mic,setMic]=useState(true),[camera,setCamera]=useState(false);
+  const [call,setCall]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[connected,setConnected]=useState(false),[people,setPeople]=useState([]),[mic,setMic]=useState(true),[camera,setCamera]=useState(false),[screen,setScreen]=useState(false);
   const room=useRef(null),audios=useRef(null),intent=useRef(null),callRef=useRef(null),generation=useRef(0),pending=useRef(false),alive=useRef(true),updates=useRef(0);
   callRef.current=call;
   function release() {
@@ -61,7 +65,9 @@ export function PrivateCallProvider({children}) {
           setPeople(all.map((p)=>({
             idUsuario:p.identity,nombre:p.name||'Participante',local:p===r.localParticipant,hablando:p.isSpeaking,
             microfono:p.isMicrophoneEnabled,video:p.getTrackPublication(Track.Source.Camera)?.track,
+            pantalla:Boolean(p.isScreenShareEnabled),videoPantalla:p.isScreenShareEnabled?p.getTrackPublication(Track.Source.ScreenShare)?.track??null:null,
           })));
+          setScreen(Boolean(r.localParticipant.isScreenShareEnabled));
         };
         [RoomEvent.ParticipantConnected,RoomEvent.ParticipantDisconnected,RoomEvent.TrackSubscribed,RoomEvent.TrackUnsubscribed,RoomEvent.LocalTrackPublished,RoomEvent.LocalTrackUnpublished,RoomEvent.TrackMuted,RoomEvent.TrackUnmuted,RoomEvent.ActiveSpeakersChanged].forEach((e)=>r.on(e,refresh));
         r.on(RoomEvent.TrackSubscribed,(track)=>{if(track.kind===Track.Kind.Audio)audios.current?.append(track.attach());});
@@ -116,24 +122,59 @@ export function PrivateCallProvider({children}) {
     await api.post(`/private-calls/${id}/end`);setCall((c)=>c?.id===id?{...c,estado:ended}:c);
   });}
   const active=call&&['LLAMANDO','ACEPTADA'].includes(call.estado),incoming=call?.idReceptor===usuario.id;
+  const ringing=Boolean(incoming&&call?.estado==='LLAMANDO');
+  // Tono de llamada entrante; se calla al atender, rechazar o si silenciaste los avisos.
+  useEffect(()=>{
+    if(!ringing||usuario.preferencias?.silenciarNotificaciones)return undefined;
+    let ctx;
+    try{ctx=new (window.AudioContext||window.webkitAudioContext)();}catch{return undefined;}
+    const tone=()=>{
+      const t=ctx.currentTime;
+      for(const f of [440,480]){
+        const o=ctx.createOscillator(),g=ctx.createGain();
+        o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05,t+.05);g.gain.setValueAtTime(.05,t+.9);g.gain.linearRampToValueAtTime(0,t+1);
+        o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+1.05);
+      }
+    };
+    ctx.resume?.().catch(()=>{});tone();
+    const id=setInterval(tone,3000);
+    return ()=>{clearInterval(id);ctx.close?.().catch(()=>{});};
+  },[ringing,usuario.preferencias?.silenciarNotificaciones]);
+  const canShare=typeof navigator!=='undefined'&&Boolean(navigator.mediaDevices?.getDisplayMedia);
+  async function toggleScreen(){
+    try{await room.current.localParticipant.setScreenShareEnabled(!screen);setScreen(!screen);}
+    catch(e){if(e?.name!=='NotAllowedError')setError('No se pudo compartir la pantalla.');}
+  }
+  const other=call&&(incoming?call.emisor:call.receptor);
   return <PrivateCallContext.Provider value={{start,busy,active,elegirDispositivo:async(kind,id)=>{if(room.current)await room.current.switchActiveDevice(kind,id);}}}>
     {children}
-    {(call||error)&&<aside className="lg private-call-panel" aria-label="Llamada privada">
+    {ringing&&createPortal(<div className="pcp-ring" role="alertdialog" aria-labelledby="pcp-ring-name" aria-describedby="pcp-ring-kind">
+      <h2 className="sr-only">Llamada entrante</h2>
+      <span className="pcp-ring-av"><Avatar nombre={other?.nombreVisible} foto={other?.fotoUrl} size={48}/></span>
+      <div className="pcp-ring-text">
+        <b id="pcp-ring-name">{other?.nombreVisible}</b>
+        <span id="pcp-ring-kind"><Icon name={call.video?'camara':'telefono'} size={14} stroke={2}/>{call.video?'Videollamada entrante':'Llamada de voz'}</span>
+        {error&&<span className="pcp-ring-error" role="alert">{error}</span>}
+      </div>
+      <button type="button" className="pr pcp-round pcp-no" disabled={busy} onClick={end}><Icon name="colgar" size={20} stroke={2}/><span className="sr-only">Rechazar</span></button>
+      <button type="button" className="pr pcp-round pcp-yes" disabled={busy} onClick={accept}><Icon name="telefono" size={19} stroke={2}/><span className="sr-only">Aceptar llamada</span></button>
+    </div>,avisosRoot())}
+    {(call||error)&&!ringing&&<aside className="lg private-call-panel" aria-label="Llamada privada">
       {call&&<header className="pcp-head">
-        <h2 className="pcp-title">{incoming&&call.estado==='LLAMANDO'?'Llamada entrante':states[call.estado]}</h2>
-        <p className="pcp-sub">{incoming?call.emisor.nombreVisible:call.receptor.nombreVisible} · {call.video?'Video':'Voz'}</p>
+        <h2 className="pcp-title">{states[call.estado]}</h2>
+        <p className="pcp-sub">{other?.nombreVisible} · {call.video?'Video':'Voz'}</p>
       </header>}
       {error&&<p className="pcp-error" role="alert">{error}</p>}
-      {connected&&<div className="pcp-stage"><CallStage personas={people}/></div>}
+      {connected&&<div className="pcp-stage"><CallStage personas={people} onStopShare={toggleScreen}/></div>}
       {call?.estado==='ACEPTADA'&&!connected&&<p className="pcp-sub" role="status">{intent.current===call.id?'Conectando…':'Llamada aceptada en otra pestaña.'}</p>}
       <div className="pcp-actions">
         {connected&&<>
           <button type="button" className={`pr pcp-btn ${mic?'':'is-off'}`} aria-pressed={!mic} onClick={async()=>{try{await room.current.localParticipant.setMicrophoneEnabled(!mic);setMic(!mic);}catch(e){setError(e.message);}}}>{mic?'Silenciar micrófono':'Activar micrófono'}</button>
           {call.video&&<button type="button" className="pr pcp-btn" onClick={async()=>{try{await room.current.localParticipant.setCameraEnabled(!camera);setCamera(!camera);}catch(e){setError(e.message);}}}>{camera?'Apagar cámara':'Activar cámara'}</button>}
+          {canShare&&<button type="button" className={`pr pcp-btn ${screen?'is-on':''}`} aria-pressed={screen} onClick={toggleScreen}>{screen?'Dejar de compartir':'Compartir pantalla'}</button>}
           <button type="button" className="pr pcp-btn" onClick={()=>room.current?.startAudio().catch(()=>setError('El navegador no pudo activar el audio.'))}>Activar audio</button>
         </>}
-        {incoming&&call?.estado==='LLAMANDO'&&<button type="button" className="pr pcp-btn pcp-ok" disabled={busy} onClick={accept}>Aceptar llamada</button>}
-        {active&&<button type="button" className="pr pcp-btn pcp-end" disabled={busy} onClick={end}>{call.estado==='LLAMANDO'?(incoming?'Rechazar':'Cancelar llamada'):'Finalizar llamada'}</button>}
+        {active&&<button type="button" className="pr pcp-btn pcp-end" disabled={busy} onClick={end}>{call.estado==='LLAMANDO'?'Cancelar llamada':'Finalizar llamada'}</button>}
         {!active&&<button type="button" className="pr pcp-btn" onClick={()=>{setCall(null);setError('');}}>Cerrar aviso de llamada</button>}
       </div>
     </aside>}

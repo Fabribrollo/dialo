@@ -1,5 +1,7 @@
 /* Avisos flotantes: arriba a la derecha, el más nuevo arriba, hasta 3 a la vez. */
-.ntf-zone { position: fixed; top: 22px; right: 22px; z-index: 90; width: min(372px, calc(100vw - 32px)); display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
+.ntf-stack { position: fixed; top: 22px; right: 22px; z-index: 90; width: min(372px, calc(100vw - 32px)); display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.ntf-stack:empty { display: none; }
+.ntf-zone { width: 100%; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 .ntf-list { list-style: none; margin: 0; padding: 0; width: 100%; display: flex; flex-direction: column; gap: 10px; }
 .ntf-list:empty { display: none; }
 
@@ -44,10 +46,28 @@
 }
 
 @media (max-width: 767px) {
-  .ntf-zone { top: 12px; right: 16px; left: 16px; width: auto; }
+  .ntf-stack { top: 12px; right: 16px; left: 16px; width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ntf { animation: none; }
   .ntf-bar { display: none; }
 }
+
+/* Avisos del sistema: pastillas chicas, centradas abajo. */
+.ns-zone { position: fixed; left: 50%; bottom: 28px; z-index: 92; transform: translateX(-50%); list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; width: max-content; max-width: calc(100vw - 32px); }
+.ns {
+  pointer-events: auto; height: 52px; border-radius: 26px; box-sizing: border-box; padding: 0 8px; display: inline-flex; align-items: center; gap: 10px; max-width: 100%;
+  font-weight: 600; font-size: 14px; color: #131316; background: rgba(255, 255, 255, .92); -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
+  box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .8), 0 7px 18px -8px rgba(19, 19, 22, .16), 0 16px 34px -20px rgba(19, 19, 22, .3);
+  animation: ns-in .32s cubic-bezier(.2, .9, .3, 1.15) both;
+}
+.ns-ic { width: 36px; height: 36px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; background: #131316; }
+.ns-ic svg { flex: none; }
+.ns-ok .ns-ic { background: var(--acc); }
+.ns-error .ns-ic { background: #D7263D; }
+.ns-text { padding-right: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ns .ntf-btn + .ns-text, .ns-text:has(+ .ntf-btn) { padding-right: 4px; }
+@keyframes ns-in { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (max-width: 767px) { .ns-zone { bottom: 104px; } }
+@media (prefers-reduced-motion: reduce) { .ns { animation: none; } }

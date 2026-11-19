@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import Avatar from '../ui/Avatar.jsx';
 import Icon from '../ui/Icon.jsx';
 import { formatListTime } from '../../utils/chat.js';
+import { avisosRoot } from './notificationsStore.js';
 import './notificationToasts.css';
 
 const DURACION = 7000;
@@ -106,6 +107,6 @@ export default function NotificationToasts({ avisos, onPrincipal, onSecundaria, 
         </button>
       )}
     </section>,
-    document.body,
+    avisosRoot(),
   );
 }

@@ -61,7 +61,7 @@ Todas las rutas siguientes usan el prefijo `/api`.
 | POST `/communities/:id/channels/suggestion` | ADMIN/PROPIETARIO; `{descripcion,tipo}` → `{propuesta}`. No guarda un canal. |
 | POST `/communities/:id/ownership` | Propietario; `{idUsuario}` de otro integrante; 204. |
 | GET `/communities/:id/moderation/blocked` | MODERADOR o superior; `cursor` opcional → `{items,nextCursor}`. |
-| GET `/communities/:id/activity` | Integrante; filtra los canales por VER actual. |
+| GET `/communities/:id/activity` | Integrante; filtra los canales por VER actual. Devuelve `participantes`, `ultimoMensaje` y `llamada` (canal con más gente: `idCanal`, `canal`, hasta tres `personas`, `total`, `estoy`). |
 | GET `/notifications` | Notificaciones propias y visibles; `{items,noLeidas,nextCursor}`. Cada item trae `contexto` con el nombre del destino (canal y comunidad, persona o quien envió la solicitud) y, si viene de un mensaje, `vista` con autor y los primeros 140 caracteres. |
 | POST `/notifications/read` | `{id}` marca una propia; `{tipo,referencia}` marca las de un destino; `{}` marca todas las propias. |
 | POST `/files` | Multipart: `tipo` canal/conversacion, `id`, `archivo`. Requiere escritura. |
@@ -79,7 +79,8 @@ Eventos nuevos: `typing:update`/`typing:updated`, `activity:watch`, `notificatio
 
 - Los archivos pequeños se guardan en PostgreSQL en esta integración. Para uso con alto volumen debe migrarse a almacenamiento de objetos privado y una política de retención; no es un CDN ni un repositorio de archivos ilimitado. Validar la firma de los bytes restringe formatos, pero no constituye un escaneo antivirus.
 - Los avisos nuevos aparecen flotando arriba a la derecha (hasta tres, se cierran solos a los 7 segundos y se frenan con el mouse o el foco) y quedan en el panel de la campana. Si la pestaña está en segundo plano y la persona lo activó, se muestran como notificación del navegador.
-- El centro de actividad es interno a la app. No incluye push con la app cerrada, service worker, notificaciones por email ni sonido. Las menciones se resaltan y generan el aviso normal del canal, sin un contador separado por mención.
+- Cuando arranca una llamada en una comunidad propia, el lateral muestra una invitación con «Unirme» (se detecta con el sondeo de actividad, cada 30 segundos). La llamada privada entrante aparece oscura, arriba de todo, con tono. Los avisos del sistema (guardado, enlace copiado, reconexión) son pastillas chicas abajo al centro.
+- El centro de actividad es interno a la app. No incluye push con la app cerrada, service worker ni notificaciones por email; el único sonido es el tono de la llamada privada entrante, que respeta «silenciar notificaciones». Las menciones se resaltan y generan el aviso normal del canal, sin un contador separado por mención.
 - Silenciar omite nuevos avisos; no elimina avisos anteriores. Un destino visible y enfocado en alguna pestaña propia tampoco genera un aviso adicional, y al enfocarlo se marcan como leídos sus avisos anteriores. El listado y contador excluyen destinos cuyo acceso se perdió.
 - Los mensajes se entregan antes de procesar notificaciones. Estas tareas posteriores se registran y se drenan en las pruebas; no hay una cola durable/outbox para recuperar un fallo del proceso entre mensaje y aviso.
 - La presencia, indicadores de escritura y observación de pestañas viven en memoria de un único backend. Ejecutar múltiples instancias requiere un adaptador compartido y presencia centralizada.

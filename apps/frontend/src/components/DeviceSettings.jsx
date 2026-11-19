@@ -1,4 +1,5 @@
 import { usePrivateCall } from '../context/PrivateCallContext.jsx';
+import { avisar } from './shell/systemToastsStore.js';
 import { useContext, useState } from 'react';
 import { CallContext } from '../context/CallContext.jsx';
 import { useAuth } from '../hooks/useAuth.js';
@@ -28,6 +29,7 @@ export default function DeviceSettings() {
         }
       }
       setMessage(failed?'Preferencias guardadas. No se pudo cambiar uno de los dispositivos de la llamada actual.':'Preferencias guardadas.');
+      avisar({ id: 'preferencias', texto: 'Cambios guardados', anunciar: false });
     } catch(e) {setMessage(e.message);} finally {setBusy(false);}
   }
   return <section className="device-settings"><h2>Notificaciones y dispositivos</h2>

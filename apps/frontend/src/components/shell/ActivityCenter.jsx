@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { notificationsStore } from './notificationsStore.js';
 import { useLocation, useNavigate } from 'react-router';
 import { api } from '../../services/api.js';
 import { useSocket } from '../../hooks/useSocket.js';
@@ -75,6 +77,7 @@ export default function ActivityCenter() {
   const [flotantes, setFlotantes] = useState([]);
   const socket = useSocket();
   const trigger = useRef(null);
+  const origen = useRef(null);
   const generation = useRef(0);
   const vistos = useRef(null);
   const abrirRef = useRef(null);
@@ -215,11 +218,17 @@ export default function ActivityCenter() {
   }
 
   async function abrirPanel() {
+    origen.current = document.activeElement instanceof HTMLElement ? document.activeElement : trigger.current;
     setOpen(true);
     setCargando(true);
     await load();
     setCargando(false);
   }
+
+  const abrirRefPanel = useRef(abrirPanel);
+  abrirRefPanel.current = abrirPanel;
+  useEffect(() => { notificationsStore.set({ noLeidas: data.noLeidas, abrir: () => abrirRefPanel.current() }); }, [data.noLeidas]);
+  useEffect(() => () => notificationsStore.set({ noLeidas: 0, abrir: null }), []);
 
   const contador = data.noLeidas > 99 ? '99+' : data.noLeidas;
   const etiqueta = `Notificaciones: ${error && !data.items.length ? 'sin conexión' : `${data.noLeidas} sin leer`}`;
@@ -234,7 +243,8 @@ export default function ActivityCenter() {
         <NotificationToasts avisos={flotantes} onPrincipal={principalFlotante} onSecundaria={secundariaFlotante}
           onCerrar={quitarFlotante} onVerTodas={() => { setFlotantes([]); abrirPanel(); }} />
       )}
-      <Dialog open={open} onClose={() => setOpen(false)} label="Notificaciones" className="act-panel" returnFocusRef={trigger}>
+      {createPortal(
+      <Dialog open={open} onClose={() => setOpen(false)} label="Notificaciones" className="act-panel" returnFocusRef={origen}>
         <header className="act-head">
           <h2 id={titulo} className="act-title">Notificaciones</h2>
           {data.noLeidas > 0 && <span className="act-pill">{data.noLeidas} sin leer</span>}
@@ -300,7 +310,8 @@ export default function ActivityCenter() {
         </footer>
         {permiso === 'denied' && <p className="act-hint">El navegador bloqueó los avisos de Dialo. Podés habilitarlos desde el candado de la barra de direcciones.</p>}
         {avisos && <p className="act-hint">Te avisamos con una notificación del sistema cuando Dialo está en segundo plano.</p>}
-      </Dialog>
+      </Dialog>,
+      document.body)}
     </>
   );
 }

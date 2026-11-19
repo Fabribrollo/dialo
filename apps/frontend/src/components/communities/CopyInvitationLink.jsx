@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { invitationPath } from '../../utils/invitations.js';
 import Button from '../ui/Button.jsx';
 import Icon from '../ui/Icon.jsx';
+import { avisar } from '../shell/systemToastsStore.js';
 
 export default function CopyInvitationLink({ codigo, disabled = false }) {
   const messageId = useId();
@@ -21,6 +22,7 @@ export default function CopyInvitationLink({ codigo, disabled = false }) {
       await navigator.clipboard.writeText(link);
       setManual(false);
       setMessage('Enlace copiado.');
+      avisar({ id: 'enlace', tipo: 'enlace', texto: 'Enlace copiado', anunciar: false });
     } catch {
       setManual(true);
       setMessage('No se pudo copiar automáticamente. El enlace quedó seleccionado para copiarlo manualmente.');

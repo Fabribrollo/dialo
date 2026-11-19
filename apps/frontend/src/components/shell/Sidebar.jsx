@@ -15,6 +15,7 @@ import Notice from '../ui/Notice.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
 import ConversationRow from './ConversationRow.jsx';
 import ActivityCenter from './ActivityCenter.jsx';
+import { avisar } from './systemToastsStore.js';
 import { Logo } from './BootScreen.jsx';
 import './sidebar.css';
 
@@ -37,17 +38,41 @@ export default function Sidebar() {
   const socket = useSocket();
   const [activity, setActivity] = useState({});
   const activitySeq = useRef(0);
+  const previas = useRef(null);
+  const enCanal = useRef(pathname);
+  enCanal.current = pathname;
+  const silenciado = Boolean(usuario?.preferencias?.silenciarNotificaciones);
+  // Cuando arranca una llamada en una comunidad tuya, invita a sumarse (salvo que ya estés ahí).
+  function invitarALlamadas(calls) {
+    const antes = previas.current;
+    previas.current = calls;
+    if (!antes || silenciado) return;
+    for (const c of communities.items) {
+      const ahora = calls[c.id];
+      if (!ahora || ahora.estoy || antes[c.id]) continue;
+      const destino = `/comunidades/${c.id}/canales/${ahora.idCanal}`;
+      if (enCanal.current === destino) continue;
+      avisar({
+        id: `llamada-${c.id}`, tipo: 'invitacion', duracion: 0, canal: ahora.canal, comunidad: c.nombre,
+        personas: ahora.personas, total: ahora.total, destino,
+        siglas: (c.nombre.split(/\s+/).filter((w) => w.length > 2).slice(0, 2).map((w) => w[0]).join('') || c.nombre.slice(0, 2)).toUpperCase(),
+      });
+    }
+  }
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
-      const seq = ++activitySeq.current, result = {};
+      const seq = ++activitySeq.current, result = {}, calls = {};
       await Promise.all(communities.items.map(async (c) => {
         try {
           const a = await api.get(`/communities/${c.id}/activity`);
           result[c.id] = a.participantes ? `${a.participantes} en llamada` : a.ultimoMensaje ? `${a.ultimoMensaje.canal}: ${a.ultimoMensaje.contenido}` : '';
+          calls[c.id] = a.llamada ?? null;
         } catch { result[c.id] = ''; }
       }));
-      if (alive && seq === activitySeq.current) setActivity(result);
+      if (!alive || seq !== activitySeq.current) return;
+      setActivity(result);
+      invitarALlamadas(calls);
     };
     refresh();
     const timer = setInterval(refresh, 30000);

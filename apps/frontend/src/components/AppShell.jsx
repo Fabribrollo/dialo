@@ -7,6 +7,7 @@ import { CommunitiesProvider } from '../context/CommunitiesContext.jsx';
 import { CallProvider } from '../context/CallContext.jsx';
 import ActiveCallBar from './calls/ActiveCallBar.jsx';
 import Sidebar from './shell/Sidebar.jsx';
+import SystemToasts from './shell/SystemToasts.jsx';
 import MobileNav from './shell/MobileNav.jsx';
 import './shell/shell.css';
 
@@ -23,6 +24,7 @@ function Shell() {
     </RightPanelContext.Provider>
     <div ref={setSlot} className="shell-right-slot" />
     {!chat && <MobileNav />}
+    <SystemToasts />
   </div>;
 }
 

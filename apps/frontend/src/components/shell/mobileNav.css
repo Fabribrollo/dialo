@@ -21,3 +21,11 @@
 .m-tab:focus-visible { outline: 2.5px solid var(--acc); outline-offset: -4px; border-radius: 28px; }
 @media (prefers-reduced-motion: reduce) { .m-lens, .m-tab svg { transition: none; } }
 @keyframes mIn { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+
+.m-tab-ic { position: relative; display: flex; }
+.m-dot { position: absolute; top: -2px; right: -4px; width: 9px; height: 9px; border-radius: 50%; background: var(--acc); box-shadow: 0 0 0 2px #fff; }
+.m-bell { display: none; position: fixed; bottom: 102px; right: 18px; z-index: 41; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; align-items: center; justify-content: center; color: #131316; cursor: pointer; }
+.m-bell svg { flex: none; }
+.m-bell:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; }
+.m-bell-count { position: absolute; top: -3px; right: -4px; z-index: 4; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 10px; display: flex; align-items: center; justify-content: center; background: var(--acc); color: #fff; font-size: 11px; font-weight: 700; box-shadow: 0 0 0 2px #fff; }
+@media (max-width: 767px) { .m-bell { display: flex; } }
