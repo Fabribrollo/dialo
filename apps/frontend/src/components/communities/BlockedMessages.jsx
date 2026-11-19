@@ -9,12 +9,12 @@ export default function BlockedMessages({ id }) {
       setState((s) => ({ ...result, items: cursor ? [...s.items, ...result.items] : result.items }));
     } catch (e) { setState(null); setError(e.message); } finally { setBusy(false); }
   }
-  return <section aria-label="Mensajes bloqueados">
-    <button type="button" disabled={busy} onClick={() => load()}>Ver registro de mensajes bloqueados</button>
+  return <section className="lg blocked-log" aria-label="Mensajes bloqueados">
+    <div className="bl-head"><b>Registro de mensajes bloqueados</b><button type="button" className="pr" disabled={busy} onClick={() => load()}>{state ? 'Actualizar' : 'Ver registro'}</button></div>
     {error && <p role="alert">{error}</p>}
     {busy && <p role="status">Cargando…</p>}
     {state && !state.items.length && <p>No hay mensajes bloqueados registrados.</p>}
-    <ul>{state?.items.map((m) => <li key={m.id}><strong>{m.autor.nombreVisible}</strong> · <time>{new Date(m.fechaCreacion).toLocaleString()}</time><p>{m.contenido}</p><p>Motivo: {m.motivo}</p></li>)}</ul>
+    {state?.items.length > 0 && <ul className="bl-list">{state.items.map((m) => <li key={m.id}><span className="bl-meta"><strong>{m.autor.nombreVisible}</strong><time>{new Date(m.fechaCreacion).toLocaleString('es-AR')}</time></span><p>{m.contenido}</p><span className="bl-why">Motivo: {m.motivo}</span></li>)}</ul>}
     {state?.nextCursor && <button type="button" disabled={busy} onClick={() => load(state.nextCursor)}>Cargar anteriores</button>}
   </section>;
 }

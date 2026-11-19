@@ -7,20 +7,20 @@
 .cd-head { display: flex; align-items: center; justify-content: space-between; }
 .cd-head h2 { margin: 0; font-family: var(--font-ui); font-size: 18px; font-weight: 700; letter-spacing: -.01em; line-height: 1.3; }
 .cd-link { font-size: 13.5px; }
-.cd-state { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(19, 19, 22, .56); }
+.cd-state { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(19, 19, 22, .64); }
 .cd-channel { padding: 9px 10px; color: inherit; text-decoration: none; }
 .cd-channel:hover { text-decoration: none; }
 .cd-channel:focus-visible { outline: 2.5px solid var(--acc); outline-offset: -2px; }
 .cd-ch-ic { width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; background: rgba(19, 19, 22, .06); flex: none; }
 .cd-ch-name { flex: 1; font-weight: 600; font-size: 14.5px; }
-.cd-ch-priv { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: rgba(19, 19, 22, .56); }
+.cd-ch-priv { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: rgba(19, 19, 22, .64); }
 .cd-mem-row { display: flex; align-items: center; gap: 12px; }
 .cd-stack { display: flex; }
 .cd-stack .av { box-shadow: 0 0 0 3px #F6F6F8; font-size: 13px; }
 .cd-stack .av + .av { margin-left: -10px; }
 .cd-mem-count { display: flex; flex-direction: column; }
 .cd-mem-count .dsp { font-size: 30px; line-height: 1; }
-.cd-mem-count span:last-child { font-size: 13px; color: rgba(19, 19, 22, .56); }
+.cd-mem-count span:last-child { font-size: 13px; color: rgba(19, 19, 22, .64); }
 .cd-danger { background: rgba(255, 255, 255, .5); gap: 12px; padding: 20px; }
 .cd-danger-btns { display: flex; gap: 10px; }
 

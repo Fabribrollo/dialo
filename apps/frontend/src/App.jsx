@@ -23,10 +23,11 @@ import CommunityRolesPage from "./pages/CommunityRolesPage.jsx";
 import CommunityMembersPage from "./pages/CommunityMembersPage.jsx";
 import CommunityInvitationsPage from "./pages/CommunityInvitationsPage.jsx";
 import InvitationPage from "./pages/InvitationPage.jsx";
-import LandingPage from "./pages/LandingPage.jsx";
 import CommunityChannelsPage from "./pages/CommunityChannelsPage.jsx";
 import CommunityModerationPage from "./pages/CommunityModerationPage.jsx";
 
+// La landing (WebGL y animaciones) solo se descarga si alguien entra a /inicio.
+const LandingPage = lazy(() => import("./pages/LandingPage.jsx"));
 const DevComponentsPage = import.meta.env.DEV ? lazy(() => import("./pages/DevComponentsPage.jsx")) : null;
 
 export default function App() {
@@ -40,7 +41,7 @@ export default function App() {
     >
       <Routes>
         <Route element={<GuestRoute />}>
-          <Route path="/inicio" element={<LandingPage />} />
+          <Route path="/inicio" element={<Suspense fallback={null}><LandingPage /></Suspense>} />
         </Route>
         <Route element={<AuthLayout />}>
           <Route element={<GuestRoute />}>

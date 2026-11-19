@@ -3,9 +3,10 @@ import SharedFiles from '../chat/SharedFiles.jsx';
 import { useTyping } from '../../hooks/useTyping.js';
 import { useMessageSearch } from '../../hooks/useMessageSearch.js';
 import SearchResults from '../chat/SearchResults.jsx';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useChannelMessages } from '../../hooks/useChannelMessages.js';
+import { useAutoOlder } from '../../hooks/useAutoOlder.js';
 import { EVENTS } from '../../constants/events.js';
 import ChatMessage from '../chat/ChatMessage.jsx';
 import LocalMessage from '../chat/LocalMessage.jsx';
@@ -16,7 +17,7 @@ import Button from '../ui/Button.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
 import Icon, { Spinner } from '../ui/Icon.jsx';
 import Notice from '../ui/Notice.jsx';
-import { formatDay } from '../../utils/chat.js';
+import { distanciaAlFinal, fijarDistanciaAlFinal, formatDay } from '../../utils/chat.js';
 import { COMMUNITY_ROLES } from '../../pages/CommunitiesPage.jsx';
 import '../../styles/dm.css';
 import './channelChat.css';
@@ -36,27 +37,57 @@ export default function ChannelChat({ canal, draft, setDraft, buscar = '' }) {
   const editor = useRef(null), membersTrigger = useRef(null);
   const current = history.canal;
   const write = Boolean(current?.misPermisos.includes('ESCRIBIR'));
-  const ownMember = history.members.find((m) => m.usuario.id === usuario.id);
-  const author = (m) => m.autor.id === usuario.id ? usuario : history.members.find((member) => member.usuario.id === m.autor.id)?.usuario ?? m.autor;
-  const mayDelete = (m) => {
+  // Integrantes por id: buscar autor y rol es directo en vez de recorrer la lista por cada mensaje.
+  const byId = useMemo(() => new Map(history.members.map((m) => [m.usuario.id, m])), [history.members]);
+  const ownMember = byId.get(usuario.id);
+  const author = useCallback((m) => m.autor.id === usuario.id ? usuario : byId.get(m.autor.id)?.usuario ?? m.autor, [usuario, byId]);
+  const mayDelete = useCallback((m) => {
     if (!history.ready || m.eliminado) return false;
     if (m.autor.id === usuario.id) return write;
-    const theirs = history.members.find((member) => member.usuario.id === m.autor.id)?.rol;
+    const theirs = byId.get(m.autor.id)?.rol;
     return history.membersReady && (rank[ownMember?.rol] ?? 0) >= 2 && rank[ownMember.rol] > (rank[theirs] ?? 0);
-  };
+  }, [history.ready, history.membersReady, usuario.id, write, byId, ownMember]);
   useEffect(() => {
     if (!history.ready || (deleting !== null && !history.messages.some((m) => m.id === deleting && !m.eliminado))) setDeleting(null);
   }, [history.ready, history.messages, deleting]);
   useLayoutEffect(() => {
     const node = viewport.current;
     if (!node || history.loadingOlder) return;
-    if (anchor.current) { node.scrollTop = anchor.current.top + node.scrollHeight - anchor.current.height; anchor.current = null; }
-    else if (stick.current) node.scrollTop = node.scrollHeight;
+    if (anchor.current) { fijarDistanciaAlFinal(node, anchor.current.distancia); anchor.current = null; }
+    else if (stick.current) fijarDistanciaAlFinal(node, 0);
   }, [history.messages, history.loadingOlder]);
   async function action(event, payload) {
     try { return await history.action(event, payload); }
     catch (e) { if (e.code === 'UNAUTHORIZED') refresh(); throw e; }
   }
+  const cargarAnteriores = () => {
+    const n = viewport.current;
+    if (!n || history.loadingOlder || history.loading) return;
+    anchor.current = { distancia: distanciaAlFinal(n) };
+    history.older();
+  };
+  const olderRef = useAutoOlder(viewport, Boolean(history.cursor) && history.ready && !history.loadingOlder, cargarAnteriores);
+  const actionRef = useRef(action);
+  actionRef.current = action;
+  const editar = useCallback((idMensaje, contenido) => actionRef.current(EVENTS.CHANNEL_MESSAGE_EDIT, { idMensaje, contenido }), []);
+  const borrar = useCallback((idMensaje, button) => { trigger.current = button; setDeleting(idMensaje); }, []);
+  const mensajes = useMemo(() => filterMessages(history.messages, buscar), [history.messages, buscar]);
+  const filas = useMemo(() => {
+    let lastDay = '';
+    let lastAuthor = null;
+    return mensajes.map((m) => {
+      const day = formatDay(m.fechaCreacion);
+      const divider = day !== lastDay;
+      const first = divider || m.autor.id !== lastAuthor;
+      lastDay = day; lastAuthor = m.autor.id;
+      const own = m.autor.id === usuario.id;
+      return <Fragment key={m.id}>
+        {divider && <li className="day-sep">{day}</li>}
+        <ChatMessage mensaje={m} autor={author(m)} own={own} first={first} connected={history.connected}
+          onEdit={write && own ? editar : undefined} onDelete={mayDelete(m) ? borrar : undefined} />
+      </Fragment>;
+    });
+  }, [mensajes, usuario.id, history.connected, write, author, mayDelete, editar, borrar]);
   async function deliver(text, tempId) {
     setLocal((l) => [...l.filter((x) => x.tempId !== tempId), { tempId, contenido: text, st: 'rev', fecha: new Date() }]);
     try {
@@ -83,14 +114,11 @@ export default function ChannelChat({ canal, draft, setDraft, buscar = '' }) {
     finally { pending.current = false; setSending(false); }
   }
   if (history.lost) return <div className="cs-error" role="alert"><h3 className="cs-title">Canal no disponible</h3><p className="cs-text">{history.error}</p></div>;
-  const mensajes = filterMessages(history.messages, buscar);
-  let lastDay = '';
-  let lastAuthor = null;
   return <section className="dm cc" aria-label={`Chat de ${canal.nombre}`} onKeyDown={(event) => {
     if (event.key === 'Escape' && showMembers) { setShowMembers(false); membersTrigger.current?.focus(); }
   }}>
-    <SharedFiles tipo="canal" id={canal.id} canWrite={write} onSent={history.reload} />
     <div className="cc-tools">
+      <SharedFiles tipo="canal" id={canal.id} canWrite={write} onSent={history.reload} />
       {current?.moderacionActiva && <span className="lbl">Moderado con IA</span>}
       <Button ref={membersTrigger} size="sm" variant="secundario" aria-expanded={showMembers} aria-controls="chat-integrantes" onClick={() => setShowMembers((v) => !v)}>
         <Icon name="amigos" size={15} stroke={2} />Integrantes
@@ -104,27 +132,13 @@ export default function ChannelChat({ canal, draft, setDraft, buscar = '' }) {
       </li>)}</ul>}
     </div>}
     <div className="dm-body">
-      <div className="dm-scroll" ref={viewport} onScroll={(e) => { const n = e.currentTarget; stick.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90; }}>
+      <div className="dm-scroll" ref={viewport} onScroll={(e) => { const n = e.currentTarget; stick.current = distanciaAlFinal(n) < 90; }}>
         <SearchResults search={search} />
         <ol className="dm-list" aria-label="Historial del canal">
-          {history.cursor && <li className="dm-older"><Button size="sm" variant="secundario" loading={history.loadingOlder} disabled={history.loading} onClick={() => {
-            const n = viewport.current; anchor.current = { top: n.scrollTop, height: n.scrollHeight }; history.older();
-          }}>{history.loadingOlder ? 'Cargando…' : 'Cargar mensajes anteriores'}</Button></li>}
+          {history.cursor && <li className="dm-older" ref={olderRef}><Button size="sm" variant="secundario" loading={history.loadingOlder} disabled={history.loading} onClick={cargarAnteriores}>{history.loadingOlder ? 'Cargando…' : 'Cargar mensajes anteriores'}</Button></li>}
           {history.loading && <li className="dm-opening" role="status"><Spinner size={17} />Cargando mensajes…</li>}
           {history.ready && !history.messages.length && <li className="dm-empty"><EmptyState icon="canalTexto" title="Sin mensajes todavía">Este es el inicio del canal {canal.nombre}.</EmptyState></li>}
-          {mensajes.map((m) => {
-            const day = formatDay(m.fechaCreacion);
-            const divider = day !== lastDay;
-            const first = divider || m.autor.id !== lastAuthor;
-            lastDay = day; lastAuthor = m.autor.id;
-            const own = m.autor.id === usuario.id;
-            return <Fragment key={m.id}>
-              {divider && <li className="day-sep">{day}</li>}
-              <ChatMessage mensaje={m} autor={author(m)} own={own} first={first} connected={history.connected}
-                onEdit={write && own ? (idMensaje, contenido) => action(EVENTS.CHANNEL_MESSAGE_EDIT, { idMensaje, contenido }) : undefined}
-                onDelete={mayDelete(m) ? (idMensaje, button) => { trigger.current = button; setDeleting(idMensaje); } : undefined} />
-            </Fragment>;
-          })}
+          {filas}
           {local.map((m) => <LocalMessage key={m.tempId} mensaje={m} onResend={(item, text) => deliver(text, item.tempId)} onDiscard={(item) => setLocal((l) => l.filter((x) => x.tempId !== item.tempId))} />)}
         </ol>
       </div>

@@ -4,13 +4,14 @@ import SharedFiles from '../components/chat/SharedFiles.jsx';
 import { useTyping } from '../hooks/useTyping.js';
 import { useMessageSearch } from '../hooks/useMessageSearch.js';
 import SearchResults from '../components/chat/SearchResults.jsx';
-import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../hooks/useAuth.js';
 import { useMessages } from '../hooks/useMessages.js';
+import { useAutoOlder } from '../hooks/useAutoOlder.js';
 import { useConversations } from '../context/ConversationsContext.jsx';
 import { getConversation } from '../services/conversationsService.js';
-import { formatDay } from '../utils/chat.js';
+import { distanciaAlFinal, fijarDistanciaAlFinal, formatDay } from '../utils/chat.js';
 import { EVENTS } from '../constants/events.js';
 import Avatar from '../components/ui/Avatar.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -67,22 +68,52 @@ function Chat({ id, draft, setDraft }) {
     const node = viewport.current;
     if (!node) return;
     if (anchor.current) {
-      node.scrollTop = anchor.current.top + node.scrollHeight - anchor.current.height;
+      fijarDistanciaAlFinal(node, anchor.current.distancia);
       anchor.current = null;
-    } else if (stick.current) node.scrollTop = node.scrollHeight;
+    } else if (stick.current) fijarDistanciaAlFinal(node, 0);
   }, [history.messages]);
 
   async function action(event, payload) {
     try {
-      const result = await history.action(event, payload);
-      reloadList();
-      return result;
+      // La lista de conversaciones se actualiza sola con el evento del socket; no hace falta pedirla de nuevo.
+      return await history.action(event, payload);
     } catch (e) {
       if (e.code === 'UNAUTHORIZED') refresh();
       if (e.code === 'NOT_FRIENDS') reloadList();
       throw e;
     }
   }
+
+  const cargarAnteriores = async () => {
+    const n = viewport.current;
+    if (!n || history.loading) return;
+    anchor.current = { distancia: distanciaAlFinal(n) };
+    await history.older();
+  };
+  const olderRef = useAutoOlder(viewport, Boolean(history.cursor) && !history.loading && history.messages.length > 0, cargarAnteriores);
+  const actionRef = useRef(action);
+  actionRef.current = action;
+  const editar = useCallback((idMensaje, contenido) => actionRef.current(EVENTS.MESSAGE_EDIT, { idMensaje, contenido }), []);
+  const mensajes = useMemo(() => filterMessages(history.messages, buscar), [history.messages, buscar]);
+  const filas = useMemo(() => {
+    let lastDay = '';
+    let lastAuthor = null;
+    return mensajes.map((m) => {
+      const day = formatDay(m.fechaCreacion);
+      const divider = day !== lastDay;
+      const first = divider || m.idAutor !== lastAuthor;
+      lastDay = day;
+      lastAuthor = m.idAutor;
+      const own = m.idAutor === usuario.id;
+      return (
+        <Fragment key={m.id}>
+          {divider && <li className="day-sep">{day}</li>}
+          <ChatMessage mensaje={m} own={own} first={first} connected={connected}
+            onEdit={own ? editar : undefined} onDelete={own ? setDeleting : undefined} />
+        </Fragment>
+      );
+    });
+  }, [mensajes, usuario.id, connected, editar]);
 
   async function send() {
     if (!draft.trim() || sending || !chat?.puedeEscribir || !connected) return;
@@ -125,11 +156,8 @@ function Chat({ id, draft, setDraft }) {
     return <div className="dm-center"><span className="dm-opening" role="status"><Spinner size={17} />Abriendo conversación…</span></div>;
   }
 
-  const mensajes = filterMessages(history.messages, buscar);
   const otro = chat.otroUsuario;
   const nombre = otro.nombreVisible;
-  let lastDay = '';
-  let lastAuthor = null;
 
   return (
     <section className="dm" aria-label={`Chat con ${nombre}`}>
@@ -142,8 +170,8 @@ function Chat({ id, draft, setDraft }) {
         </span>
         <span className="dm-head-tools">
           {privateCall && chat.puedeEscribir && <>
-            <button type="button" disabled={privateCall.busy || privateCall.active} onClick={() => privateCall.start(id, false)}>Llamar</button>
-            <button type="button" disabled={privateCall.busy || privateCall.active} onClick={() => privateCall.start(id, true)}>Videollamar</button>
+            <button type="button" className="lg pr dm-call" disabled={privateCall.busy || privateCall.active} onClick={() => privateCall.start(id, false)} aria-label={`Llamar a ${nombre}`}><Icon name="telefono" size={18} stroke={2} /></button>
+            <button type="button" className="lg pr dm-call" disabled={privateCall.busy || privateCall.active} onClick={() => privateCall.start(id, true)} aria-label={`Videollamar a ${nombre}`}><Icon name="camara" size={18} stroke={2} /></button>
           </>}
           <ChatSearch value={buscar} onChange={setBuscar} /></span>
       </header>
@@ -152,17 +180,13 @@ function Chat({ id, draft, setDraft }) {
       <div className="dm-body">
         <div className="dm-scroll" ref={viewport} onScroll={(e) => {
           const n = e.currentTarget;
-          stick.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90;
+          stick.current = distanciaAlFinal(n) < 90;
         }}>
           <SearchResults search={search} author={(m) => m.idAutor === usuario.id ? usuario.nombreVisible : chat?.otroUsuario?.nombreVisible} />
         <ol className="dm-list" aria-label="Historial de mensajes">
             {history.cursor && (
-              <li className="dm-older">
-                <Button variant="secundario" size="sm" loading={history.loading} onClick={async () => {
-                  const n = viewport.current;
-                  anchor.current = { top: n.scrollTop, height: n.scrollHeight };
-                  await history.older();
-                }}>{history.loading ? 'Cargando…' : 'Cargar anteriores'}</Button>
+              <li className="dm-older" ref={olderRef}>
+                <Button variant="secundario" size="sm" loading={history.loading} onClick={cargarAnteriores}>{history.loading ? 'Cargando…' : 'Cargar anteriores'}</Button>
               </li>
             )}
             {history.loading && !history.messages.length && <li className="dm-opening" role="status"><Spinner size={17} />Cargando…</li>}
@@ -171,27 +195,7 @@ function Chat({ id, draft, setDraft }) {
                 <EmptyState icon="mensajes" title="Sin mensajes">Todavía no hay mensajes con {nombre.split(' ')[0]}. Escribile algo.</EmptyState>
               </li>
             )}
-            {mensajes.map((m) => {
-              const day = formatDay(m.fechaCreacion);
-              const divider = day !== lastDay;
-              const first = divider || m.idAutor !== lastAuthor;
-              lastDay = day;
-              lastAuthor = m.idAutor;
-              const own = m.idAutor === usuario.id;
-              return (
-                <Fragment key={m.id}>
-                  {divider && <li className="day-sep">{day}</li>}
-                  <ChatMessage
-                    mensaje={m}
-                    own={own}
-                    first={first}
-                    connected={connected}
-                    onEdit={own ? (idMensaje, contenido) => action(EVENTS.MESSAGE_EDIT, { idMensaje, contenido }) : undefined}
-                    onDelete={own ? setDeleting : undefined}
-                  />
-                </Fragment>
-              );
-            })}
+            {filas}
           </ol>
         </div>
         <span className="dm-fade-top" />

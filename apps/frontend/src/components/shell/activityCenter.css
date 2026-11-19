@@ -30,7 +30,7 @@
 .act-error svg { flex: none; color: #D7263D; }
 .act-error span { flex: 1; }
 .act-error .lnk { font-size: 13px; color: #131316; }
-.act-state { display: flex; align-items: center; gap: 8px; padding: 10px; font-size: 13px; font-weight: 600; color: rgba(19, 19, 22, .56); }
+.act-state { display: flex; align-items: center; gap: 8px; padding: 10px; font-size: 13px; font-weight: 600; color: rgba(19, 19, 22, .64); }
 
 .act-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
 .act-item {
@@ -45,7 +45,7 @@
 .act-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .act-name { font-weight: 600; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .act-item.is-new .act-name { font-weight: 700; }
-.act-detail { font-size: 13px; color: rgba(19, 19, 22, .6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.act-detail { font-size: 13px; color: rgba(19, 19, 22, .64); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .act-meta { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
 .act-meta .tm { font-size: 11.5px; color: rgba(19, 19, 22, .64); font-variant-numeric: tabular-nums; }
 .act-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--acc); }
@@ -67,7 +67,7 @@
 .act-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(19, 19, 22, .2); transition: transform .3s cubic-bezier(.3, 1.5, .5, 1); }
 .act-toggle.on { background: var(--acc); }
 .act-toggle.on::after { transform: translateX(16px); }
-.act-hint { margin: 0; padding: 0 8px; font-size: 12.5px; line-height: 1.45; color: rgba(19, 19, 22, .6); }
+.act-hint { margin: 0; padding: 0 8px; font-size: 12.5px; line-height: 1.45; color: rgba(19, 19, 22, .64); }
 
 @media (max-width: 767px) {
   .dlg.act-panel { width: 100%; max-width: 100%; max-height: 86dvh; margin: auto 0 0; border-radius: 30px 30px 0 0; padding-bottom: max(14px, env(safe-area-inset-bottom)); }

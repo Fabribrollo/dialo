@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const VOCES = [
-  { nombre: 'Cande', inicial: 'C', color: '#C9764F' },
+  { nombre: 'Cande', inicial: 'C', color: '#A0522D' },
   { nombre: 'Tomi', inicial: 'T', color: '#131316' },
-  { nombre: 'Lu', inicial: 'L', color: '#5B7FE0' },
+  { nombre: 'Lu', inicial: 'L', color: '#3D5FC4' },
 ];
 
 const TURNO = 3.4;

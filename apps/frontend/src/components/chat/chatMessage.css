@@ -1,6 +1,6 @@
 .msg { list-style: none; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .msg-right { align-items: flex-end; }
-.msg-time { font-size: 12.5px; color: rgba(19, 19, 22, .5); }
+.msg-time { font-size: 12.5px; color: rgba(19, 19, 22, .64); }
 .msg-line { display: flex; align-items: flex-end; gap: 8px; max-width: 100%; }
 .msg-right .msg-line { align-items: center; }
 
@@ -9,8 +9,8 @@
 .msg-bub.ac { border-radius: 22px; padding: 11px 16px; font-size: 15px; line-height: 1.4; font-weight: 500; }
 .msg-other.msg-first { border-top-left-radius: 8px; }
 .msg-own.msg-first { border-top-right-radius: 8px; }
-.msg-edited { font-size: 12px; color: rgba(19, 19, 22, .45); padding-bottom: 4px; }
-.msg-deleted { border-radius: 22px; padding: 10px 16px; font-size: 14px; font-style: italic; color: rgba(19, 19, 22, .5); box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .12); }
+.msg-edited { font-size: 12px; color: rgba(19, 19, 22, .64); padding-bottom: 4px; }
+.msg-deleted { border-radius: 22px; padding: 10px 16px; font-size: 14px; font-style: italic; color: rgba(19, 19, 22, .64); box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .12); }
 
 .msg-tools { display: flex; gap: 2px; padding: 4px; border-radius: 16px; background: rgba(255, 255, 255, .85); opacity: 0; pointer-events: none; transition: opacity .2s; }
 .msg:hover .msg-tools, .msg:focus-within .msg-tools { opacity: 1; pointer-events: auto; }
@@ -23,7 +23,7 @@
 .msg-edit-inp textarea { resize: none; padding: 12px 0; line-height: 1.4; }
 .msg-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-.day-sep { display: flex; align-items: center; gap: 14px; font-size: 12.5px; font-weight: 600; color: rgba(19, 19, 22, .45); list-style: none; }
+.day-sep { display: flex; align-items: center; gap: 14px; font-size: 12.5px; font-weight: 600; color: rgba(19, 19, 22, .64); list-style: none; }
 .day-sep::before, .day-sep::after { content: ''; flex: 1; height: 1px; background: rgba(19, 19, 22, .08); }
 
 .msg-author { flex-direction: row; align-items: flex-start; gap: 12px; }
@@ -33,16 +33,16 @@
 .msg-av-gap { width: 38px; flex: none; }
 .msg-who { font-size: 13.5px; display: flex; align-items: baseline; gap: 8px; }
 .msg-who b { font-weight: 600; }
-.msg-who time { font-size: 11.5px; color: rgba(19, 19, 22, .5); }
+.msg-who time { font-size: 11.5px; color: rgba(19, 19, 22, .64); }
 
 .lm-bub { border-radius: 22px; border-top-right-radius: 8px; padding: 11px 16px; font-size: 15px; line-height: 1.4; font-weight: 500; max-width: 460px; transition: opacity .45s, background-color .45s, color .45s, box-shadow .45s; }
 .lm-rev { opacity: .45; }
-.lm-blk { color: rgba(19, 19, 22, .6); background: repeating-linear-gradient(135deg, rgba(19, 19, 22, .035) 0 8px, rgba(19, 19, 22, .07) 8px 16px), #fff; box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .12); }
-.lm-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: rgba(19, 19, 22, .6); flex-wrap: wrap; justify-content: flex-end; }
+.lm-blk { color: rgba(19, 19, 22, .64); background: repeating-linear-gradient(135deg, rgba(19, 19, 22, .035) 0 8px, rgba(19, 19, 22, .07) 8px 16px), #fff; box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .12); }
+.lm-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: rgba(19, 19, 22, .64); flex-wrap: wrap; justify-content: flex-end; }
 .lm-row b { color: #131316; }
 .lm-shield { width: 22px; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: #131316; color: #fff; }
 .lm-btn { height: 30px; padding: 0 11px; border: 0; border-radius: 15px; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: 12.5px; font-weight: 600; color: #131316; background: rgba(19, 19, 22, .06); cursor: pointer; }
 .msg-blocked-edit { display: flex; align-items: flex-start; gap: 11px; border-radius: 20px; padding: 12px 14px; font-size: 14px; line-height: 1.4; color: #131316; background: repeating-linear-gradient(135deg, rgba(19, 19, 22, .035) 0 8px, rgba(19, 19, 22, .07) 8px 16px), #fff; box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .1); }
 .msg-blocked-edit .lm-shield { width: 32px; height: 32px; border-radius: 11px; flex: none; }
 .msg-blocked-edit span { display: flex; flex-direction: column; gap: 2px; }
-.msg-blocked-edit small { color: rgba(19, 19, 22, .6); font-size: 13px; }
+.msg-blocked-edit small { color: rgba(19, 19, 22, .64); font-size: 13px; }

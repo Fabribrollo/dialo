@@ -1,5 +1,5 @@
 import { API_URL } from '../../constants/api.js';
-import { useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import Button from '../ui/Button.jsx';
 import Notice from '../ui/Notice.jsx';
 import Avatar from '../ui/Avatar.jsx';
@@ -11,12 +11,12 @@ function hora(fecha) {
   return new Date(fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-export default function ChatMessage({ mensaje, own, first, connected, onEdit, onDelete, autor }) {
+function ChatMessage({ mensaje, own, first, connected, onEdit, onDelete, autor }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const cuando = new Date(mensaje.fechaCreacion).toLocaleString('es-AR');
+  const cuando = useMemo(() => new Date(mensaje.fechaCreacion).toLocaleString('es-AR'), [mensaje.fechaCreacion]);
 
   async function save(e) {
     e?.preventDefault();
@@ -35,7 +35,8 @@ export default function ChatMessage({ mensaje, own, first, connected, onEdit, on
 
   const forma = `${own ? 'msg-own' : 'msg-other'} ${first ? 'msg-first' : ''}`;
   const conAutor = autor && !own;
-  const codigos = mensaje.contenido ? [...new Set([...mensaje.contenido.matchAll(INVITE_LINK)].map((m) => m[1]))] : [];
+  const codigos = useMemo(() => (mensaje.contenido ? [...new Set([...mensaje.contenido.matchAll(INVITE_LINK)].map((m) => m[1]))] : []), [mensaje.contenido]);
+  const contenido = useMemo(() => (mensaje.contenido ? linkify(mensaje.contenido) : null), [mensaje.contenido]);
 
   return (
     <li className={`msg ${own ? 'msg-right' : ''} ${conAutor ? 'msg-author' : ''}`}>
@@ -78,7 +79,7 @@ export default function ChatMessage({ mensaje, own, first, connected, onEdit, on
             </span>
           )}
           {mensaje.fechaEdicion && own && <span className="msg-edited">editado</span>}
-          <span className={`${own ? 'ac' : 'bub'} msg-bub ${forma}`}>{linkify(mensaje.contenido)}</span>
+          <span className={`${own ? 'ac' : 'bub'} msg-bub ${forma}`}>{contenido}</span>
           {mensaje.fechaEdicion && !own && <span className="msg-edited">editado</span>}
           {!own && (onEdit || onDelete) && (
             <span className="lg msg-tools">
@@ -93,3 +94,6 @@ export default function ChatMessage({ mensaje, own, first, connected, onEdit, on
     </li>
   );
 }
+
+// Cada mensaje solo se vuelve a dibujar si cambió él, su autor o la conexión; escribir en el campo no lo toca.
+export default memo(ChatMessage);

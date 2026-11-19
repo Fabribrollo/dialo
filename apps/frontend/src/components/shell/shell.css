@@ -1,7 +1,16 @@
-.shell { height: 100vh; height: 100dvh; box-sizing: border-box; padding: 22px; display: flex; gap: 16px; background: linear-gradient(180deg, #ECEDF0, #E0E1E6); }
+.shell { position: relative; isolation: isolate; overflow: hidden; overflow: clip; height: 100vh; height: 100dvh; box-sizing: border-box; padding: 22px; display: flex; gap: 16px; background: linear-gradient(180deg, #ECEDF0, #E0E1E6); }
+/* Luz de fondo con un poco de color: es lo que el vidrio deja ver y refracta. */
+.shell::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(38% 46% at 8% 6%, color-mix(in srgb, var(--acc) 22%, transparent), transparent 72%),
+    radial-gradient(34% 44% at 96% 94%, color-mix(in srgb, #5B7FE0 18%, transparent), transparent 72%),
+    radial-gradient(28% 36% at 74% 4%, color-mix(in srgb, #FF8FD8 12%, transparent), transparent 70%),
+    radial-gradient(30% 40% at 30% 100%, color-mix(in srgb, #1FAE5B 8%, transparent), transparent 70%);
+}
 .shell-main {
-  flex: 999 1 520px; min-width: 0; border-radius: 32px; overflow: hidden; display: flex; flex-direction: column;
-  background: linear-gradient(150deg, rgba(255, 255, 255, .88), rgba(255, 255, 255, .66));
+  flex: 999 1 520px; min-width: 0; border-radius: 32px; overflow: hidden; overflow: clip; display: flex; flex-direction: column;
+  background: linear-gradient(150deg, rgba(255, 255, 255, .8), rgba(255, 255, 255, .58));
 }
 .shell-main:focus { outline: none; }
 .shell-right-slot { display: contents; }

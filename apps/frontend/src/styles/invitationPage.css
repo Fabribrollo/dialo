@@ -15,11 +15,11 @@
 .iv-h { margin: 0; font-size: 68px; line-height: .92; }
 .iv-h-md { margin: 0; font-size: 60px; line-height: .92; }
 .iv-h-sm { margin: 0; font-size: 40px; line-height: 1; }
-.iv-sub { font-size: 15px; color: rgba(19, 19, 22, .56); line-height: 1.45; }
-.iv-count { font-size: 14px; font-weight: 600; color: rgba(19, 19, 22, .56); }
+.iv-sub { font-size: 15px; color: rgba(19, 19, 22, .64); line-height: 1.45; }
+.iv-count { font-size: 14px; font-weight: 600; color: rgba(19, 19, 22, .64); }
 .iv-actions { display: flex; gap: 10px; margin-top: 6px; }
 .btn.iv-btn { height: 54px; border-radius: 27px; padding: 0 30px; font-size: 16px; text-decoration: none; }
-.iv-state-ic { width: 64px; height: 64px; border-radius: 20px; display: flex; align-items: center; justify-content: center; color: rgba(19, 19, 22, .55); background: repeating-linear-gradient(135deg, rgba(19, 19, 22, .05) 0 9px, rgba(19, 19, 22, .1) 9px 18px); }
-.iv-loading { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: rgba(19, 19, 22, .56); }
+.iv-state-ic { width: 64px; height: 64px; border-radius: 20px; display: flex; align-items: center; justify-content: center; color: rgba(19, 19, 22, .64); background: repeating-linear-gradient(135deg, rgba(19, 19, 22, .05) 0 9px, rgba(19, 19, 22, .1) 9px 18px); }
+.iv-loading { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: rgba(19, 19, 22, .64); }
 @media (prefers-reduced-motion: reduce) { .iv-tile, .iv-in { animation: none; } }
 @media (max-width: 1023px) { .iv { flex-direction: column; padding: 24px; } .iv-art { width: 300px; height: 260px; } .iv-h { font-size: 44px; } .iv-h-md { font-size: 38px; } }

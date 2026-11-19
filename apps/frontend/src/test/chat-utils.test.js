@@ -85,3 +85,15 @@ describe("historial y ack", () => {
     );
   });
 });
+
+describe("historial largo", () => {
+  it("ordena una página que llega de más nuevo a más viejo", () => {
+    const pagina = [m(3, { fechaCreacion: "2026-10-06T03:00:00Z" }), m(2, { fechaCreacion: "2026-10-06T02:00:00Z" }), m(1, { fechaCreacion: "2026-10-06T01:00:00Z" })];
+    expect(mergeMessages(pagina, []).map((x) => x.id)).toEqual([1, 2, 3]);
+  });
+  it("agrega un mensaje nuevo al final sin perder el orden", () => {
+    const lista = [m(1, { fechaCreacion: "2026-10-06T01:00:00Z" }), m(2, { fechaCreacion: "2026-10-06T02:00:00Z" })];
+    expect(mergeMessages(lista, [m(9, { fechaCreacion: "2026-10-06T05:00:00Z" })]).map((x) => x.id)).toEqual([1, 2, 9]);
+    expect(mergeMessages(lista, [m(0, { fechaCreacion: "2026-10-05T05:00:00Z" })]).map((x) => x.id)).toEqual([0, 1, 2]);
+  });
+});

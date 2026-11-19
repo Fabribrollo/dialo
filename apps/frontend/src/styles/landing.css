@@ -59,7 +59,7 @@
 .landing-subtitulo {
   --v: calc(clamp(0, calc((var(--p) - var(--a)) / 0.03), 1) * (1 - clamp(0, calc((var(--p) - var(--b)) / 0.05), 1)));
   position: absolute; inset: 0 0 auto; margin: 0; text-align: center;
-  font-size: 22px; line-height: 1.45; color: rgba(19, 19, 22, .6);
+  font-size: 22px; line-height: 1.45; color: rgba(19, 19, 22, .64);
   opacity: var(--v); transform: translateY(calc((1 - var(--v)) * 14px));
 }
 
@@ -154,19 +154,19 @@
 .landing-avatar { width: 36px; height: 36px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #fff; }
 .landing-persona-datos { display: flex; flex-direction: column; }
 .landing-persona-datos b { font-size: 14px; font-weight: 600; }
-.landing-persona-datos span { font-size: 12.5px; color: rgba(19, 19, 22, .6); }
+.landing-persona-datos span { font-size: 12.5px; color: rgba(19, 19, 22, .64); }
 .landing-persona.activa .landing-persona-datos span { color: var(--acc); font-weight: 600; }
 
 .landing-bajar {
   position: absolute; left: 50%; bottom: 34px; z-index: 5; transform: translateX(-50%);
   display: flex; align-items: flex-end; gap: 4px; height: 26px; opacity: calc(1 - var(--hp) * 3);
 }
-.landing-bajar i { width: 5px; border-radius: 2px; background: #131316; animation: landing-eq 1s ease-in-out infinite alternate; }
+.landing-bajar i { width: 5px; height: 26px; border-radius: 2px; background: #131316; transform-origin: 50% 100%; animation: landing-eq 1s ease-in-out infinite alternate; }
 .landing-bajar i:nth-child(2) { animation-delay: .15s; }
 .landing-bajar i:nth-child(3) { animation-delay: .3s; }
 .landing-bajar i:nth-child(4) { animation-delay: .1s; }
 .landing-bajar i:nth-child(5) { animation-delay: .25s; }
-@keyframes landing-eq { from { height: 5px; } to { height: 26px; } }
+@keyframes landing-eq { from { transform: scaleY(.2); } to { transform: scaleY(1); } }
 
 /* Crear cuenta: el botón crece hasta cubrir la pantalla y salen los íconos de vidrio. */
 .landing-burst { position: absolute; inset: 0; z-index: 60; overflow: hidden; pointer-events: auto; }
@@ -228,7 +228,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .landing-punto, .landing-bajar i { animation: none; }
-  .landing-bajar i { height: 14px; }
+  .landing-bajar i { transform: scaleY(.55); }
   .landing-burst-icono { animation-duration: .01s; }
   .landing-burst-fondo { animation-duration: .2s; animation-delay: 0s; }
   .landing-burst::before, .landing-burst::after { animation-duration: .2s; animation-delay: 0s; }

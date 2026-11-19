@@ -14,7 +14,7 @@
 .cpa-pill input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
 .cpa-on { background: color-mix(in srgb, var(--acc) 10%, #fff); color: var(--acc); box-shadow: inset 0 0 0 1.5px var(--acc); }
 .cpa-pill:focus-within { outline: 2.5px solid var(--acc); outline-offset: 2px; }
-.cpa-sep { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(19, 19, 22, .07); font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: rgba(19, 19, 22, .5); }
+.cpa-sep { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(19, 19, 22, .07); font-size: 11.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: rgba(19, 19, 22, .64); }
 .cpa-add { display: flex; align-items: flex-end; gap: 8px; margin-top: 6px; }
 .cpa-add .fld { flex: 1; }
 .cpa-add .inp { height: 40px; }

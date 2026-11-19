@@ -1,8 +1,8 @@
 .cl-head { align-items: flex-start; }
 .cl-title { flex: 1; display: flex; flex-direction: column; gap: 6px; }
-.cl-sub { font-size: 14px; color: rgba(19, 19, 22, .56); }
+.cl-sub { font-size: 14px; color: rgba(19, 19, 22, .64); }
 .cl-body { gap: 14px; }
-.cl-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(19, 19, 22, .56); }
+.cl-loading { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(19, 19, 22, .64); }
 .cl-link { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; color: inherit; text-decoration: none; }
 .cl-link:hover { text-decoration: none; }
 .cl-link:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 4px; border-radius: 14px; }

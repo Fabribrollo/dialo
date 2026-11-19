@@ -45,11 +45,12 @@ export default function Sidebar() {
   // Cuando arranca una llamada en una comunidad tuya, invita a sumarse (salvo que ya estés ahí).
   function invitarALlamadas(calls) {
     const antes = previas.current;
-    previas.current = calls;
+    previas.current = { ...(antes ?? {}), ...calls };
     if (!antes || silenciado) return;
     for (const c of communities.items) {
       const ahora = calls[c.id];
-      if (!ahora || ahora.estoy || antes[c.id]) continue;
+      // Solo invita si la llamada empezó desde la consulta anterior, no si ya estaba cuando abriste la app.
+      if (!(c.id in antes) || !ahora || ahora.estoy || antes[c.id]) continue;
       const destino = `/comunidades/${c.id}/canales/${ahora.idCanal}`;
       if (enCanal.current === destino) continue;
       avisar({
@@ -75,12 +76,15 @@ export default function Sidebar() {
       invitarALlamadas(calls);
     };
     refresh();
-    const timer = setInterval(refresh, 30000);
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 30000);
     const revoke = () => { activitySeq.current++; setActivity({}); refresh(); };
     const events = ['community:left','community:member-updated','channel:access-lost','channel:updated','channel:deleted','connect'];
     events.forEach((e)=>socket?.on(e,revoke));
-    window.addEventListener('focus', revoke);
-    return () => { alive=false; activitySeq.current++; clearInterval(timer); events.forEach((e)=>socket?.off(e,revoke)); window.removeEventListener('focus',revoke); };
+    // Volver a la pestaña refresca, pero como mucho una vez cada 15 segundos (es un pedido por comunidad).
+    let ultimoFoco = 0;
+    const alEnfocar = () => { if (Date.now() - ultimoFoco < 15000) return; ultimoFoco = Date.now(); refresh(); };
+    window.addEventListener('focus', alEnfocar);
+    return () => { alive=false; activitySeq.current++; clearInterval(timer); events.forEach((e)=>socket?.off(e,revoke)); window.removeEventListener('focus',alEnfocar); };
   }, [communities.items,socket]);
   const { recibidas } = useFriends();
   const [filtro, setFiltro] = useState('todo');

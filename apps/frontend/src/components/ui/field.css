@@ -18,18 +18,18 @@
 
 .inp:focus-within { box-shadow: inset 0 0 0 2px var(--acc), 0 0 0 5px color-mix(in srgb, var(--acc) 12%, transparent); }
 .inp-error, .inp-error:focus-within { box-shadow: inset 0 0 0 1.5px #D7263D; background: rgba(255, 255, 255, .9); }
-.inp-disabled { background: rgba(19, 19, 22, .04); color: rgba(19, 19, 22, .45); }
+.inp-disabled { background: rgba(19, 19, 22, .04); color: rgba(19, 19, 22, .64); }
 .inp-disabled input { color: inherit; }
 
-.srch { color: rgba(19, 19, 22, .6); }
+.srch { color: rgba(19, 19, 22, .64); }
 .srch svg { flex: none; }
 .fld-lg .inp { height: 50px; border-radius: 17px; }
-.fld-eye { display: flex; border: 0; padding: 0; background: none; cursor: pointer; color: rgba(19, 19, 22, .56); }
+.fld-eye { display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; margin: -6px; border-radius: 50%; border: 0; padding: 0; background: none; cursor: pointer; color: rgba(19, 19, 22, .64); }
 .fld-eye:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; border-radius: 4px; }
 
 .fld-error, .fld-note { font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
 .fld-error { color: #B4142C; font-weight: 500; }
-.fld-note { color: rgba(19, 19, 22, .56); }
+.fld-note { color: rgba(19, 19, 22, .64); }
 
 .chkf { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; position: relative; }
 .chkf-input { position: absolute; opacity: 0; width: 22px; height: 22px; margin: 0; }

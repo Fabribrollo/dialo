@@ -15,3 +15,15 @@
 .cn-toggle-name { font-size: 24px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cn-chev { display: flex; transition: transform .2s; }
 .cn-chev.is-open { transform: rotate(180deg); }
+/* En pantallas angostas las secciones se desplazan de costado en vez de quedar cortadas. */
+@media (max-width: 767px) {
+  .cn-tabs { overflow-x: auto; scrollbar-width: none; padding: 0 16px 12px; -webkit-mask: linear-gradient(90deg, #000 85%, transparent); mask: linear-gradient(90deg, #000 85%, transparent); }
+  .cn-tabs::-webkit-scrollbar { display: none; }
+  .cn-seg { width: auto; min-width: 600px; }
+}
+@media (max-width: 560px) {
+  .cn-head:not(.cn-head-sm) { flex-wrap: wrap; padding: 20px 16px 14px; gap: 12px 14px; }
+  .cn-head:not(.cn-head-sm) .cn-title { flex: 1 1 calc(100% - 80px); }
+  .cn-head:not(.cn-head-sm) .cn-title h1 { font-size: 30px; }
+  .cn-head:not(.cn-head-sm) > .btn { flex-basis: 100%; }
+}

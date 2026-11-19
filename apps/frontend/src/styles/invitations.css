@@ -9,5 +9,9 @@
 .ci-code { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
 .li-quiet.ci-revoke { color: #B4142C; }
 .ci-manual { flex-basis: 100%; height: 40px; }
-.ci-msg { flex-basis: 100%; font-size: 12.5px; color: rgba(19, 19, 22, .56); padding-left: 54px; }
+.ci-msg { flex-basis: 100%; font-size: 12.5px; color: rgba(19, 19, 22, .64); padding-left: 54px; }
 .ci-msg:empty { display: none; }
+
+/* Si no entra al lado del enlace, los botones bajan a la línea de abajo en vez de apretar el texto. */
+.ci-text { flex: 1 1 180px; min-width: 0; }
+.ci-code { overflow-wrap: anywhere; }

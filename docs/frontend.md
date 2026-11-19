@@ -236,3 +236,12 @@ En **Integrantes**, propietario, administradores y moderadores ven la acción **
 ## Integración del kanban
 
 La integración del tablero de interfaz incorpora búsqueda completa, adjuntos, actividad, perfil y llamadas privadas. Ver [contratos, migraciones, alcance y verificación](kanban-integracion.md).
+
+## Rendimiento y estilos base
+
+- **Historial de mensajes:** cada mensaje está memorizado (`memo`) y la lista se arma con `useMemo`, así escribir en el campo no vuelve a dibujar el historial. `mergeMessages` agrega al final sin reordenar cuando llega un mensaje nuevo, y el indicador de «escribiendo» solo actualiza el estado cuando alguien deja de escribir.
+- **Mensajes anteriores:** se piden solos cuando el botón «Cargar anteriores» se acerca a la vista (`useAutoOlder`); el botón queda para teclado. La posición se conserva midiendo la distancia al último mensaje (`distanciaAlFinal`), porque el historial usa una columna invertida.
+- **Lista de conversaciones:** se actualiza con los eventos del socket; ya no se vuelve a pedir entera después de cada mensaje enviado.
+- **Lateral:** el sondeo de actividad de comunidades se saltea con la pestaña oculta y el refresco al volver a la pestaña es como mucho cada 15 segundos.
+- **Estilos base:** los elementos sin clase propia (`button`, `input`, `select`, títulos) usan los botones, campos y la tipografía de Dialo; no hace falta estilarlos uno por uno para que no queden con el aspecto del navegador.
+- **Vidrio líquido:** `.win` y las superficies flotantes (diálogos, avisos, paneles) usan desenfoque con saturación, borde con brillo y un fondo con luz de color detrás (`.shell::before`) para que el vidrio se note.
