@@ -172,3 +172,12 @@ it("un mensaje eliminado oculta contenido y controles propios", () => {
   ).not.toBeInTheDocument();
   expect(screen.queryByText("Mensaje propio")).not.toBeInTheDocument();
 });
+
+it('mencionar por nombre visible muestra el selector junto al compositor y devuelve el foco', async () => {
+  renderChat();const input=screen.getByLabelText('Mensaje para Fabri');
+  fireEvent.change(input,{target:{value:'Hola @Fa'}});
+  const picker=screen.getByRole('group',{name:'Sugerencias de menciones'});
+  expect(picker.closest('.chat-compose-area')).toBe(input.closest('.chat-compose-area'));
+  fireEvent.click(screen.getByRole('button',{name:'@fabri · Fabri'}));
+  expect(input).toHaveValue('Hola @fabri ');expect(input).toHaveFocus();
+});

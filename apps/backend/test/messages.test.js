@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
@@ -140,6 +144,7 @@ after(async () => {
   for (const socket of sockets) socket.disconnect();
   if (io) await new Promise((resolve) => io.close(resolve));
   else if (server?.listening) await new Promise((resolve) => server.close(resolve));
+  await drainEffects();
   if (prisma) await prisma.$disconnect();
   await admin.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   await admin.$disconnect();

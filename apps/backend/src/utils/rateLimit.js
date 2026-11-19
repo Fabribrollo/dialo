@@ -1,8 +1,10 @@
 import { AppError } from './AppError.js';
 
+const limiterMaps = new Set();
 export function createRateLimiter({ max, windowMs }) {
   const registros = new Map();
-  return function consume(clave) {
+  limiterMaps.add(registros);
+  function consume(clave) {
     const ahora = Date.now();
     const recientes = (registros.get(clave) ?? []).filter((momento) => ahora - momento < windowMs);
     if (recientes.length >= max) {
@@ -12,21 +14,23 @@ export function createRateLimiter({ max, windowMs }) {
     recientes.push(ahora);
     registros.set(clave, recientes);
     return true;
-  };
+  }
+  consume.retryAfter = (clave) => Math.max(1, Math.ceil((windowMs - (Date.now() - (registros.get(clave)?.[0] ?? Date.now()))) / 1000));
+  return consume;
 }
 
 const messageLimiter = createRateLimiter({ max: 5, windowMs: 5000 });
 
 export function requireMessageQuota(idUsuario) {
   if (!messageLimiter(idUsuario)) {
-    throw new AppError(429, 'RATE_LIMITED', 'Estás enviando mensajes muy rápido. Esperá unos segundos.');
+    throw rateError(messageLimiter.retryAfter(idUsuario));
   }
 }
 
 const imageLimiter = createRateLimiter({ max: 5, windowMs: 60000 });
 
 export function limitImageUploads(req, res, next) {
-  if (!imageLimiter(req.user.id)) throw new AppError(429, 'RATE_LIMITED', 'Estás subiendo imágenes muy rápido. Esperá un momento.');
+  if (!imageLimiter(req.user.id)) throw rateError(imageLimiter.retryAfter(req.user.id));
   next();
 }
 
@@ -36,7 +40,7 @@ const forgotPasswordQuota = createRateLimiter({ max: 5, windowMs: 15 * 60_000 })
 function limitAuthRequests(quota) {
   return (req, res, next) => {
     if (!quota(req.ip)) {
-      throw new AppError(429, 'RATE_LIMITED', 'Demasiados intentos. Probá más tarde.');
+      throw rateError(quota.retryAfter(req.ip));
     }
     next();
   };
@@ -59,7 +63,7 @@ export function limitLoginFailures(req, res, next) {
     }, LOGIN_WINDOW_MS).unref();
   }
   if (window.used >= 10) {
-    throw new AppError(429, 'RATE_LIMITED', 'Demasiados intentos de inicio de sesión. Probá más tarde.');
+    throw rateError(Math.max(1, Math.ceil((window.endsAt - Date.now()) / 1000)));
   }
   // Reserva un lugar mientras se responde para que los intentos en paralelo cuenten.
   window.used++;
@@ -68,3 +72,8 @@ export function limitLoginFailures(req, res, next) {
   });
   next();
 }
+
+function rateError(retryAfter) { const error = new AppError(429, 'RATE_LIMITED', 'Demasiados intentos. Probá más tarde.'); error.retryAfter = retryAfter; return error; }
+
+// Solo lo usan las pruebas para aislar cuotas entre escenarios.
+export function resetRateLimits() { for (const map of limiterMaps) map.clear(); loginWindows.clear(); }

@@ -46,7 +46,7 @@ export function AmigosLista({ friends }) {
       <Card as="ul">
         {visibles.map(({ usuario }) => (
           <ListRow as="li" key={usuario.id}>
-            <UsuarioInfo usuario={usuario} presencia>{presencia[usuario.disponibilidad]}</UsuarioInfo>
+            <UsuarioInfo usuario={usuario} presencia>{usuario.disponibilidad === 'EN_LINEA' && usuario.enLinea === false ? 'Desconectado' : presencia[usuario.disponibilidad]}</UsuarioInfo>
             <BotonAccion accion={async () => {
               const { conversacion } = await openConversation(usuario.id);
               remember(conversacion);

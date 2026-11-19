@@ -1,5 +1,6 @@
 // Forma pública compartida por el historial, el último mensaje y los sockets.
 export const mensajeSelect = {
+  adjunto: { select: { id: true, nombre: true, tipo: true } },
   id: true,
   idConversacion: true,
   idAutor: true,
@@ -12,6 +13,7 @@ export const mensajeSelect = {
 export function toMensaje(mensaje) {
   const eliminado = mensaje.fechaEliminacion !== null;
   return {
+    ...(mensaje.adjunto && !eliminado && { adjunto: mensaje.adjunto }),
     id: mensaje.id,
     idConversacion: mensaje.idConversacion,
     idAutor: mensaje.idAutor,

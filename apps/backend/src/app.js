@@ -1,3 +1,6 @@
+import privateCallsRoutes from './routes/privateCallsRoutes.js';
+import filesRoutes from './routes/filesRoutes.js';
+import notificationsRoutes from './routes/notificationsRoutes.js';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -25,6 +28,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.use('/api/private-calls', privateCallsRoutes);
+app.use('/api/files', filesRoutes);
+app.use('/api/notifications', notificationsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/users/search', searchRoutes);
 app.use('/api/users', usersRoutes);

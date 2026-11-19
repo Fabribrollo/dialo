@@ -1,3 +1,4 @@
+import { messageSearchQuery, searchController } from '../controllers/messageSearchController.js';
 import { Router } from 'express';
 import {
   getConversation,
@@ -16,6 +17,7 @@ import {
 const router = Router();
 
 router.use(authenticate);
+router.get('/:id/messages/search', validate({ params: conversationIdParamsSchema, query: messageSearchQuery }), searchController('conversation'));
 
 router.get('/', listConversations);
 router.post('/', validate({ body: createConversationSchema }), getOrCreateConversation);

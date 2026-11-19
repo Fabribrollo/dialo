@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
@@ -56,6 +60,7 @@ before(async () => {
 beforeEach(async () => { await prisma.comunidad.deleteMany(); await prisma.conversacionPrivada.deleteMany(); });
 after(async () => {
   if (server?.listening) await new Promise((resolve) => server.close(resolve));
+  await drainEffects();
   await prisma?.$disconnect(); await admin.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`); await admin.$disconnect();
 });
 
@@ -86,7 +91,7 @@ test('propietario y administrador acceden a canales privados; moderador necesita
 });
 test('rechaza voz/video solo después de autorizar y no revela el tipo a terceros', async () => {
   const c = await community();
-  for (const tipo of ['VOZ', 'VIDEO']) {
+  for (const tipo of ['VOZ']) {
     const ch = await channel(c, { tipo, privado: true });
     const r = await history(ch); assert.equal(r.status, 400); assert.equal(r.body.error.code, 'CHANNEL_NOT_TEXT');
     assert.equal((await history(ch, '', eli)).status, 404);
@@ -154,7 +159,7 @@ test('DTO seguro de autores, edición y borrados propios o moderados sin conteni
   assert.equal(byId.get(edited.id).autor.disponibilidad, 'AUSENTE'); assert.equal(byId.get(edited.id).autor.informacionPersonal, 'Perfil público');
   for (const m of r.body.items) {
     assert.deepEqual(Object.keys(m).sort(), ['autor', 'contenido', 'eliminado', 'eliminadoPorModerador', 'fechaCreacion', 'fechaEdicion', 'id', 'idCanal']);
-    assert.deepEqual(Object.keys(m.autor).sort(), ['disponibilidad', 'fotoUrl', 'id', 'informacionPersonal', 'nombreUsuario', 'nombreVisible']);
+    assert.deepEqual(Object.keys(m.autor).sort(), ['colorAvatar', 'disponibilidad', 'enLinea', 'fotoUrl', 'id', 'informacionPersonal', 'nombreUsuario', 'nombreVisible']);
     assert.equal(m.idCanal, ch.id); assert(!JSON.stringify(m).includes('original'));
   }
   for (const id of [ownDeleted.id, moderated.id, legacy.id]) { assert.equal(byId.get(id).contenido, null); assert.equal(byId.get(id).eliminado, true); }

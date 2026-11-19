@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
@@ -106,6 +110,7 @@ after(async () => {
   for (const socket of sockets) socket.disconnect();
   if (io) await new Promise((resolve) => io.close(resolve));
   else if (server?.listening) await new Promise((resolve) => server.close(resolve));
+  await drainEffects();
   await prisma?.$disconnect();
   await admin.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   await admin.$disconnect();
@@ -140,6 +145,7 @@ test('logout desconecta todas las pestanas de esa sesion y conserva las otras se
 test('una sesion revocada deja de recibir eventos privados', async () => {
   const cookieA = await login(ana), cookieB = await login(ana);
   const a = await socketFor(cookieA), b = await socketFor(cookieB);
+  a.eventos.length = 0; b.eventos.length = 0;
   await request('/auth/logout', { method: 'POST', cookie: cookieA });
   await desconexion(a);
 

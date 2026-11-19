@@ -1,3 +1,6 @@
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { createHash } from 'node:crypto';
@@ -117,16 +120,27 @@ test('HTTP: el webhook firmado llega a los oyentes y uno sin firma se rechaza', 
   const recibidos = [];
   const quitar = onMediaEvent((e) => recibidos.push(e));
   try {
-    const cuerpo = evento('participant_left');
+    const cuerpo = evento('room_started');
     const ok = await fetch(`${baseUrl}/api/media/webhook`, {
       method: 'POST', body: cuerpo, headers: { 'Content-Type': 'application/webhook+json', Authorization: await firmar(cuerpo) },
     });
     assert.equal(ok.status, 200);
-    assert.deepEqual(recibidos.map((e) => [e.tipo, e.idUsuario, e.sala]), [['participant_left', 7, 'canal-3']]);
+    assert.deepEqual(recibidos.map((e) => [e.tipo, e.idUsuario, e.sala]), [['room_started', 7, 'canal-3']]);
     const falso = await fetch(`${baseUrl}/api/media/webhook`, {
       method: 'POST', body: cuerpo, headers: { 'Content-Type': 'application/webhook+json', Authorization: 'falso' },
     });
     assert.equal(falso.status, 401);
     assert.equal(recibidos.length, 1);
   } finally { quitar(); }
+});
+
+test('el token privado acota sala, identidad y fuentes sin conceder administración ni pantalla', async () => {
+  for (const video of [false,true]) {
+    const {token,sala}=await adaptador().crearTokenPrivado({sala:'privada-00000000-0000-4000-8000-000000000001',idUsuario:7,nombre:'Ana',ingreso:'llamada-1',video});
+    const c=claims(token);
+    assert.equal(c.sub,'usuario-7');assert.equal(c.video.room,sala);assert.equal(c.video.roomJoin,true);
+    assert.equal(c.video.roomAdmin,undefined);assert.equal(c.video.roomCreate,undefined);assert.equal(c.video.canPublishData,false);
+    assert.deepEqual(c.video.canPublishSources,video?['microphone','camera']:['microphone']);
+    assert.equal(c.exp-c.nbf,TOKEN_TTL_SEGUNDOS);assert.equal(JSON.parse(c.metadata).ingreso,'llamada-1');
+  }
 });

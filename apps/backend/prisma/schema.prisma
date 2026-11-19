@@ -44,7 +44,6 @@ enum RolComunidad {
 enum TipoCanal {
   TEXTO
   VOZ
-  VIDEO
 
   @@map("tipo_canal")
 }
@@ -65,6 +64,9 @@ model Usuario {
   hashContrasena      String         @map("hash_contrasena")
   nombreVisible       String         @map("nombre_visible") @db.VarChar(64)
   fotoUrl             String?        @map("foto_url")
+  preferencias Json @default("{}")
+  notificaciones Notificacion[]
+  colorAvatar         String         @default("#756222") @map("color_avatar") @db.VarChar(7)
   informacionPersonal String?        @map("informacion_personal") @db.VarChar(500)
   disponibilidad      Disponibilidad @default(EN_LINEA)
   fechaCreacion       DateTime       @default(now()) @map("fecha_creacion")
@@ -77,6 +79,8 @@ model Usuario {
   amistadesComoB       Amistad[]             @relation("AmistadUsuarioB")
   conversacionesComoA  ConversacionPrivada[] @relation("ConversacionUsuarioA")
   conversacionesComoB  ConversacionPrivada[] @relation("ConversacionUsuarioB")
+  llamadasEmitidas LlamadaPrivada[] @relation("LlamadaEmisor")
+  llamadasRecibidas LlamadaPrivada[] @relation("LlamadaReceptor")
   mensajesEscritos     Mensaje[]             @relation("MensajeAutor")
   mensajesEliminados   Mensaje[]             @relation("MensajeEliminadoPor")
   membresias           Membresia[]
@@ -84,6 +88,7 @@ model Usuario {
   baneosAplicados      ComunidadBaneo[] @relation("AutorBaneo")
   invitacionesCreadas  Invitacion[]          @relation("InvitacionCreador")
   participacionLlamada ParticipanteLlamada?
+  bloqueosMensaje BloqueoMensaje[]
 
   @@map("usuario")
 }
@@ -154,6 +159,7 @@ model ConversacionPrivada {
 
   usuarioA Usuario   @relation("ConversacionUsuarioA", fields: [idUsuarioA], references: [id], onDelete: Cascade)
   usuarioB Usuario   @relation("ConversacionUsuarioB", fields: [idUsuarioB], references: [id], onDelete: Cascade)
+  llamadas LlamadaPrivada[]
   mensajes Mensaje[]
 
   @@unique([idUsuarioA, idUsuarioB])
@@ -172,6 +178,7 @@ model Mensaje {
   fechaEliminacion     DateTime? @map("fecha_eliminacion")
   idUsuarioEliminacion Int?      @map("id_usuario_eliminacion")
 
+  adjunto Adjunto?
   autor        Usuario              @relation("MensajeAutor", fields: [idAutor], references: [id], onDelete: Cascade)
   conversacion ConversacionPrivada? @relation(fields: [idConversacion], references: [id], onDelete: Cascade)
   canal        Canal?               @relation(fields: [idCanal], references: [id], onDelete: Cascade)
@@ -196,6 +203,7 @@ model Comunidad {
   rolesPersonalizados RolPersonalizado[]
   baneos ComunidadBaneo[]
   reglasModeracion ReglaModeracion[]
+  bloqueosMensaje BloqueoMensaje[]
 
   @@index([tipo])
   @@map("comunidad")
@@ -280,6 +288,7 @@ model Canal {
   habilitacionesRolPersonalizado CanalRolPersonalizado[]
   mensajes              Mensaje[]
   participantesLlamada  ParticipanteLlamada[]
+  bloqueosMensaje BloqueoMensaje[]
 
   @@unique([id, idComunidad])
   @@index([idComunidad, posicion])
@@ -369,4 +378,63 @@ model ParticipanteLlamada {
 
   @@index([idCanal, conectado])
   @@map("participante_llamada")
+}
+
+
+model BloqueoMensaje {
+  id Int @id @default(autoincrement())
+  idComunidad Int @map("id_comunidad")
+  idCanal Int @map("id_canal")
+  idAutor Int @map("id_autor")
+  contenido String @db.VarChar(2000)
+  motivo String @db.VarChar(100)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+  comunidad Comunidad @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+  canal Canal @relation(fields: [idCanal], references: [id], onDelete: Cascade)
+  autor Usuario @relation(fields: [idAutor], references: [id], onDelete: Cascade)
+  @@index([idComunidad, id], map: "bloqueo_mensaje_comunidad_fecha")
+  @@map("bloqueo_mensaje")
+}
+
+model Notificacion {
+  id Int @id @default(autoincrement())
+  idUsuario Int @map("id_usuario")
+  tipo String @db.VarChar(24)
+  referencia Int
+  origen String @db.VarChar(80)
+  leida Boolean @default(false)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+  usuario Usuario @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
+  @@unique([idUsuario, origen], map: "notificacion_destino_origen")
+  @@index([idUsuario, id], map: "notificacion_usuario_id")
+  @@map("notificacion")
+}
+
+model Adjunto {
+  id Int @id @default(autoincrement())
+  nombre String @db.VarChar(120)
+  tipo String @db.VarChar(80)
+  datos Bytes
+  idMensaje Int @unique @map("id_mensaje")
+  mensaje Mensaje @relation(fields: [idMensaje], references: [id], onDelete: Cascade)
+  @@map("adjunto")
+}
+
+model LlamadaPrivada {
+  id String @id @db.Uuid
+  idConversacion Int @map("id_conversacion")
+  idEmisor Int @map("id_emisor")
+  idReceptor Int @map("id_receptor")
+  sesionEmisor Int? @map("sesion_emisor")
+  sesionReceptor Int? @map("sesion_receptor")
+  video Boolean @default(false)
+  estado String @default("LLAMANDO") @db.VarChar(16)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+  fechaFin DateTime? @map("fecha_fin")
+  conversacion ConversacionPrivada @relation(fields:[idConversacion], references:[id], onDelete:Cascade)
+  emisor Usuario @relation("LlamadaEmisor", fields:[idEmisor], references:[id], onDelete:Cascade)
+  receptor Usuario @relation("LlamadaReceptor", fields:[idReceptor], references:[id], onDelete:Cascade)
+  @@index([idEmisor,estado],map:"llamada_emisor_estado")
+  @@index([idReceptor,estado],map:"llamada_receptor_estado")
+  @@map("llamada_privada")
 }

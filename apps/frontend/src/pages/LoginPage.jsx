@@ -8,7 +8,7 @@ import { useSubmit } from '../hooks/useSubmit.js';
 import { invitationReturnPath, pendingInvitation } from '../utils/invitations.js';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, avisoSesion } = useAuth();
   const location = useLocation();
   const from = invitationReturnPath(location.state?.from) || pendingInvitation();
   const { submit, enviando, error, errorDe } = useSubmit(login);
@@ -28,6 +28,7 @@ export default function LoginPage() {
 
   return (
     <form className="auth-form" onSubmit={onSubmit} noValidate>
+      {avisoSesion && <p role="status">{avisoSesion}</p>}
       <div className="auth-head">
         <h1>Iniciá sesión</h1>
         <span className="auth-sub">{from ? 'Iniciá sesión para consultar la invitación.' : 'Qué bueno verte de nuevo.'}</span>

@@ -170,3 +170,8 @@ La conectividad real (tres participantes en dos redes) y la medicion de la revoc
 ## Revocacion en llamadas activas (T-40)
 
 `npm run test:calls-revocation -w apps/backend` requiere TEST_DATABASE_URL exclusiva de pruebas y crea su propio schema `test_t40_<id>`. LiveKit se simula y se registra cada operacion. Prueba que perder TRANSMITIR corte solo esas fuentes, que perder VER o el rol que lo daba saque de la llamada, baneo y desbaneo, abandono, borrado o cambio de tipo del canal, borrado de la comunidad, logout de una sola sesion, cambio de contrasena, reingreso con un token anterior, falla de LiveKit al revocar y la reconciliacion con sesiones vencidas.
+
+
+## Integración de interfaz
+
+`npm run test:kanban -w apps/backend` ejecuta validaciones y escenarios de integración nuevos sobre `TEST_DATABASE_URL`, con esquema temporal. Ver [alcance y configuración](../../../docs/kanban-integracion.md). Para el conjunto completo: `node --test apps/backend/test/*.test.js` desde la raíz. Las pruebas aíslan las cuotas de rate limit entre escenarios y esperan los efectos posteriores antes de cerrar sus conexiones.

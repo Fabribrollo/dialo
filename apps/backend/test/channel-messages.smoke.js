@@ -31,7 +31,7 @@ try {
     assert.equal(r.status, 201); return r.data.canal;
   };
   const ch = await create('historial'), hidden = await create('solo-lectura', 'TEXTO', true);
-  const voice = await create('voz', 'VOZ'), video = await create('video', 'VIDEO');
+  const voice = await create('voz', 'VOZ'), video = await create('video', 'VOZ');
   const history = (canal, as = owner, query = '') => request(`/channels/${canal.id}/messages${query ? `?${query}` : ''}`, { as });
   const configure = async (habilitaciones) => {
     const r = await request(`/channels/${hidden.id}/access`, { method: 'PUT', as: owner, body: { privado: true, habilitaciones } }); assert.equal(r.status, 200);

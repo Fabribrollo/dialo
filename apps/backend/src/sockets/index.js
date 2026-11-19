@@ -1,3 +1,9 @@
+import { trackEffect } from '../utils/backgroundEffects.js';
+import { watchActivity, clearActivity } from '../services/notificationsService.js';
+import { z } from 'zod';
+import { connectPresence, disconnectPresence } from '../utils/presence.js';
+import { emitUserUpdatedById } from '../services/usersService.js';
+import { registerTyping } from './typingSocket.js';
 import { requireSocketUser, authenticateSocket } from './authenticate.js';
 import { initEmitter, revisarSesiones, rooms } from './emitter.js';
 import { EVENTS } from './events.js';
@@ -57,6 +63,25 @@ export function initSockets(io) {
   io.on('connection', (socket) => {
     vigilarVencimiento(socket);
     const ready = joinRooms(socket);
+    socket.on('activity:watch', async (data) => {
+      try {
+        await ready; await requireSocketUser(socket);
+        if (data === null) return watchActivity(socket, null);
+        const parsed = z.strictObject({ tipo: z.enum(['canal','conversacion']), referencia: z.number().int().positive() }).safeParse(data);
+        if (parsed.success) watchActivity(socket, parsed.data);
+      } catch { clearActivity(socket); }
+    });
+    socket.on('disconnect', () => clearActivity(socket));
+    registerTyping(socket, ready);
+    let joinedPresence = false;
+    socket.on('disconnect', () => {
+      if (joinedPresence && disconnectPresence(socket.data.user.id, socket.id)) trackEffect(emitUserUpdatedById(socket.data.user.id));
+    });
+    ready.then(() => {
+      if (!socket.connected) return;
+      joinedPresence = true;
+      if (connectPresence(socket.data.user.id, socket.id)) trackEffect(emitUserUpdatedById(socket.data.user.id));
+    }).catch(() => {});
     registerConversationHandlers(socket, ready);
     registerChannelHandlers(socket, ready);
     registerChannelMessageHandlers(socket, ready);

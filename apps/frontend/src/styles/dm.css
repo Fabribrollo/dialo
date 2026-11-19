@@ -40,3 +40,19 @@
   .dm-notices { width: calc(100% - 32px); }
 }
 .dm-head-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* Las ayudas comparten una capa visible con el compositor, sobre el scroll. */
+.chat-compose-area {
+  position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+  z-index: 5; width: min(720px, calc(100% - 40px)); display: flex; flex-direction: column; gap: 6px;
+}
+.chat-compose-area .composer-bar { position: relative; inset: auto; transform: none; width: 100%; flex: none; }
+.chat-compose-area .mention-picker {
+  padding: 8px; max-height: 160px; overflow: auto; flex-wrap: wrap;
+  border: 1px solid rgba(19,19,22,.16); border-radius: 18px;
+  background: #f9f9fb; box-shadow: 0 4px 18px #13131620;
+}
+.chat-compose-area .mention-picker button { color: #fff; background: #5130bf; padding: 7px 12px; font-size: 13px; }
+.chat-compose-area .chat-typing { align-self: flex-start; margin: 0; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 500; color: #34303f; background: #f9f9fb; }
+.dm-list { padding-bottom: 180px; }
+@media (max-width: 767px) { .chat-compose-area { bottom: 16px; width: calc(100% - 32px); } }

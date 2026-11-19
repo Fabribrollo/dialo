@@ -1,3 +1,4 @@
+import { useAuth } from '../hooks/useAuth.js';
 import { createContext, useEffect, useRef, useState } from 'react';
 import { DisconnectReason, Room, RoomEvent, Track } from 'livekit-client';
 import { ApiError } from '../services/api.js';
@@ -83,6 +84,12 @@ function aError(e) {
 }
 
 export function CallProvider({ children }) {
+  const { usuario } = useAuth() || {};
+  const preferenciasRef = useRef(usuario?.preferencias || {});
+  preferenciasRef.current = usuario?.preferencias || {};
+  async function elegirDispositivo(kind, deviceId) {
+    await roomRef.current?.switchActiveDevice(kind, deviceId);
+  }
   const [estado, setEstado] = useState('DESCONECTADO');
   const [canal, setCanal] = useState(null);
   const [error, setError] = useState(null);
@@ -152,6 +159,10 @@ export function CallProvider({ children }) {
     escuchar(room, destino);
     try {
       await room.connect(llamada.url, llamada.token);
+      for (const [kind, key] of [['audioinput','audioInput'],['audiooutput','audioOutput'],['videoinput','videoInput']]) {
+        const id = preferenciasRef.current[key];
+        if (id && room.switchActiveDevice) await room.switchActiveDevice(kind,id).catch(() => {});
+      }
     } catch {
       if (intento !== intentoRef.current) return;
       soltarRoom()?.disconnect();
@@ -264,7 +275,7 @@ export function CallProvider({ children }) {
   const value = {
     estado, canal, error, misPermisos, participantes, audioBloqueado, desde,
     microfono: yo?.microfono ?? false, camara: yo?.camara ?? false, pantalla: yo?.pantalla ?? false, puedeCompartirPantalla: soportaPantalla(),
-    entrar, salir, alternarMicrofono, alternarCamara, alternarPantalla, activarAudio,
+    elegirDispositivo, entrar, salir, alternarMicrofono, alternarCamara, alternarPantalla, activarAudio,
   };
 
   return <CallContext.Provider value={value}>

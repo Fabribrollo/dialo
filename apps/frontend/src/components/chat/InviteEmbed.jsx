@@ -18,7 +18,11 @@ export function linkify(texto) {
     ultimo = m.index + m[0].length;
   }
   partes.push(texto.slice(ultimo));
-  return partes;
+  return partes.flatMap((part, index) => {
+    if (typeof part !== 'string') return [part];
+    return part.split(/(@[a-z0-9_.]{3,32})/g).map((text, i) =>
+      /^@[a-z0-9_.]{3,32}$/.test(text) ? <mark className="chat-mention" key={`mention-${index}-${i}`}>{text}</mark> : text);
+  });
 }
 
 export default function InviteEmbed({ codigo }) {

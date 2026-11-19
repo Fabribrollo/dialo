@@ -11,10 +11,12 @@ import { EVENTS } from "../sockets/events.js";
 import { getFriendIds } from "./friendsService.js";
 import { moderateImage } from "./imageModerationService.js";
 
-async function emitUserUpdated(usuario) {
+export async function emitUserUpdated(usuario) {
   const payload = { usuario: toUsuarioPublico(usuario) };
+  const memberships = await prisma.membresia.findMany({ where: { idUsuario: usuario.id }, select: { idComunidad: true } });
+  const peers = await prisma.membresia.findMany({ where: { idComunidad: { in: memberships.map((m) => m.idComunidad) } }, select: { idUsuario: true } });
   const idsAmigos = await getFriendIds(usuario.id);
-  for (const idUsuario of [usuario.id, ...idsAmigos])
+  for (const idUsuario of new Set([usuario.id, ...idsAmigos, ...peers.map((m) => m.idUsuario)]))
     emitToUser(idUsuario, EVENTS.USER_UPDATED, payload);
 }
 
@@ -54,3 +56,5 @@ export async function updateAvatar(id, buffer, mimetype) {
   });
   return updateMe(id, { fotoUrl });
 }
+
+export async function emitUserUpdatedById(id) { const user = await getMe(id); if (user) await emitUserUpdated(user); }

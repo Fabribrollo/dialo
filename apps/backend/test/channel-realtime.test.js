@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
@@ -100,6 +104,7 @@ after(async () => {
   for (const socket of sockets) socket.disconnect();
   if (io) await new Promise((resolve) => io.close(resolve));
   else if (server?.listening) await new Promise((resolve) => server.close(resolve));
+  await drainEffects();
   await prisma?.$disconnect();
   await admin.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   await admin.$disconnect();
@@ -162,7 +167,7 @@ test('solo VER no permite enviar, editar ni eliminar mensajes propios', async ()
 });
 test('voz/video rechazan mensajes y canales ocultos no revelan el tipo', async () => {
   const c = await community(), a = await socketFor(ana), e = await socketFor(eli);
-  for (const tipo of ['VOZ', 'VIDEO']) { const ch = await create(c, { tipo }); assert.equal((await send(a, ch)).error.code, 'CHANNEL_NOT_TEXT'); assert.equal((await send(e, ch)).error.code, 'CHANNEL_NOT_FOUND'); }
+  for (const tipo of ['VOZ']) { const ch = await create(c, { tipo }); assert.equal((await send(a, ch)).error.code, 'CHANNEL_NOT_TEXT'); assert.equal((await send(e, ch)).error.code, 'CHANNEL_NOT_FOUND'); }
 });
 test('solo el autor edita y el DTO del evento coincide con historial sin secretos', async () => {
   const c = await community(), ch = await create(c); const d = await subscribe(dani, ch), a = await subscribe(ana, ch), mod = await subscribe(cata, ch);

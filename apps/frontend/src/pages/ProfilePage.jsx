@@ -1,3 +1,4 @@
+import DeviceSettings from '../components/DeviceSettings.jsx';
 import { useState } from 'react';
 import ProfileForm from '../components/ProfileForm.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -32,7 +33,7 @@ export default function ProfilePage() {
       </header>
       <div className="page-body page-body-profile">
         {error && <Notice tone="error" title="No se pudo cerrar la sesión" actionLabel="Reintentar" onAction={salir}>Revisá tu conexión y probá de nuevo.</Notice>}
-        <ProfileForm />
+        <ProfileForm /><DeviceSettings />
       </div>
     </div>
   );

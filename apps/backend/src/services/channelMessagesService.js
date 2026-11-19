@@ -1,3 +1,5 @@
+import { trackEffect } from '../utils/backgroundEffects.js';
+import { notifyChannelMessage } from './notificationsService.js';
 import { getChannelPermissions, withChannelPermission } from './channelsService.js';
 import { moderateChannelMessage } from './communityModerationService.js';
 import { prisma } from '../prisma/client.js';
@@ -20,7 +22,7 @@ function requireWrite(permisos) {
 
 async function moderateIfWritable(idCanal, idUsuario, contenido) {
   const permisos = await getChannelPermissions(idCanal, idUsuario);
-  if (permisos.includes('ESCRIBIR')) await moderateChannelMessage(idCanal, contenido);
+  if (permisos.includes('ESCRIBIR')) await moderateChannelMessage(idCanal, contenido, idUsuario);
 }
 
 export async function sendChannelMessage(idUsuario, { idCanal, contenido }, authorize) {
@@ -32,6 +34,7 @@ export async function sendChannelMessage(idUsuario, { idCanal, contenido }, auth
       data: { idCanal, idAutor: idUsuario, contenido }, select: channelMessageSelect,
     }));
   }, (mensaje) => emitToChannel(idCanal, EVENTS.CHANNEL_MESSAGE_NEW, { mensaje }));
+  trackEffect(notifyChannelMessage(idCanal, idUsuario, saved.id, contenido));
   return { mensaje: saved };
 }
 

@@ -1,3 +1,4 @@
+import BlockedMessages from '../components/communities/BlockedMessages.jsx';
 import { useState } from 'react';
 import { useParams } from 'react-router';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
@@ -115,6 +116,7 @@ export default function CommunityModerationPage() {
   useLostCommunity(detail.lost);
   if (!detail.comunidad) return <div className="page"><div className="page-body"><CommunityState {...detail} /></div></div>;
   return <CommunityShell comunidad={detail.comunidad}>
-      <ModerationSettings key={id} detail={detail} />
+      <ModerationSettings key={`settings-${id}`} detail={detail} />
+      {['MODERADOR', 'ADMIN', 'PROPIETARIO'].includes(detail.comunidad.miRol) && <BlockedMessages key={`blocked-${id}`} id={id} />}
   </CommunityShell>;
 }

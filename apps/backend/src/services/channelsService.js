@@ -1,3 +1,4 @@
+import { trackEffect } from '../utils/backgroundEffects.js';
 import { prisma } from '../prisma/client.js';
 import { requireRole } from './communitiesService.js';
 import { AppError } from '../utils/AppError.js';
@@ -11,6 +12,9 @@ const canAdminister = (rol) => rol === 'ADMIN' || rol === 'PROPIETARIO';
 export { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 
 async function channelContext(db, idCanal, idUsuario) {
+  // Prisma puede resolver relaciones en consultas separadas. Una instantánea
+  // evita leer el canal y perder su comunidad durante un borrado concurrente.
+  if (db === prisma) return prisma.$transaction((tx) => channelContext(tx,idCanal,idUsuario), {isolationLevel:'RepeatableRead'});
   const canal = await db.canal.findUnique({ where: { id: idCanal }, select: channelSelect });
   if (!canal) return null;
   const membresia = await db.membresia.findUnique({
@@ -67,14 +71,16 @@ export async function getChannel(idCanal, idUsuario) {
 }
 
 export async function listChannels(idComunidad, idUsuario) {
-  const { rol } = await requireRole(idComunidad, idUsuario);
-  const idsRoles = memberRoleIds(await prisma.membresia.findUnique({
-    where: { idComunidad_idUsuario: { idComunidad, idUsuario } }, select: memberSelect,
-  }));
-  const canales = await prisma.canal.findMany({ where: { idComunidad }, orderBy: [{ posicion: 'asc' }, { id: 'asc' }], select: channelSelect });
-  return canales.flatMap((canal) => {
-    const permisos = effectiveChannelPermissions(canal, rol, idUsuario, idsRoles);
-    return permisos.includes('VER') ? [toChannel(canal, permisos)] : [];
+  return withCommunityChannelsLock(idComunidad, async (tx) => {
+    const { rol } = await requireRole(idComunidad, idUsuario, 'INTEGRANTE', tx);
+    const idsRoles = memberRoleIds(await tx.membresia.findUnique({
+      where: { idComunidad_idUsuario: { idComunidad, idUsuario } }, select: memberSelect,
+    }));
+    const canales = await tx.canal.findMany({ where: { idComunidad }, orderBy: [{ posicion: 'asc' }, { id: 'asc' }], select: channelSelect });
+    return canales.flatMap((canal) => {
+      const permisos = effectiveChannelPermissions(canal, rol, idUsuario, idsRoles);
+      return permisos.includes('VER') ? [toChannel(canal, permisos)] : [];
+    });
   });
 }
 
@@ -102,7 +108,7 @@ export function onChannelAccessChange(listener) {
 function notifyAccessChanges(changes) {
   if (!changes.length) return;
   for (const listener of accessListeners) {
-    try { listener(changes); } catch (error) { console.error(error); }
+    try { trackEffect(listener(changes)); } catch (error) { console.error(error); }
   }
 }
 

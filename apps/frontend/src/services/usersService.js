@@ -7,3 +7,5 @@ export function uploadAvatar(archivo) {
   form.append('foto', archivo);
   return api.post('/users/me/foto', form);
 }
+
+export const removeAvatar = () => api.delete('/users/me/foto');

@@ -20,13 +20,13 @@ export function registerConversationHandlers(socket, ready) {
         // la unión a rooms, sin perder eventos enviados al conectar.
         await ready;
         const user = await requireSocketUser(socket);
-        if (event !== EVENTS.MESSAGE_DELETE) requireMessageQuota(user.id);
         const parsed = schema.safeParse(payload);
         if (!parsed.success) {
           throw new AppError(400, 'VALIDATION_ERROR', 'Datos inválidos', parsed.error.issues.map((i) => ({
             campo: i.path.join('.'), message: i.message,
           })));
         }
+        if (!event.endsWith(':delete')) requireMessageQuota(user.id);
         const data = await service(user.id, parsed.data);
         reply({ ok: true, data });
       } catch (error) {
@@ -34,7 +34,7 @@ export function registerConversationHandlers(socket, ready) {
         reply({
           ok: false,
           error: error instanceof AppError
-            ? { code: error.code, message: error.message, ...(error.details && { details: error.details }) }
+            ? { code: error.code, message: error.message, ...(error.retryAfter && { retryAfter: error.retryAfter }), ...(error.details && { details: error.details }) }
             : { code: 'INTERNAL_ERROR', message: 'Error interno del servidor' },
         });
         if (error.code === 'UNAUTHORIZED') socket.disconnect(true);

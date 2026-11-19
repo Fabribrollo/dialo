@@ -29,6 +29,7 @@ export const canModerateChannel = (rol, permisos) =>
 
 export const channelSelect = {
   id: true, idComunidad: true, nombre: true, tipo: true, privado: true, posicion: true, fechaCreacion: true,
+  comunidad: { select: { moderacionActiva: true } },
   habilitacionesRol: { select: { rol: true, permisos: true } },
   habilitacionesUsuario: { select: { idUsuario: true, permisos: true } },
   habilitacionesRolPersonalizado: { select: { idRol: true, permisos: true } },
@@ -40,6 +41,7 @@ export const memberRoleIds = (miembro) => miembro?.rolesPersonalizados?.map((r) 
 export function toChannel(canal, misPermisos) {
   return {
     id: canal.id, idComunidad: canal.idComunidad, nombre: canal.nombre, tipo: canal.tipo,
+    moderacionActiva: Boolean(canal.comunidad?.moderacionActiva),
     privado: canal.privado, posicion: canal.posicion, misPermisos, fechaCreacion: canal.fechaCreacion,
   };
 }

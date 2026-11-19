@@ -1,3 +1,8 @@
+import MentionPicker from '../chat/MentionPicker.jsx';
+import SharedFiles from '../chat/SharedFiles.jsx';
+import { useTyping } from '../../hooks/useTyping.js';
+import { useMessageSearch } from '../../hooks/useMessageSearch.js';
+import SearchResults from '../chat/SearchResults.jsx';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useChannelMessages } from '../../hooks/useChannelMessages.js';
@@ -21,6 +26,9 @@ const rank = { PROPIETARIO: 4, ADMIN: 3, MODERADOR: 2, INTEGRANTE: 1 };
 
 export default function ChannelChat({ canal, draft, setDraft, buscar = '' }) {
   const { usuario, refresh } = useAuth();
+  const typing = useTyping('canal', canal.id);
+  useEffect(() => { if (!draft.trim()) typing.typing(''); }, [draft]);
+  const search = useMessageSearch('channels', canal.id, buscar);
   const history = useChannelMessages(canal.id, canal.idComunidad);
   const [sending, setSending] = useState(false), [error, setError] = useState('');
   const [deleting, setDeleting] = useState(null), [showMembers, setShowMembers] = useState(false), [local, setLocal] = useState([]);
@@ -81,7 +89,9 @@ export default function ChannelChat({ canal, draft, setDraft, buscar = '' }) {
   return <section className="dm cc" aria-label={`Chat de ${canal.nombre}`} onKeyDown={(event) => {
     if (event.key === 'Escape' && showMembers) { setShowMembers(false); membersTrigger.current?.focus(); }
   }}>
+    <SharedFiles tipo="canal" id={canal.id} canWrite={write} onSent={history.reload} />
     <div className="cc-tools">
+      {current?.moderacionActiva && <span className="lbl">Moderado con IA</span>}
       <Button ref={membersTrigger} size="sm" variant="secundario" aria-expanded={showMembers} aria-controls="chat-integrantes" onClick={() => setShowMembers((v) => !v)}>
         <Icon name="amigos" size={15} stroke={2} />Integrantes
       </Button>
@@ -89,12 +99,13 @@ export default function ChannelChat({ canal, draft, setDraft, buscar = '' }) {
     {showMembers && <div id="chat-integrantes" className="lg cc-members">
       <span className="lbl">Integrantes de la comunidad</span>
       {history.memberError ? <Notice tone="error" title={history.memberError} /> : <ul className="cc-mem-list">{history.members.map(({ usuario: person, rol }) => <li key={person.id} className="cc-mem">
-        <Avatar nombre={person.nombreVisible} foto={person.fotoUrl} size={32} />
+        <Avatar nombre={person.nombreVisible} foto={person.fotoUrl} color={person.colorAvatar} size={32} />
         <span className="cc-mem-text"><b>{person.nombreVisible}</b><span>@{person.nombreUsuario} · {COMMUNITY_ROLES[rol]}</span></span>
       </li>)}</ul>}
     </div>}
     <div className="dm-body">
       <div className="dm-scroll" ref={viewport} onScroll={(e) => { const n = e.currentTarget; stick.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90; }}>
+        <SearchResults search={search} />
         <ol className="dm-list" aria-label="Historial del canal">
           {history.cursor && <li className="dm-older"><Button size="sm" variant="secundario" loading={history.loadingOlder} disabled={history.loading} onClick={() => {
             const n = viewport.current; anchor.current = { top: n.scrollTop, height: n.scrollHeight }; history.older();
@@ -125,10 +136,14 @@ export default function ChannelChat({ canal, draft, setDraft, buscar = '' }) {
         {history.memberError && !showMembers && <Notice tone="conflicto" title={history.memberError} />}
         {error && <Notice tone="error" title={error} />}
       </div>
-      <Composer id="channel-message" label={`Mensaje en ${canal.nombre}`} sendLabel="Enviar mensaje al canal"
+      <div className="chat-compose-area">
+      <MentionPicker inputId="channel-message" value={draft} onChange={setDraft} members={history.members} />
+        {typing.names && <p className="chat-typing" role="status" aria-live="polite">{typing.names} está escribiendo…</p>}
+        <Composer id="channel-message" label={`Mensaje en ${canal.nombre}`} sendLabel="Enviar mensaje al canal"
         placeholder={history.ready && !write ? 'Este canal es de solo lectura' : `Escribí en ${canal.nombre}`}
-        value={draft} onChange={setDraft} onSend={send} disabled={history.ready && !write}
+        value={draft} onChange={(value) => { setDraft(value); typing.typing(value); }} onSend={send} disabled={history.ready && !write}
         canSend={!sending && write && history.connected && Boolean(draft.trim())} />
+      </div>
     </div>
     {deleting !== null && history.ready && <CommunityActionDialog title="¿Eliminar este mensaje?" description="El contenido se ocultará para todos los integrantes. Esta acción no se puede deshacer."
       confirmLabel="Eliminar mensaje" returnFocusRef={trigger} onClose={() => setDeleting(null)} onConfirm={async () => {

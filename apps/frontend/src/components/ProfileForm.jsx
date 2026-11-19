@@ -20,9 +20,11 @@ function fotoError(error) {
 }
 
 export default function ProfileForm() {
-  const { usuario, updateProfile, updateAvatar } = useProfile();
+  const { usuario, updateProfile, updateAvatar, removeAvatar } = useProfile();
   const datos = useSubmit(updateProfile);
   const foto = useSubmit(updateAvatar);
+  const quitar = useSubmit(removeAvatar);
+  const [colorAvatar, setColorAvatar] = useState(usuario.colorAvatar || '#756222');
   const archivo = useRef(null);
   const [nombre, setNombre] = useState(usuario.nombreVisible);
   const [info, setInfo] = useState(usuario.informacionPersonal ?? '');
@@ -38,7 +40,7 @@ export default function ProfileForm() {
     const e = { nombreVisible: nombre.trim().length >= 2 && nombre.trim().length <= 40 ? '' : 'Tiene que tener entre 2 y 40 caracteres.' };
     setErrores(e);
     if (e.nombreVisible) return;
-    const ok = await datos.submit({ nombreVisible: nombre, informacionPersonal: info.trim() || null, disponibilidad: estado });
+    const ok = await datos.submit({ nombreVisible: nombre, informacionPersonal: info.trim() || null, disponibilidad: estado, colorAvatar });
     setGuardado(ok);
   }
 
@@ -52,7 +54,7 @@ export default function ProfileForm() {
     <form className="pf" onSubmit={onSubmit} noValidate>
       <div className="pf-side">
         <Card className="pf-id">
-          <Avatar nombre={usuario.nombreVisible} foto={usuario.fotoUrl} size={132} presence={estado} dark className="pf-av" />
+          <Avatar nombre={usuario.nombreVisible} foto={usuario.fotoUrl} color={colorAvatar} size={132} presence={estado} dark className="pf-av" />
           <span className="pf-names">
             <span className="dsp pf-name">{usuario.nombreVisible}</span>
             <span className="pf-user">@{usuario.nombreUsuario}</span>
@@ -62,7 +64,12 @@ export default function ProfileForm() {
             {!foto.enviando && <Icon name="subir" size={15} stroke={2.2} />}
             {foto.enviando ? 'Subiendo foto…' : 'Cambiar foto'}
           </Button>
-          {problemaFoto === 'invalida' && <span className="fld-error" role="alert"><Icon name="error" size={15} stroke={2} />Elegí una imagen JPG, PNG o WebP de hasta 2 MB.</span>}
+          {usuario.fotoUrl && <Button size="sm" variant="secundario" loading={quitar.enviando} onClick={() => quitar.submit()}>Quitar foto</Button>}
+          {quitar.error && <Notice tone="error" title={quitar.error.message} />}
+          <Field as="select" label="Color del avatar" value={colorAvatar} onChange={(e) => setColorAvatar(e.target.value)}>
+            {[['#756222','Oliva'],['#6A3CF5','Violeta'],['#156B64','Verde'],['#A63D40','Rojo'],['#305C91','Azul'],['#765174','Malva']].map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+          </Field>
+          {problemaFoto === 'invalida'  && <span className="fld-error" role="alert"><Icon name="error" size={15} stroke={2} />Elegí una imagen JPG, PNG o WebP de hasta 2 MB.</span>}
           {problemaFoto === 'limite' && <Notice tone="espera" title="Estás subiendo imágenes muy rápido">Esperá un momento y probá de nuevo.</Notice>}
         </Card>
 

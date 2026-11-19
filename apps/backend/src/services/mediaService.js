@@ -55,6 +55,25 @@ export function crearAdaptadorMedia({ url, apiKey, apiSecret, roomService } = {}
   return {
     configurado,
 
+    async crearTokenPrivado({ sala, idUsuario, nombre, ingreso, video }) {
+      exigir();
+      const token = new AccessToken(apiKey, apiSecret, { identity: identidadDeUsuario(idUsuario), name: nombre, ttl: TOKEN_TTL_SEGUNDOS, metadata: JSON.stringify({ ingreso }) });
+      token.addGrant({ room: sala, roomJoin: true, ...permisosDe(video ? ['microfono','camara'] : ['microfono']) });
+      return { token: await token.toJwt(), url, sala };
+    },
+    async listarPrivadas() {
+      exigir();
+      const list = await conLimite(rooms.listRooms());
+      return list.map((item) => item.name).filter((name) => /^privada-[a-f0-9-]{36}$/i.test(name));
+    },
+    async cerrarPrivada(sala) {
+      exigir();
+      try { await conLimite(rooms.deleteRoom(sala)); } catch (error) { if (!esNoEncontrado(error)) throw noDisponible(); }
+    },
+    async retirarPrivada(sala, idUsuario) {
+      exigir();
+      try { await conLimite(rooms.removeParticipant(sala, identidadDeUsuario(idUsuario))); } catch (error) { if (!esNoEncontrado(error)) throw noDisponible(); }
+    },
     // Credencial para la sala de un canal. Las fuentes que puede publicar salen de sus permisos:
     // microfono con HABLAR, camara y pantalla con TRANSMITIR. Sin fuentes solo puede escuchar y ver.
     async crearToken({ idUsuario, nombre, idCanal, fuentes = [], ingreso = randomUUID() }) {

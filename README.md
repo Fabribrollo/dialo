@@ -124,3 +124,8 @@ La suite frontend usa mocks y no necesita una base. Las suites backend requieren
 - `DIRECT_URL` ausente al consultar Prisma desde la raíz: usar `npm exec -w apps/backend -- prisma migrate status` para cargar el entorno correcto.
 - Error de proxy `ECONNREFUSED` durante el arranque: comprobar que la API termine de iniciar en el puerto esperado. Si persiste, revisar su consola y las URLs/proxy.
 - Cambiar de cuenta no cambia la identidad de desarrollo: dejar `VITE_DEV_USER_ID` vacío y reiniciar Vite.
+
+
+### Integración del tablero de interfaz
+
+Ver [cambios, configuración y migraciones](docs/kanban-integracion.md). Incluye llamadas privadas, búsqueda completa, adjuntos, notificaciones internas y mejoras de perfil/permisos.

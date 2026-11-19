@@ -1,3 +1,4 @@
+import { API_URL } from '../../constants/api.js';
 import { useState } from 'react';
 import Button from '../ui/Button.jsx';
 import Notice from '../ui/Notice.jsx';
@@ -38,7 +39,7 @@ export default function ChatMessage({ mensaje, own, first, connected, onEdit, on
 
   return (
     <li className={`msg ${own ? 'msg-right' : ''} ${conAutor ? 'msg-author' : ''}`}>
-      {conAutor && (first ? <Avatar nombre={autor.nombreVisible} foto={autor.fotoUrl} size={38} className="msg-av" /> : <span className="msg-av-gap" />)}
+      {conAutor && (first ? <Avatar nombre={autor.nombreVisible} foto={autor.fotoUrl} color={autor.colorAvatar} size={38} className="msg-av" /> : <span className="msg-av-gap" />)}
       <div className="msg-col">
       {conAutor && first && <span className="msg-who"><b>{autor.nombreVisible}</b><time dateTime={mensaje.fechaCreacion} title={cuando}>{hora(mensaje.fechaCreacion)}</time></span>}
       {first && !conAutor && <time className="msg-time" dateTime={mensaje.fechaCreacion} title={cuando}>{hora(mensaje.fechaCreacion)}</time>}
@@ -86,6 +87,7 @@ export default function ChatMessage({ mensaje, own, first, connected, onEdit, on
             </span>
           )}        </div>
       )}
+      {!mensaje.eliminado && mensaje.adjunto && <a href={`${API_URL}/files/${mensaje.adjunto.id}`} target="_blank" rel="noreferrer">Descargar {mensaje.adjunto.nombre}</a>}
       {!mensaje.eliminado && !editing && codigos.map((c) => <InviteEmbed key={c} codigo={c} />)}
       </div>
     </li>

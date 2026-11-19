@@ -1,3 +1,6 @@
+import { api } from '../../services/api.js';
+import { useSocket } from '../../hooks/useSocket.js';
+import { useEffect, useRef } from 'react';
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { useAuth } from '../../hooks/useAuth.js';
@@ -30,6 +33,29 @@ export default function Sidebar() {
   const { usuario } = useAuth();
   const conversations = useConversations();
   const communities = useCommunities();
+  const socket = useSocket();
+  const [activity, setActivity] = useState({});
+  const activitySeq = useRef(0);
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => {
+      const seq = ++activitySeq.current, result = {};
+      await Promise.all(communities.items.map(async (c) => {
+        try {
+          const a = await api.get(`/communities/${c.id}/activity`);
+          result[c.id] = a.participantes ? `${a.participantes} en llamada` : a.ultimoMensaje ? `${a.ultimoMensaje.canal}: ${a.ultimoMensaje.contenido}` : '';
+        } catch { result[c.id] = ''; }
+      }));
+      if (alive && seq === activitySeq.current) setActivity(result);
+    };
+    refresh();
+    const timer = setInterval(refresh, 30000);
+    const revoke = () => { activitySeq.current++; setActivity({}); refresh(); };
+    const events = ['community:left','community:member-updated','channel:access-lost','channel:updated','channel:deleted','connect'];
+    events.forEach((e)=>socket?.on(e,revoke));
+    window.addEventListener('focus', revoke);
+    return () => { alive=false; activitySeq.current++; clearInterval(timer); events.forEach((e)=>socket?.off(e,revoke)); window.removeEventListener('focus',revoke); };
+  }, [communities.items,socket]);
   const { recibidas } = useFriends();
   const [filtro, setFiltro] = useState('todo');
   const [busqueda, setBusqueda] = useState('');
@@ -59,7 +85,7 @@ export default function Sidebar() {
   if (filtro !== 'personas') {
     for (const c of communities.items) {
       if (!coincide(c.nombre)) continue;
-      filas.push({ key: `m${c.id}`, to: `/comunidades/${c.id}`, nombre: c.nombre, foto: c.imagenUrl, community: true });
+      filas.push({ key: `m${c.id}`, to: `/comunidades/${c.id}`, nombre: c.nombre, foto: c.imagenUrl, preview: activity[c.id], community: true });
     }
   }
   const activa = filas.findIndex((f) => pathname === f.to || (!f.exact && pathname.startsWith(`${f.to}/`)));
@@ -107,12 +133,12 @@ export default function Sidebar() {
             {f.badge > 0 && <span className="side-badge">{f.badge}</span>}
           </Link>
         ) : (
-          <ConversationRow key={f.key} {...f} />
+          <ConversationRow key={f.key} {...Object.fromEntries(Object.entries(f).filter(([key]) => key !== 'key'))} />
         ))}
       </nav>
 
       <Link to="/perfil" className="side-me">
-        <Avatar nombre={usuario?.nombreVisible || usuario?.nombreUsuario} foto={usuario?.fotoUrl} size={38} dark presence={usuario?.disponibilidad} />
+        <Avatar nombre={usuario?.nombreVisible || usuario?.nombreUsuario} foto={usuario?.fotoUrl} color={usuario?.colorAvatar} size={38} dark presence={usuario?.disponibilidad === 'EN_LINEA' && usuario?.enLinea === false ? 'DESCONECTADO' : usuario?.disponibilidad} />
         <span className="side-me-text">
           <span className="side-me-name">{usuario?.nombreVisible || usuario?.nombreUsuario}</span>
           {!conversations.connected && <span className="side-me-reconnect" role="status"><Spinner size={12} />Reconectando…</span>}

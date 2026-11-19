@@ -1,3 +1,9 @@
+import MentionPicker from '../components/chat/MentionPicker.jsx';
+import { usePrivateCall } from '../context/PrivateCallContext.jsx';
+import SharedFiles from '../components/chat/SharedFiles.jsx';
+import { useTyping } from '../hooks/useTyping.js';
+import { useMessageSearch } from '../hooks/useMessageSearch.js';
+import SearchResults from '../components/chat/SearchResults.jsx';
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAuth } from '../hooks/useAuth.js';
@@ -27,7 +33,10 @@ function sendError(e) {
 }
 
 function Chat({ id, draft, setDraft }) {
+  const privateCall = usePrivateCall();
   const { usuario, refresh } = useAuth();
+  const typing = useTyping('conversacion', id);
+  useEffect(() => { if (!draft.trim()) typing.typing(''); }, [draft]);
   const { items, remember, reload: reloadList, connected, getRevision } = useConversations();
   const navigate = useNavigate();
   const chat = items.find((c) => c.id === id);
@@ -39,6 +48,7 @@ function Chat({ id, draft, setDraft }) {
   const [missing, setMissing] = useState(false);
   const [retry, setRetry] = useState(0);
   const [buscar, setBuscar] = useState('');
+  const search = useMessageSearch('conversations', id, buscar);
   const viewport = useRef(null);
   const anchor = useRef(null);
   const stick = useRef(true);
@@ -125,20 +135,27 @@ function Chat({ id, draft, setDraft }) {
     <section className="dm" aria-label={`Chat con ${nombre}`}>
       <header className="dm-head">
         <Link to="/" className="lg pr dm-back" aria-label="Volver"><span><Icon name="chevron" size={18} stroke={2} /></span></Link>
-        <Avatar nombre={nombre} foto={otro.fotoUrl} size={56} presence={otro.disponibilidad} className="dm-av" />
+        <Avatar nombre={nombre} foto={otro.fotoUrl} color={otro.colorAvatar} size={56} presence={otro.disponibilidad === 'EN_LINEA' && otro.enLinea === false ? 'DESCONECTADO' : otro.disponibilidad} className="dm-av" />
         <span className="dm-who">
           <h1 className="dsp">{nombre}</h1>
-          <span>{presencia[otro.disponibilidad] ?? ''}</span>
+          <span>{otro.disponibilidad === 'EN_LINEA' && otro.enLinea === false ? 'Desconectado' : presencia[otro.disponibilidad] ?? ''}</span>
         </span>
-        <span className="dm-head-tools"><ChatSearch value={buscar} onChange={setBuscar} /></span>
+        <span className="dm-head-tools">
+          {privateCall && chat.puedeEscribir && <>
+            <button type="button" disabled={privateCall.busy || privateCall.active} onClick={() => privateCall.start(id, false)}>Llamar</button>
+            <button type="button" disabled={privateCall.busy || privateCall.active} onClick={() => privateCall.start(id, true)}>Videollamar</button>
+          </>}
+          <ChatSearch value={buscar} onChange={setBuscar} /></span>
       </header>
 
+      <SharedFiles tipo="conversacion" id={id} canWrite={chat.puedeEscribir} onSent={() => history.reload?.()} />
       <div className="dm-body">
         <div className="dm-scroll" ref={viewport} onScroll={(e) => {
           const n = e.currentTarget;
           stick.current = n.scrollHeight - n.scrollTop - n.clientHeight < 90;
         }}>
-          <ol className="dm-list" aria-label="Historial de mensajes">
+          <SearchResults search={search} author={(m) => m.idAutor === usuario.id ? usuario.nombreVisible : chat?.otroUsuario?.nombreVisible} />
+        <ol className="dm-list" aria-label="Historial de mensajes">
             {history.cursor && (
               <li className="dm-older">
                 <Button variant="secundario" size="sm" loading={history.loading} onClick={async () => {
@@ -187,22 +204,26 @@ function Chat({ id, draft, setDraft }) {
           {error && <Notice tone={error.tone} title={error.title} actionLabel={error.retry ? 'Reintentar' : undefined} onAction={send}>{error.text}</Notice>}
         </div>
 
-        <Composer
+        <div className="chat-compose-area">
+        <MentionPicker inputId="private-message" value={draft} onChange={setDraft} members={chat.otroUsuario ? [{usuario:chat.otroUsuario}] : []} />
+        {typing.names && <p className="chat-typing" role="status" aria-live="polite">{typing.names} está escribiendo…</p>}
+        <Composer id="private-message"
           label={`Mensaje para ${nombre}`}
           placeholder={chat.puedeEscribir ? `Escribile a ${nombre.split(' ')[0]}` : 'No podés escribir en este chat'}
           value={draft}
-          onChange={setDraft}
+          onChange={(value) => { setDraft(value); typing.typing(value); }}
           onSend={send}
           disabled={!chat.puedeEscribir}
           canSend={!sending && connected && chat.puedeEscribir && Boolean(draft.trim())}
         />
+        </div>
       </div>
 
       <RightPanel label={`Perfil de ${nombre}`}>
         <div className="dm-profile">
-          <Avatar nombre={nombre} foto={otro.fotoUrl} size={96} presence={otro.disponibilidad} className="dm-profile-av" />
+          <Avatar nombre={nombre} foto={otro.fotoUrl} color={otro.colorAvatar} size={96} presence={otro.disponibilidad === 'EN_LINEA' && otro.enLinea === false ? 'DESCONECTADO' : otro.disponibilidad} className="dm-profile-av" />
           <span className="dsp dm-profile-name">{nombre}</span>
-          <span className="dm-profile-meta">@{otro.nombreUsuario} · {presencia[otro.disponibilidad] ?? ''}</span>
+          <span className="dm-profile-meta">@{otro.nombreUsuario} · {otro.disponibilidad === 'EN_LINEA' && otro.enLinea === false ? 'Desconectado' : presencia[otro.disponibilidad] ?? ''}</span>
           {otro.informacionPersonal && <span className="dm-profile-bio">{otro.informacionPersonal}</span>}
         </div>
       </RightPanel>

@@ -47,7 +47,7 @@ export default function CommunityDashboard({ comunidad }) {
           {!members.loading && !members.error && members.items.length > 0 && (
             <div className="cd-mem-row">
               <span className="cd-stack">
-                {members.items.slice(0, 4).map(({ usuario }) => <Avatar key={usuario.id} nombre={usuario.nombreVisible} foto={usuario.fotoUrl} size={38} />)}
+                {members.items.slice(0, 4).map(({ usuario }) => <Avatar key={usuario.id} nombre={usuario.nombreVisible} foto={usuario.fotoUrl} color={usuario.colorAvatar} size={38} />)}
                 {resto > 0 && <span className="av av-dk" style={{ '--av': '38px' }}>+{resto}</span>}
               </span>
               <span className="cd-mem-count"><span className="dsp">{members.items.length}</span><span>integrantes, {enLinea} en línea</span></span>

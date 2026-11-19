@@ -23,3 +23,5 @@ export const loginSchema = z.object({ identificador, contrasena: contrasenaLogin
 export const forgotPasswordSchema = z.object({ correo });
 
 export const resetPasswordSchema = z.object({ token: z.string().min(1), contrasena });
+
+export const emailAvailabilitySchema = z.strictObject({ correo });

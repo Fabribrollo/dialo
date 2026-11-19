@@ -83,7 +83,8 @@ export function useChannelMessages(id, idComunidad) {
     const left = ({ idComunidad: community }) => { if (community === idComunidad) lose(); };
     const memberChange = ({ idComunidad: community }) => { if (community === idComunidad) reload(); };
     const disconnected = () => clear({ loading: false, error: 'Sin conexión. Tu borrador se conserva; recuperaremos el canal al reconectar.' });
-    const handlers = { connect: reload, disconnect: disconnected,
+    const moderation = ({idComunidad: community, activa}) => { if (community === idComunidad) setState((s) => s.canal ? {...s,canal:{...s.canal,moderacionActiva:activa}} : s); };
+    const handlers = { 'community:moderation-changed': moderation, connect: reload, disconnect: disconnected,
       [EVENTS.CHANNEL_MESSAGE_NEW]: update, [EVENTS.CHANNEL_MESSAGE_UPDATED]: update,
       [EVENTS.CHANNEL_MESSAGE_DELETED]: remove, [EVENTS.CHANNEL_ACCESS_LOST]: unavailable,
       [EVENTS.CHANNEL_DELETED]: unavailable, [EVENTS.CHANNEL_UPDATED]: changed,
