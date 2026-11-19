@@ -1,3 +1,4 @@
+import { messageSearchQuery, searchController } from '../controllers/messageSearchController.js';
 import { Router } from 'express';
 import { authenticate } from '../middlewares/authenticate.js';
 import { validate } from '../middlewares/validate.js';
@@ -9,6 +10,7 @@ import { messagesQuerySchema } from '../validations/conversationsValidation.js';
 
 const router = Router();
 router.use(authenticate);
+router.get('/:id/messages/search', validate({ params: channelIdParamsSchema, query: messageSearchQuery }), searchController('channel'));
 router.get('/:id/messages', validate({ params: channelIdParamsSchema, query: messagesQuerySchema.strict() }), listMessages);
 router.post('/:id/call/join', validate({ params: channelIdParamsSchema }), joinCall);
 router.post('/:id/call/leave', validate({ params: channelIdParamsSchema }), leaveCall);

@@ -41,7 +41,8 @@ export function errorHandler(error, req, res, next) {
     return res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'Error interno del servidor' } });
   }
 
-  res.status(status).json({ error: { code, message, ...(details && { details }) } });
+  if (status === 429 && error.retryAfter) res.set('Retry-After', String(error.retryAfter));
+  res.status(status).json({ error: { code, message, ...(error.retryAfter && { retryAfter: error.retryAfter }), ...(details && { details }) } });
 }
 
 export function notFound(req, res) {

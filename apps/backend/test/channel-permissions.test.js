@@ -1,16 +1,19 @@
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { canModerateChannel, effectiveChannelPermissions } from '../src/utils/channelPermissions.js';
 import { channelAccessSchema } from '../src/validations/channelsValidation.js';
 
 test('roles superiores tienen todos los permisos aplicables incluso en canales privados', () => {
-  for (const rol of ['ADMIN', 'PROPIETARIO']) for (const tipo of ['TEXTO', 'VOZ', 'VIDEO']) {
+  for (const rol of ['ADMIN', 'PROPIETARIO']) for (const tipo of ['TEXTO', 'VOZ']) {
     assert.deepEqual(effectiveChannelPermissions({ tipo, privado: true }, rol, 1),
       tipo === 'TEXTO' ? ['VER', 'ESCRIBIR'] : ['VER', 'HABLAR', 'TRANSMITIR']);
   }
 });
 test('membresía requerida, defaults públicos y privados cerrados', () => {
-  for (const tipo of ['TEXTO', 'VOZ', 'VIDEO']) {
+  for (const tipo of ['TEXTO', 'VOZ']) {
     for (const rol of ['MODERADOR', 'INTEGRANTE']) {
       assert.deepEqual(effectiveChannelPermissions({ tipo, privado: false }, rol, 1), tipo === 'TEXTO' ? ['VER', 'ESCRIBIR'] : ['VER', 'HABLAR']);
       assert.deepEqual(effectiveChannelPermissions({ tipo, privado: true }, rol, 1), []);

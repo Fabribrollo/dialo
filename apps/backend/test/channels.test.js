@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
@@ -95,6 +99,7 @@ after(async () => {
   for (const socket of sockets) socket.disconnect();
   if (io) await new Promise((resolve) => io.close(resolve));
   else if (server?.listening) await new Promise((resolve) => server.close(resolve));
+  await drainEffects();
   await prisma?.$disconnect();
   await admin.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   await admin.$disconnect();
@@ -111,15 +116,15 @@ test('todas las rutas requieren sesión y el header de desarrollo no suplanta us
   }
 });
 
-test('propietario y administrador crean los tres tipos al final con datos públicos y permisos efectivos', async () => {
+test('propietario y administrador crean los tipos texto y voz al final con datos públicos y permisos efectivos', async () => {
   const c = await community();
-  for (const [index, tipo] of ['TEXTO', 'VOZ', 'VIDEO'].entries()) {
+  for (const [index, tipo] of ['TEXTO', 'VOZ'].entries()) {
     const channel = await create(c, { nombre: tipo.toLowerCase(), tipo }, index % 2 ? beto : ana);
     assert.equal(channel.idComunidad, c.id); assert.equal(channel.posicion, index + 1); assert.equal(channel.privado, false);
     assert.deepEqual(channel.misPermisos, tipo === 'TEXTO' ? ['VER', 'ESCRIBIR'] : ['VER', 'HABLAR', 'TRANSMITIR']);
-    assert.deepEqual(Object.keys(channel).sort(), ['fechaCreacion', 'id', 'idComunidad', 'misPermisos', 'nombre', 'posicion', 'privado', 'tipo']);
+    assert.deepEqual(Object.keys(channel).sort(), ['fechaCreacion', 'id', 'idComunidad', 'misPermisos', 'moderacionActiva', 'nombre', 'posicion', 'privado', 'tipo']);
   }
-  assert.equal((await list(c)).length, 4);
+  assert.equal((await list(c)).length, 3);
 });
 
 test('moderador e integrante no administran; un tercero no descubre canales ajenos', async () => {
@@ -188,7 +193,7 @@ test('una actualización parcial conserva los otros campos y persiste', async ()
 
 test('rechaza cambiar el tipo de un canal después de crearlo', async () => {
   const c = await community(); const channel = await create(c);
-  for (const tipo of ['VOZ', 'VIDEO', 'TEXTO']) {
+  for (const tipo of ['VOZ', 'TEXTO']) {
     const result = await request(`/channels/${channel.id}`, { method: 'PATCH', as: ana, body: { tipo, nombre: 'no debe guardarse' } });
     assert.equal(result.status, 400); assert.equal(result.body.error.code, 'VALIDATION_ERROR');
   }

@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
 import { randomUUID } from "node:crypto";
@@ -20,15 +24,10 @@ const admin = new PrismaClient({ datasourceUrl: databaseUrl });
 const prisma = new PrismaClient({ datasourceUrl: isolated.href });
 let ana, beto, cata, comunidad, canal, mensaje;
 
-const usuario = (nombre) =>
-  prisma.usuario.create({
-    data: {
-      nombreUsuario: nombre,
-      nombreVisible: nombre,
-      correo: `${nombre}@example.test`,
-      hashContrasena: "x",
-    },
-  });
+const usuario = async (nombre) => {
+  const rows = await admin.$queryRawUnsafe(`INSERT INTO "${schema}"."usuario" ("nombre_usuario", "nombre_visible", "correo", "hash_contrasena") VALUES ($1, $1, $2, 'x') RETURNING "id_usuario" AS id`, nombre, `${nombre}@example.test`);
+  return rows[0];
+};
 const rol = (idComunidad, nombre) =>
   prisma.rolPersonalizado.create({ data: { idComunidad, nombre } });
 const asignar = (idComunidad, idUsuario, idRol) =>
@@ -43,18 +42,10 @@ before(async () => {
     await usuario("beto"),
     await usuario("cata"),
   ];
-  comunidad = await prisma.comunidad.create({
-    data: {
-      nombre: "Previa",
-      membresias: {
-        create: [
-          { idUsuario: ana.id, rol: "PROPIETARIO" },
-          { idUsuario: beto.id, rol: "MODERADOR" },
-          { idUsuario: cata.id },
-        ],
-      },
-    },
-  });
+  [comunidad] = await admin.$queryRawUnsafe(`INSERT INTO "${schema}"."comunidad" ("nombre") VALUES ('Previa') RETURNING id_comunidad AS id, nombre`);
+  for (const [user, role] of [[ana, 'PROPIETARIO'], [beto, 'MODERADOR'], [cata, 'INTEGRANTE']]) {
+    await admin.$executeRawUnsafe(`INSERT INTO "${schema}"."membresia" (id_comunidad, id_usuario, rol) VALUES ($1, $2, $3::"${schema}"."rol_comunidad")`, comunidad.id, user.id, role);
+  }
   canal = await prisma.canal.create({
     data: {
       idComunidad: comunidad.id,

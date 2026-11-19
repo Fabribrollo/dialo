@@ -1,6 +1,6 @@
 import './avatar.css';
 
-const presenceLabels = { EN_LINEA: 'En línea', AUSENTE: 'Ausente', NO_MOLESTAR: 'No molestar', INVISIBLE: 'Invisible' };
+const presenceLabels = { DESCONECTADO: 'Desconectado', EN_LINEA: 'En línea', AUSENTE: 'Ausente', NO_MOLESTAR: 'No molestar', INVISIBLE: 'Invisible' };
 
 export function initials(nombre = '') {
   return nombre.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';

@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
@@ -98,13 +102,14 @@ beforeEach(async () => {
 });
 after(async () => {
   if (io) await new Promise((resolve) => io.close(resolve));
+  await drainEffects();
   await prisma?.$disconnect();
   await admin.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   await admin.$disconnect();
 });
 
 test('perder TRANSMITIR corta solo camara y pantalla en vivo; perder VER saca de la llamada', async () => {
-  const c = await comunidad(), ch = await canal(c, { tipo: 'VIDEO', privado: true });
+  const c = await comunidad(), ch = await canal(c, { tipo: 'VOZ', privado: true });
   await acceso(ch, [{ idUsuario: dani.id, permisos: ['HABLAR', 'TRANSMITIR'] }]);
   await conectar(ch);
   await acceso(ch, [{ idUsuario: dani.id, permisos: ['HABLAR'] }]);
@@ -196,7 +201,7 @@ test('logout corta solo la llamada de esa sesion; cambiar la contrasena corta to
 });
 
 test('volver a entrar con un token anterior no recupera una fuente quitada', async () => {
-  const c = await comunidad(), ch = await canal(c, { tipo: 'VIDEO', privado: true });
+  const c = await comunidad(), ch = await canal(c, { tipo: 'VOZ', privado: true });
   await acceso(ch, [{ idUsuario: dani.id, permisos: ['HABLAR', 'TRANSMITIR'] }]);
   const ingreso = await conectar(ch);
   // Se cae la conexion (sin borrar el registro) y le quitan TRANSMITIR mientras tanto.

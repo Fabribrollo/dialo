@@ -1,11 +1,12 @@
 import { API_URL, DEV_USER_ID } from '../constants/api.js';
 
 export class ApiError extends Error {
-  constructor(status, { code, message, details } = {}) {
+  constructor(status, { code, message, details, retryAfter } = {}) {
     super(message || 'Error inesperado');
     this.name = 'ApiError';
     this.status = status;
     this.code = code || 'UNKNOWN_ERROR';
+    this.retryAfter = retryAfter;
     this.details = details || [];
   }
 }

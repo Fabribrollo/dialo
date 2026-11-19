@@ -1,3 +1,4 @@
+import { trackEffect } from '../utils/backgroundEffects.js';
 import { requireSocketUser } from './authenticate.js';
 import { EVENTS } from './events.js';
 import { findInvalidSessionIds } from '../services/authService.js';
@@ -93,7 +94,7 @@ export function onSessionEnded(listener) {
 }
 function notifySessionEnded(fin) {
   for (const listener of sessionListeners) {
-    try { listener(fin); } catch (error) { console.error(error); }
+    try { trackEffect(listener(fin)); } catch (error) { console.error(error); }
   }
 }
 

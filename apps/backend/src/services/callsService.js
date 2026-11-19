@@ -1,3 +1,4 @@
+import { lockCallUsers } from './privateCallsService.js';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../prisma/client.js';
 import { AppError } from '../utils/AppError.js';
@@ -9,7 +10,7 @@ import { idCanalDeSala, media, onMediaEvent, TOKEN_TTL_SEGUNDOS } from './mediaS
 import { emitToChannel, onSessionEnded } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
 
-const TIPOS_LLAMADA = ['VOZ', 'VIDEO'];
+const TIPOS_LLAMADA = ['VOZ'];
 const noDisponible = () => new AppError(503, 'MEDIA_UNAVAILABLE', 'Las llamadas no estan disponibles en este momento');
 
 // Fuentes que el token permite publicar: microfono con HABLAR, camara y pantalla con TRANSMITIR.
@@ -28,6 +29,10 @@ export async function joinCall(idCanal, usuario, idSesion) {
   if (!media.configurado) throw noDisponible();
   const ingreso = randomUUID();
   const { permisos } = await withChannelPermission(idCanal, usuario.id, 'VER', async (tx, context) => {
+    await lockCallUsers(tx, [usuario.id]);
+    if (await tx.llamadaPrivada.count({ where: { estado: { in: ['LLAMANDO','ACEPTADA'] }, OR: [{ idEmisor: usuario.id },{ idReceptor: usuario.id }] } })) {
+      throw new AppError(409, 'ALREADY_IN_CALL', 'Ya estás en una llamada privada');
+    }
     if (!TIPOS_LLAMADA.includes(context.canal.tipo)) {
       throw new AppError(400, 'NOT_A_CALL_CHANNEL', 'Este canal no admite llamadas');
     }
@@ -129,7 +134,7 @@ onChannelAccessChange((cambios) => aplicarCambiosDeAcceso(cambios).catch((error)
 // Logout corta solo las llamadas de esa sesion; cambiar la contrasena, las de todas las sesiones del usuario.
 onSessionEnded(({ idSesion, idUsuario }) => {
   const where = idSesion ? { idSesion } : { idUsuario, idSesion: { not: null } };
-  cortarLlamadas(where).catch((error) => console.error(error));
+  return cortarLlamadas(where);
 });
 
 // Compara la base con LiveKit por si se perdio algun evento o fallo una revocacion.

@@ -1,3 +1,6 @@
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { communityRoleParamsSchema, roleBodySchema } from '../src/validations/rolesValidation.js';

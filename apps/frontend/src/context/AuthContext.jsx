@@ -4,6 +4,7 @@ import * as authService from '../services/authService.js';
 export const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const [avisoSesion, setAvisoSesion] = useState('');
   const [usuario, setUsuario] = useState(undefined);
   // Falla de red o del servidor al verificar la sesion.
   const [errorVerificacion, setErrorVerificacion] = useState(null);
@@ -39,12 +40,14 @@ export function AuthProvider({ children }) {
   }
 
   function sesionTerminada() {
+    setAvisoSesion('La sesión terminó o se cerró desde otra pestaña. Volvé a iniciar sesión.');
     setErrorVerificacion(null);
     setUsuario(null);
   }
 
   async function login(datos) {
     const data = await authService.login(datos);
+    setAvisoSesion('');
     setUsuario(data.usuario);
   }
 
@@ -63,6 +66,7 @@ export function AuthProvider({ children }) {
 
   const value = {
     usuario,
+    avisoSesion,
     estado,
     errorVerificacion,
     login,

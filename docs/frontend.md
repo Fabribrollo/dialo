@@ -231,3 +231,8 @@ Los eventos de edición del canal, cambios del catálogo, salida de integrantes 
 ## Baneo de integrantes (T-41)
 
 En **Integrantes**, propietario, administradores y moderadores ven la acción **Banear** junto a los miembros con un rol base inferior al suyo. La confirmación admite un motivo opcional. **Ver baneos** abre la lista autorizada y permite levantar un baneo con confirmación. Quien pierde acceso vuelve al listado de comunidades desde la pantalla activa y recibe un aviso. Si abre una invitación válida durante el baneo, ve que su acceso está bloqueado; el motivo queda reservado al equipo autorizado.
+
+
+## Integración del kanban
+
+La integración del tablero de interfaz incorpora búsqueda completa, adjuntos, actividad, perfil y llamadas privadas. Ver [contratos, migraciones, alcance y verificación](kanban-integracion.md).

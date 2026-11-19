@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { api } from '../services/api.js';
+
 import { Link, useLocation } from 'react-router';
 import Field, { PasswordField } from '../components/ui/Field.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -14,6 +16,9 @@ export default function RegisterPage() {
   const location = useLocation();
   const from = invitationReturnPath(location.state?.from) || pendingInvitation();
   const { submit, enviando, error, errorDe } = useSubmit(register);
+  const checking = useRef(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [emailError, setEmailError] = useState('');
   const [paso, setPaso] = useState(0);
   const [datos, setDatos] = useState({ correo: '', contrasena: '', nombreUsuario: '', nombreVisible: '' });
   const [errores, setErrores] = useState({});
@@ -27,7 +32,16 @@ export default function RegisterPage() {
         contrasena: datos.contrasena.length >= 8 ? '' : 'Tiene que tener al menos 8 caracteres.',
       };
       setErrores(e);
-      if (!e.correo && !e.contrasena) setPaso(1);
+      if (!e.correo && !e.contrasena && !checking.current) {
+        checking.current = true; setCheckingEmail(true); setEmailError('');
+        const correo = datos.correo.trim().toLowerCase();
+        try {
+          const result = await api.post('/auth/email-availability', { correo });
+          if (result.disponible) setPaso(1);
+          else setErrores((old) => ({ ...old, correo: 'Ese correo ya tiene cuenta.' }));
+        } catch (error) { setEmailError(error.message); }
+        finally { checking.current = false; setCheckingEmail(false); }
+      }
       return;
     }
     await submit(datos);
@@ -44,11 +58,12 @@ export default function RegisterPage() {
         {from && <span className="auth-sub">Creá tu cuenta para consultar la invitación.</span>}
       </div>
       {!['EMAIL_TAKEN', 'USERNAME_TAKEN'].includes(error?.code) && <AuthError error={error} />}
+      {emailError && <p role="alert">{emailError}</p>}
       <div className="auth-fields">
         {mostrarPaso === 0 ? (
           <>
-            <Field className="fld-lg" label="Correo" type="email" autoComplete="email" value={datos.correo} onChange={cambiar('correo')} error={errores.correo || errorCorreo} />
-            <PasswordField className="fld-lg" label="Contraseña" autoComplete="new-password" value={datos.contrasena} onChange={cambiar('contrasena')} error={errores.contrasena || errorDe('contrasena')} />
+            <Field className="fld-lg" label="Correo" disabled={checkingEmail} type="email" autoComplete="email" value={datos.correo} onChange={cambiar('correo')} error={errores.correo || errorCorreo} />
+            <PasswordField className="fld-lg" label="Contraseña" disabled={checkingEmail} autoComplete="new-password" value={datos.contrasena} onChange={cambiar('contrasena')} error={errores.contrasena || errorDe('contrasena')} />
           </>
         ) : (
           <>
@@ -57,7 +72,7 @@ export default function RegisterPage() {
           </>
         )}
       </div>
-      <Button type="submit" className="auth-submit" loading={enviando}>
+      <Button type="submit" className="auth-submit" loading={enviando || checkingEmail}>
         {mostrarPaso === 0 ? 'Siguiente' : enviando ? 'Creando tu cuenta…' : 'Registrarme'}
       </Button>
       {mostrarPaso === 1 && <Button variant="secundario" onClick={() => setPaso(0)}>Volver</Button>}

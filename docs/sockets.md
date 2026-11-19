@@ -437,3 +437,8 @@ El consumidor debe reconciliar el catálogo mediante GET al reconectar y actuali
 Tras confirmar el baneo, el backend retira las pestañas del usuario de las salas de la comunidad y sus canales. Reutiliza `community:left` para avisarle que perdió acceso y `community:member-left` para actualizar la lista del resto. Los canales afectados aplican `channel:access-lost` y notifican al mecanismo existente de cambios de acceso. El socket sigue conectado para el resto de la app.
 
 El evento `community:bans-changed` envía solo `{ idComunidad }` a quienes pueden gestionar el baneo, para que refresquen la lista por HTTP. No se transmite el motivo ni se devuelve la membresía al levantar el baneo.
+
+
+## Eventos de la integración
+
+La integración del tablero de interfaz incorpora búsqueda completa, adjuntos, actividad, perfil y llamadas privadas. Ver [contratos, migraciones, alcance y verificación](kanban-integracion.md).

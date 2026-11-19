@@ -1,3 +1,4 @@
+import { api } from '../services/api.js';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useParams } from 'react-router';
@@ -9,6 +10,7 @@ import RegisterPage from '../pages/RegisterPage.jsx';
 import * as auth from '../services/authService.js';
 import { invitationReturnPath, pendingInvitation, rememberInvitation } from '../utils/invitations.js';
 
+vi.mock('../services/api.js', () => ({ api: { post: vi.fn() } }));
 vi.mock('../services/authService.js', () => ({ getMe: vi.fn(), login: vi.fn(), register: vi.fn(), logout: vi.fn(), forgotPassword: vi.fn(), resetPassword: vi.fn() }));
 function Destination() { return <h1>Invitación {useParams().codigo}</h1>; }
 function show(path) {
@@ -18,6 +20,7 @@ function show(path) {
   </Routes></AuthProvider></MemoryRouter>);
 }
 beforeEach(() => {
+  api.post.mockReset().mockResolvedValue({ disponible: true });
   sessionStorage.clear();
   auth.getMe.mockReset().mockRejectedValue({ status: 401 });
   auth.login.mockReset().mockResolvedValue({ usuario: { id: 1 } });
@@ -39,7 +42,7 @@ it('pasar a registro conserva la invitación y vuelve a ella después de registr
   fireEvent.change(screen.getByLabelText('Correo'), { target: { value: 'nuevo@example.test' } });
   fireEvent.change(screen.getByLabelText('Contraseña'), { target: { value: 'ClavePrueba123' } });
   fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
-  fireEvent.change(screen.getByLabelText('Nombre de usuario'), { target: { value: 'nuevo' } });
+  fireEvent.change(await screen.findByLabelText('Nombre de usuario'), { target: { value: 'nuevo' } });
   fireEvent.change(screen.getByLabelText('Nombre visible'), { target: { value: 'Nuevo' } });
   fireEvent.click(screen.getByRole('button', { name: 'Registrarme' }));
   await screen.findByRole('heading', { name: 'Invitación otro_codigo' });

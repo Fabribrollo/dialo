@@ -61,7 +61,7 @@ try {
     return response.data.canal;
   };
   const visible = await make('avisos'), hidden = await make('privado', 'TEXTO', true);
-  const voice = await make('charla', 'VOZ'), video = await make('reunion', 'VIDEO');
+  const voice = await make('charla', 'VOZ'), video = await make('reunion', 'VOZ');
   assert.equal((await request(path)).status, 401);
   assert.equal((await request(path, { as: c })).status, 404);
   assert.equal((await request(`/channels/${hidden.id}`, { as: b })).status, 404);
@@ -71,7 +71,7 @@ try {
   assert.deepEqual(memberList.data.items.find((i) => i.id === voice.id).misPermisos, ['VER', 'HABLAR']);
   assert.equal((await request(`/channels/${visible.id}`, { method: 'PATCH', as: a, body: { nombre: 'actualizado' } })).status, 200);
   assert.equal((await request(`/channels/${visible.id}`, { as: a })).data.canal.nombre, 'actualizado');
-  assert.equal((await request(`/channels/${voice.id}`, { method: 'PATCH', as: a, body: { tipo: 'VIDEO' } })).status, 400);
+  assert.equal((await request(`/channels/${voice.id}`, { method: 'PATCH', as: a, body: { tipo: 'VOZ' } })).status, 400);
   const parallel = await Promise.all(Array.from({ length: 4 }, (_, n) => make(`paralelo-${n}`)));
   assert.equal(new Set(parallel.map((i) => i.posicion)).size, 4, 'Las creaciones concurrentes repitieron posición');
   const ids = (await request(path, { as: a })).data.items.map((i) => i.id);

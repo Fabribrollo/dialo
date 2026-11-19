@@ -21,7 +21,7 @@ export function CommunityHeader({ comunidad, collapsible = false }) {
     { value: `${base}/integrantes`, label: 'Integrantes' },
     { value: `${base}/roles`, label: 'Roles' },
     ...(['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(rol) ? [{ value: `${base}/invitaciones`, label: 'Invitaciones' }] : []),
-    ...(['PROPIETARIO', 'ADMIN'].includes(rol) ? [{ value: `${base}/moderacion`, label: 'Moderación' }] : []),
+    ...(['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(rol) ? [{ value: `${base}/moderacion`, label: 'Moderación' }] : []),
   ];
   const actual = tabs.slice(1).find((t) => pathname.startsWith(t.value))?.value ?? base;
 

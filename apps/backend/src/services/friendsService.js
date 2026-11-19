@@ -1,3 +1,5 @@
+import { trackEffect } from '../utils/backgroundEffects.js';
+import { notify } from './notificationsService.js';
 import { prisma } from "../prisma/client.js";
 import { emitToUser } from "../sockets/emitter.js";
 import { EVENTS } from "../sockets/events.js";
@@ -188,6 +190,7 @@ export async function sendRequest(idEmisor, idReceptor) {
   // Aviso en tiempo real a los dos, para que aparezca en "enviadas" y en "recibidas".
   for (const id of [idEmisor, idReceptor])
     emitToUser(id, EVENTS.FRIEND_REQUEST, { solicitud });
+  trackEffect(notify(idReceptor, 'amistad', solicitud.id, `solicitud:${solicitud.id}`));
   return solicitud;
 }
 

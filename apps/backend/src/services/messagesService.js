@@ -1,3 +1,5 @@
+import { trackEffect } from '../utils/backgroundEffects.js';
+import { notify } from './notificationsService.js';
 import { prisma } from '../prisma/client.js';
 import { requireConversationParticipant } from './conversationsService.js';
 import { areFriends } from './friendsService.js';
@@ -17,6 +19,7 @@ export async function sendMessage(idUsuario, { idConversacion, contenido }) {
     select: mensajeSelect,
   }));
   emitToConversation(idConversacion, EVENTS.MESSAGE_NEW, { mensaje });
+  trackEffect(notify(otroId, 'conversacion', idConversacion, `mensaje:${mensaje.id}`));
   return { mensaje };
 }
 

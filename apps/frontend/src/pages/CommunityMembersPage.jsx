@@ -1,3 +1,4 @@
+import OwnershipTransfer from '../components/communities/OwnershipTransfer.jsx';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card, { ListRow } from '../components/ui/Card.jsx';
@@ -54,7 +55,7 @@ export default function CommunityMembersPage() {
           <span className="cm-count">{list.items.length} {list.items.length === 1 ? 'integrante' : 'integrantes'}</span>
         </div>
         {visibles.length > 0 && <Card as="ul">{visibles.map((member) => <ListRow as="li" key={member.usuario.id}>
-          <Avatar nombre={member.usuario.nombreVisible} foto={member.usuario.fotoUrl} presence={member.usuario.disponibilidad === 'INVISIBLE' ? 'AUSENTE' : member.usuario.disponibilidad} dark={member.usuario.id === usuario.id} />
+          <Avatar nombre={member.usuario.nombreVisible} foto={member.usuario.fotoUrl} color={member.usuario.colorAvatar} presence={member.usuario.disponibilidad === 'INVISIBLE' ? 'AUSENTE' : member.usuario.disponibilidad} dark={member.usuario.id === usuario.id} />
           <span className="cm-who"><span className="li-title">{member.usuario.nombreVisible}{member.usuario.id === usuario.id ? ' (vos)' : ''}</span><span className="li-sub">@{member.usuario.nombreUsuario}</span></span>
           <span className="cm-roles">
             <span className="bdg bdg-base">{['PROPIETARIO', 'ADMIN'].includes(member.rol) && <Icon name="corona" size={12} stroke={2} />}{COMMUNITY_ROLES[member.rol]}</span>
@@ -75,6 +76,7 @@ export default function CommunityMembersPage() {
         </ListRow>)}</Card>}
         {!list.error && list.items.length === 0 && <span className="cm-state">No hay integrantes para mostrar.</span>}
       </>}
+      {detail.comunidad && !list.loading && !list.error && <OwnershipTransfer comunidad={detail.comunidad} members={list.items} onDone={() => { detail.reload(); list.reload(); }} />}
       {canManageBans(actor) && <CommunityBans key={id} id={id} />}
       {banTarget && <BanMemberDialog key={`${id}:${banTarget.usuario.id}`} id={id} actor={actor} userId={usuario.id}
         original={banTarget} member={list.items.find((member) => member.usuario.id === banTarget.usuario.id)}

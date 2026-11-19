@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
@@ -99,6 +103,7 @@ after(async () => {
   for (const socket of sockets) socket.disconnect();
   if (io) await new Promise((resolve) => io.close(resolve));
   else if (server?.listening) await new Promise((resolve) => server.close(resolve));
+  await drainEffects();
   await prisma?.$disconnect();
   await admin.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   await admin.$disconnect();
@@ -140,7 +145,7 @@ test('reemplazo completo, normalización VER, persistencia y DTO público sin se
   const personal = grants.find((g) => g.usuario);
   assert.equal(personal.usuario.id, dani.id);
   assert.equal(personal.usuario.correo, undefined); assert.equal(personal.usuario.contrasenaHash, undefined);
-  assert.deepEqual(Object.keys(personal.usuario).sort(), ['disponibilidad', 'fotoUrl', 'id', 'informacionPersonal', 'nombreUsuario', 'nombreVisible']);
+  assert.deepEqual(Object.keys(personal.usuario).sort(), ['colorAvatar', 'disponibilidad', 'enLinea', 'fotoUrl', 'id', 'informacionPersonal', 'nombreUsuario', 'nombreVisible']);
   assert.deepEqual((await request(`/channels/${ch.id}`, { as: dani })).body.canal.misPermisos, ['VER', 'ESCRIBIR']);
   await access(ch, { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }] });
   assert.equal(await prisma.canalUsuario.count({ where: { idCanal: ch.id } }), 0);
@@ -206,9 +211,9 @@ test('voz/video guardan habilitaciones para llamadas y filtran permisos ajenos a
   const c = await community(), ch = await create(c, { tipo: 'VOZ', privado: true });
   await access(ch, { privado: true, habilitaciones: [{ idUsuario: dani.id, permisos: ['HABLAR', 'TRANSMITIR', 'ESCRIBIR'] }] });
   assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'HABLAR', 'TRANSMITIR']);
-  await request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'TEXTO' } });
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'ESCRIBIR']);
-  await request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'VIDEO' } });
+  assert.equal((await request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'TEXTO' } })).status, 400);
+  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'HABLAR', 'TRANSMITIR']);
+  await request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'VOZ' } });
   assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'HABLAR', 'TRANSMITIR']);
 });
 
@@ -295,7 +300,7 @@ test('reemplazos concurrentes no mezclan configuraciones y cambio de tipo preser
   const [changed, typed] = await Promise.all([
     access(ch, configs[0]), request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'VOZ' } }),
   ]);
-  assert.equal(changed.status, 200); assert.equal(typed.status, 200);
+  assert.equal(changed.status, 200); assert.equal(typed.status, 400);
   assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER']);
 });
 

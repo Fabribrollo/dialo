@@ -1,3 +1,7 @@
+import { communityActivity } from '../services/communityActivityService.js';
+import { suggestChannel, suggestionInput } from '../services/channelSuggestionService.js';
+import { z } from 'zod';
+import { transferOwnership, listBlockedMessages } from '../services/communityExtrasService.js';
 import { Router } from 'express';
 import {
   createCommunity,
@@ -34,10 +38,18 @@ import rolesRoutes from './rolesRoutes.js';
 const router = Router();
 
 router.use(authenticate);
+router.post('/:id/ownership', validate({ params: communityIdParamsSchema, body: z.strictObject({ idUsuario: z.number().int().positive().max(2147483647) }) }), async (req, res) => {
+  await transferOwnership(req.validated.params.id, req.user.id, req.validated.body.idUsuario);
+  res.status(204).end();
+});
+router.get('/:id/moderation/blocked', validate({ params: communityIdParamsSchema, query: z.strictObject({ cursor: z.coerce.number().int().positive().optional() }) }), async (req, res) => {
+  res.json(await listBlockedMessages(req.validated.params.id, req.user.id, req.validated.query.cursor));
+});
 router.use('/:id/roles', rolesRoutes);
 
 router.get('/', listCommunities);
 router.post('/', validate({ body: createCommunitySchema }), createCommunity);
+router.get('/:id/activity', validate({ params: communityIdParamsSchema }), async (req, res) => res.json(await communityActivity(req.validated.params.id, req.user.id)));
 router.get('/:id', validate({ params: communityIdParamsSchema }), getCommunity);
 router.patch('/:id', validate({ params: communityIdParamsSchema, body: updateCommunitySchema }), updateCommunity);
 router.post('/:id/imagen', validate({ params: communityIdParamsSchema }), limitImageUploads, parseImage('imagen'), updateCommunityImage);
@@ -52,6 +64,9 @@ router.post('/:id/invitations', validate({ params: communityIdParamsSchema, body
 router.get('/:id/invitations', validate({ params: communityIdParamsSchema }), listInvitations);
 router.delete('/:id/invitations/:idInvitacion', validate({ params: invitationIdParamsSchema }), revokeInvitation);
 router.get('/:id/channels', validate({ params: communityIdParamsSchema }), listChannels);
+router.post('/:id/channels/suggestion', validate({ params: communityIdParamsSchema, body: suggestionInput }), async (req, res) => {
+  res.json({ propuesta: await suggestChannel(req.validated.params.id, req.user.id, req.validated.body) });
+});
 router.post('/:id/channels', validate({ params: communityIdParamsSchema, body: createChannelSchema }), createChannel);
 router.put('/:id/channels/order', validate({ params: communityIdParamsSchema, body: orderChannelsSchema }), reorderChannels);
 router.get('/:id/moderation', validate({ params: communityIdParamsSchema }), getModeration);

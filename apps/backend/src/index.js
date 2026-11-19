@@ -1,3 +1,4 @@
+import { reconcilePrivateCalls } from './services/privateCallsService.js';
 import { createServer } from 'node:http';
 import { Server } from 'socket.io';
 import { app } from './app.js';
@@ -13,6 +14,7 @@ const io = new Server(httpServer, {
 
 initSockets(io);
 iniciarReconciliacion();
+setInterval(() => reconcilePrivateCalls().catch(console.error), 15000).unref();
 
 httpServer.listen(env.port, () => {
   console.log(`API escuchando en http://localhost:${env.port}`);

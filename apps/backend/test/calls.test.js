@@ -1,3 +1,7 @@
+import { drainEffects } from '../src/utils/backgroundEffects.js';
+import { beforeEach as isolateQuota } from 'node:test';
+import { resetRateLimits } from '../src/utils/rateLimit.js';
+isolateQuota(resetRateLimits);
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 import { createServer } from 'node:http';
@@ -93,6 +97,7 @@ beforeEach(async () => {
 after(async () => {
   for (const socket of sockets) socket.disconnect();
   if (io) await new Promise((resolve) => io.close(resolve));
+  await drainEffects();
   await prisma?.$disconnect();
   await admin.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   await admin.$disconnect();
@@ -115,7 +120,7 @@ test('un integrante con VER entra a un canal de voz y el token solo permite sus 
 
 test('TRANSMITIR habilita camara y pantalla; solo VER no permite publicar nada', async () => {
   const c = await comunidad();
-  const video = await canal(c, { nombre: 'video', tipo: 'VIDEO', privado: true });
+  const video = await canal(c, { nombre: 'video', tipo: 'VOZ', privado: true });
   await request(`/channels/${video.id}/access`, { method: 'PUT', as: ana, body: { privado: true, habilitaciones: [{ idUsuario: dani.id, permisos: ['TRANSMITIR'] }] } });
   const transmite = claims((await entrar(video, dani)).body.llamada.token);
   assert.deepEqual(transmite.video.canPublishSources.sort(), ['camera', 'screen_share', 'screen_share_audio']);

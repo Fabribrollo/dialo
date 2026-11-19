@@ -79,3 +79,12 @@ it('un mensaje bloqueado por moderación queda en el chat con Editar y Descartar
   fireEvent.click(screen.getByRole('button', { name: 'Descartar' }));
   expect(screen.queryByText('sos un tonto')).not.toBeInTheDocument();
 });
+
+it('el selector del canal se muestra junto al compositor e inserta el usuario elegido',()=>{
+ view();const input=screen.getByLabelText('Mensaje en general');
+ fireEvent.change(input,{target:{value:'Aviso @Fe'}});
+ const picker=screen.getByRole('group',{name:'Sugerencias de menciones'});
+ expect(picker.closest('.chat-compose-area')).toBe(input.closest('.chat-compose-area'));
+ fireEvent.click(screen.getByRole('button',{name:'@felipe · Felipe'}));
+ expect(input).toHaveValue('Aviso @felipe ');expect(input).toHaveFocus();
+});

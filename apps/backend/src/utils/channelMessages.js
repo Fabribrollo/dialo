@@ -13,6 +13,7 @@ export const channelMessageSelect = {
 export function toChannelMessage(mensaje) {
   const eliminado = mensaje.fechaEliminacion !== null;
   return {
+    ...(mensaje.adjunto && !eliminado && { adjunto: mensaje.adjunto }),
     id: mensaje.id,
     idCanal: mensaje.idCanal,
     autor: toUsuarioPublico(mensaje.autor),
