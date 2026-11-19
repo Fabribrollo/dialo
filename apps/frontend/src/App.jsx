@@ -23,6 +23,7 @@ import CommunityRolesPage from "./pages/CommunityRolesPage.jsx";
 import CommunityMembersPage from "./pages/CommunityMembersPage.jsx";
 import CommunityInvitationsPage from "./pages/CommunityInvitationsPage.jsx";
 import InvitationPage from "./pages/InvitationPage.jsx";
+import LandingPage from "./pages/LandingPage.jsx";
 import CommunityChannelsPage from "./pages/CommunityChannelsPage.jsx";
 import CommunityModerationPage from "./pages/CommunityModerationPage.jsx";
 
@@ -38,6 +39,9 @@ export default function App() {
       enabled={estado === "logueado"}
     >
       <Routes>
+        <Route element={<GuestRoute />}>
+          <Route path="/inicio" element={<LandingPage />} />
+        </Route>
         <Route element={<AuthLayout />}>
           <Route element={<GuestRoute />}>
             <Route path="/login" element={<LoginPage />} />

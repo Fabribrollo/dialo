@@ -10,8 +10,8 @@ vi.mock('../services/authService.js', () => ({ getMe: vi.fn(), login: vi.fn(), r
 
 function show(path) {
   return render(<MemoryRouter initialEntries={[path]}><AuthProvider><Routes>
-    <Route element={<GuestRoute />}><Route path="/login" element={<h1>Login</h1>} /></Route>
-    <Route element={<ProtectedRoute />}><Route path="/" element={<h1>Inicio</h1>} /></Route>
+    <Route element={<GuestRoute />}><Route path="/login" element={<h1>Login</h1>} /><Route path="/inicio" element={<h1>Bienvenida</h1>} /></Route>
+    <Route element={<ProtectedRoute />}><Route path="/" element={<h1>Inicio</h1>} /><Route path="/amigos" element={<h1>Amigos</h1>} /></Route>
   </Routes></AuthProvider></MemoryRouter>);
 }
 const sinConexion = { status: 0, code: 'NETWORK_ERROR', message: 'No se pudo conectar con el servidor' };
@@ -45,6 +45,13 @@ it('la pantalla de login tambien ofrece reintentar si no se pudo verificar', asy
 
 it('solo un 401 manda al login', async () => {
   auth.getMe.mockRejectedValueOnce({ status: 401, code: 'UNAUTHORIZED' });
-  show('/');
+  show('/amigos');
   await screen.findByRole('heading', { name: 'Login' });
+});
+
+it('sin sesion la raiz muestra la pagina de bienvenida', async () => {
+  auth.getMe.mockRejectedValueOnce({ status: 401, code: 'UNAUTHORIZED' });
+  show('/');
+  await screen.findByRole('heading', { name: 'Bienvenida' });
+  expect(screen.queryByRole('heading', { name: 'Login' })).not.toBeInTheDocument();
 });
