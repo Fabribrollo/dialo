@@ -171,7 +171,7 @@ export default function CallPanel({ canal }) {
         {participantes.error && <Notice tone="error" title={participantes.error} />}
       </div>
 
-      <CallStage personas={personas} />
+      <CallStage personas={personas} onStopShare={call.alternarPantalla} />
       <CallPill call={call} canal={canal} puedeHablar={puedeHablar} puedeTransmitir={puedeTransmitir} />
     </section>
   );

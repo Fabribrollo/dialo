@@ -118,20 +118,24 @@ export function PrivateCallProvider({children}) {
   const active=call&&['LLAMANDO','ACEPTADA'].includes(call.estado),incoming=call?.idReceptor===usuario.id;
   return <PrivateCallContext.Provider value={{start,busy,active,elegirDispositivo:async(kind,id)=>{if(room.current)await room.current.switchActiveDevice(kind,id);}}}>
     {children}
-    {(call||error)&&<aside className="private-call-panel" aria-label="Llamada privada">
-      {call&&<><h2>{incoming&&call.estado==='LLAMANDO'?'Llamada entrante':states[call.estado]}</h2>
-      <p>{incoming?call.emisor.nombreVisible:call.receptor.nombreVisible} · {call.video?'Video':'Voz'}</p></>}
-      {error&&<p role="alert">{error}</p>}
-      {incoming&&call?.estado==='LLAMANDO'&&<button disabled={busy} onClick={accept}>Aceptar llamada</button>}
-      {active&&<button disabled={busy} onClick={end}>{call.estado==='LLAMANDO'?(incoming?'Rechazar':'Cancelar llamada'):'Finalizar llamada'}</button>}
-      {connected&&<>
-        <button onClick={async()=>{try{await room.current.localParticipant.setMicrophoneEnabled(!mic);setMic(!mic);}catch(e){setError(e.message);}}}>{mic?'Silenciar micrófono':'Activar micrófono'}</button>
-        {call.video&&<button onClick={async()=>{try{await room.current.localParticipant.setCameraEnabled(!camera);setCamera(!camera);}catch(e){setError(e.message);}}}>{camera?'Apagar cámara':'Activar cámara'}</button>}
-        <button onClick={()=>room.current?.startAudio().catch(()=>setError('El navegador no pudo activar el audio.'))}>Activar audio</button>
-        <CallStage personas={people}/>
-      </>}
-      {call?.estado==='ACEPTADA'&&!connected&&<p role="status">{intent.current===call.id?'Conectando…':'Llamada aceptada en otra pestaña.'}</p>}
-      {!active&&<button onClick={()=>{setCall(null);setError('');}}>Cerrar aviso de llamada</button>}
+    {(call||error)&&<aside className="lg private-call-panel" aria-label="Llamada privada">
+      {call&&<header className="pcp-head">
+        <h2 className="pcp-title">{incoming&&call.estado==='LLAMANDO'?'Llamada entrante':states[call.estado]}</h2>
+        <p className="pcp-sub">{incoming?call.emisor.nombreVisible:call.receptor.nombreVisible} · {call.video?'Video':'Voz'}</p>
+      </header>}
+      {error&&<p className="pcp-error" role="alert">{error}</p>}
+      {connected&&<div className="pcp-stage"><CallStage personas={people}/></div>}
+      {call?.estado==='ACEPTADA'&&!connected&&<p className="pcp-sub" role="status">{intent.current===call.id?'Conectando…':'Llamada aceptada en otra pestaña.'}</p>}
+      <div className="pcp-actions">
+        {connected&&<>
+          <button type="button" className={`pr pcp-btn ${mic?'':'is-off'}`} aria-pressed={!mic} onClick={async()=>{try{await room.current.localParticipant.setMicrophoneEnabled(!mic);setMic(!mic);}catch(e){setError(e.message);}}}>{mic?'Silenciar micrófono':'Activar micrófono'}</button>
+          {call.video&&<button type="button" className="pr pcp-btn" onClick={async()=>{try{await room.current.localParticipant.setCameraEnabled(!camera);setCamera(!camera);}catch(e){setError(e.message);}}}>{camera?'Apagar cámara':'Activar cámara'}</button>}
+          <button type="button" className="pr pcp-btn" onClick={()=>room.current?.startAudio().catch(()=>setError('El navegador no pudo activar el audio.'))}>Activar audio</button>
+        </>}
+        {incoming&&call?.estado==='LLAMANDO'&&<button type="button" className="pr pcp-btn pcp-ok" disabled={busy} onClick={accept}>Aceptar llamada</button>}
+        {active&&<button type="button" className="pr pcp-btn pcp-end" disabled={busy} onClick={end}>{call.estado==='LLAMANDO'?(incoming?'Rechazar':'Cancelar llamada'):'Finalizar llamada'}</button>}
+        {!active&&<button type="button" className="pr pcp-btn" onClick={()=>{setCall(null);setError('');}}>Cerrar aviso de llamada</button>}
+      </div>
     </aside>}
     <div ref={audios} hidden/>
   </PrivateCallContext.Provider>;

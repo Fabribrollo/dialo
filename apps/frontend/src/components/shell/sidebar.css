@@ -2,6 +2,7 @@
 .side-head { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 0 8px; }
 .side-brand { display: flex; align-items: center; gap: 9px; color: #131316; text-decoration: none; }
 .side-brand .dsp { font-size: 26px; }
+.side-actions { display: flex; align-items: center; gap: 8px; }
 .side-new { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
 .side-search { height: 44px; border-radius: 22px; padding: 0 6px 0 14px; margin: 0 4px; display: flex; align-items: center; gap: 10px; box-sizing: border-box; }

@@ -67,5 +67,18 @@ test('revocar acceso invalida la paginación de notificaciones que estaba pendie
   mocks.get.mockResolvedValue({items:[],noLeidas:0});
   await act(async()=>mocks.listeners.get('channel:access-lost')());
   await act(async()=>more.resolve({items:[{id:9,tipo:'canal',referencia:1,fechaCreacion:new Date().toISOString()}],noLeidas:1}));
-  expect(screen.getByText('No tenés notificaciones.')).toBeInTheDocument();expect(screen.queryByText('Abrir')).not.toBeInTheDocument();
+  expect(screen.getByText('No tenés notificaciones')).toBeInTheDocument();expect(screen.queryByRole('button',{name:/Abrir canal/})).not.toBeInTheDocument();
+});
+test('un mensaje nuevo aparece como aviso flotante y se puede marcar como leído', async () => {
+  const fecha = new Date().toISOString();
+  mocks.get.mockResolvedValueOnce({ items: [], noLeidas: 0 });
+  render(<MemoryRouter><ActivityCenter/></MemoryRouter>);
+  await waitFor(() => expect(screen.getByLabelText('Notificaciones: 0 sin leer')).toBeInTheDocument());
+  mocks.get.mockResolvedValue({ items: [{ id: 4, tipo: 'conversacion', referencia: 7, leida: false, fechaCreacion: fecha, contexto: { nombre: 'Cande Ríos' }, vista: { autor: 'Cande Ríos', texto: 'Mandame la foto' } }], noLeidas: 1 });
+  await act(async () => mocks.listeners.get('notifications:changed')());
+  expect(await screen.findByText('Mandame la foto')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Responder' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Marcar como leído' }));
+  expect(mocks.post).toHaveBeenCalledWith('/notifications/read', { tipo: 'conversacion', referencia: 7 });
+  expect(screen.queryByText('Mandame la foto')).not.toBeInTheDocument();
 });

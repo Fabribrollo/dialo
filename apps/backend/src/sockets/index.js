@@ -1,5 +1,5 @@
 import { trackEffect } from '../utils/backgroundEffects.js';
-import { watchActivity, clearActivity } from '../services/notificationsService.js';
+import { watchActivity, clearActivity, readNotifications } from '../services/notificationsService.js';
 import { z } from 'zod';
 import { connectPresence, disconnectPresence } from '../utils/presence.js';
 import { emitUserUpdatedById } from '../services/usersService.js';
@@ -68,7 +68,10 @@ export function initSockets(io) {
         await ready; await requireSocketUser(socket);
         if (data === null) return watchActivity(socket, null);
         const parsed = z.strictObject({ tipo: z.enum(['canal','conversacion']), referencia: z.number().int().positive() }).safeParse(data);
-        if (parsed.success) watchActivity(socket, parsed.data);
+        if (!parsed.success) return;
+        watchActivity(socket, parsed.data);
+        // Abrir el destino cuenta como haber visto sus avisos.
+        trackEffect(readNotifications(socket.data.user.id, parsed.data));
       } catch { clearActivity(socket); }
     });
     socket.on('disconnect', () => clearActivity(socket));

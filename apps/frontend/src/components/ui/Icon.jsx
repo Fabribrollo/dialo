@@ -35,6 +35,7 @@ const shapes = {
   reintentar: <path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4" />,
   chevron: <path d="M6 9l6 6 6-6" />,
   subir: <path d="M12 16V5M7.5 9.5L12 5l4.5 4.5M5 19.5h14" />,
+  campana: <><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 2H4.4z" /><path d="M10 20.8a2.3 2.3 0 0 0 4 0" /></>,
 };
 
 export default function Icon({ name, size = 20, stroke = 1.9 }) {

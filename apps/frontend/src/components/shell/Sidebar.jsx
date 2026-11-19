@@ -14,6 +14,7 @@ import Segmented from '../ui/Segmented.jsx';
 import Notice from '../ui/Notice.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
 import ConversationRow from './ConversationRow.jsx';
+import ActivityCenter from './ActivityCenter.jsx';
 import { Logo } from './BootScreen.jsx';
 import './sidebar.css';
 
@@ -97,9 +98,12 @@ export default function Sidebar() {
           <Logo />
           <span className="dsp">dialo</span>
         </Link>
-        <Link to="/amigos" className="lg dk pr side-new" aria-label="Nueva conversación">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-        </Link>
+        <span className="side-actions">
+          <ActivityCenter />
+          <Link to="/amigos" className="lg dk pr side-new" aria-label="Nueva conversación">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          </Link>
+        </span>
       </div>
 
       <label className="lg side-search">
