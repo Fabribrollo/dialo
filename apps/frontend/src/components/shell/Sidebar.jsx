@@ -14,6 +14,8 @@ import Segmented from '../ui/Segmented.jsx';
 import Notice from '../ui/Notice.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
 import ConversationRow from './ConversationRow.jsx';
+import ActivityCenter from './ActivityCenter.jsx';
+import { avisar } from './systemToastsStore.js';
 import { Logo } from './BootScreen.jsx';
 import './sidebar.css';
 
@@ -36,25 +38,53 @@ export default function Sidebar() {
   const socket = useSocket();
   const [activity, setActivity] = useState({});
   const activitySeq = useRef(0);
+  const previas = useRef(null);
+  const enCanal = useRef(pathname);
+  enCanal.current = pathname;
+  const silenciado = Boolean(usuario?.preferencias?.silenciarNotificaciones);
+  // Cuando arranca una llamada en una comunidad tuya, invita a sumarse (salvo que ya estés ahí).
+  function invitarALlamadas(calls) {
+    const antes = previas.current;
+    previas.current = { ...(antes ?? {}), ...calls };
+    if (!antes || silenciado) return;
+    for (const c of communities.items) {
+      const ahora = calls[c.id];
+      // Solo invita si la llamada empezó desde la consulta anterior, no si ya estaba cuando abriste la app.
+      if (!(c.id in antes) || !ahora || ahora.estoy || antes[c.id]) continue;
+      const destino = `/comunidades/${c.id}/canales/${ahora.idCanal}`;
+      if (enCanal.current === destino) continue;
+      avisar({
+        id: `llamada-${c.id}`, tipo: 'invitacion', duracion: 0, canal: ahora.canal, comunidad: c.nombre,
+        personas: ahora.personas, total: ahora.total, destino,
+        siglas: (c.nombre.split(/\s+/).filter((w) => w.length > 2).slice(0, 2).map((w) => w[0]).join('') || c.nombre.slice(0, 2)).toUpperCase(),
+      });
+    }
+  }
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
-      const seq = ++activitySeq.current, result = {};
+      const seq = ++activitySeq.current, result = {}, calls = {};
       await Promise.all(communities.items.map(async (c) => {
         try {
           const a = await api.get(`/communities/${c.id}/activity`);
           result[c.id] = a.participantes ? `${a.participantes} en llamada` : a.ultimoMensaje ? `${a.ultimoMensaje.canal}: ${a.ultimoMensaje.contenido}` : '';
+          calls[c.id] = a.llamada ?? null;
         } catch { result[c.id] = ''; }
       }));
-      if (alive && seq === activitySeq.current) setActivity(result);
+      if (!alive || seq !== activitySeq.current) return;
+      setActivity(result);
+      invitarALlamadas(calls);
     };
     refresh();
-    const timer = setInterval(refresh, 30000);
+    const timer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 30000);
     const revoke = () => { activitySeq.current++; setActivity({}); refresh(); };
     const events = ['community:left','community:member-updated','channel:access-lost','channel:updated','channel:deleted','connect'];
     events.forEach((e)=>socket?.on(e,revoke));
-    window.addEventListener('focus', revoke);
-    return () => { alive=false; activitySeq.current++; clearInterval(timer); events.forEach((e)=>socket?.off(e,revoke)); window.removeEventListener('focus',revoke); };
+    // Volver a la pestaña refresca, pero como mucho una vez cada 15 segundos (es un pedido por comunidad).
+    let ultimoFoco = 0;
+    const alEnfocar = () => { if (Date.now() - ultimoFoco < 15000) return; ultimoFoco = Date.now(); refresh(); };
+    window.addEventListener('focus', alEnfocar);
+    return () => { alive=false; activitySeq.current++; clearInterval(timer); events.forEach((e)=>socket?.off(e,revoke)); window.removeEventListener('focus',alEnfocar); };
   }, [communities.items,socket]);
   const { recibidas } = useFriends();
   const [filtro, setFiltro] = useState('todo');
@@ -97,9 +127,12 @@ export default function Sidebar() {
           <Logo />
           <span className="dsp">dialo</span>
         </Link>
-        <Link to="/amigos" className="lg dk pr side-new" aria-label="Nueva conversación">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-        </Link>
+        <span className="side-actions">
+          <ActivityCenter />
+          <Link to="/amigos" className="lg dk pr side-new" aria-label="Nueva conversación">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          </Link>
+        </span>
       </div>
 
       <label className="lg side-search">

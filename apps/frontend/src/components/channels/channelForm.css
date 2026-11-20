@@ -4,7 +4,7 @@
 .chf { display: flex; flex-direction: column; gap: 18px; }
 .chf-head { display: flex; align-items: center; justify-content: space-between; }
 .chf-head h2 { margin: 0; font-size: 28px; line-height: 1; }
-.chf-close { width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: rgba(19, 19, 22, .05); color: rgba(19, 19, 22, .56); cursor: pointer; }
+.chf-close { width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: rgba(19, 19, 22, .05); color: rgba(19, 19, 22, .64); cursor: pointer; }
 .chf-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
 .chf-types { display: flex; gap: 10px; }
 .chf-hash { opacity: .45; }

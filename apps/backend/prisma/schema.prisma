@@ -184,8 +184,9 @@ model Mensaje {
   canal        Canal?               @relation(fields: [idCanal], references: [id], onDelete: Cascade)
   eliminadoPor Usuario?             @relation("MensajeEliminadoPor", fields: [idUsuarioEliminacion], references: [id], onDelete: SetNull)
 
-  @@index([idConversacion, fechaCreacion])
-  @@index([idCanal, fechaCreacion])
+  // Mismo orden que el historial (más nuevos primero, desempate por id): la página sale del índice sin ordenar.
+  @@index([idConversacion, fechaCreacion(sort: Desc), id(sort: Desc)], map: "mensaje_conversacion_historial")
+  @@index([idCanal, fechaCreacion(sort: Desc), id(sort: Desc)], map: "mensaje_canal_historial")
   @@map("mensaje")
 }
 

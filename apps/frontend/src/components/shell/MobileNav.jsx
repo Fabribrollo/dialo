@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router';
 import Icon from '../ui/Icon.jsx';
+import { useNotificationsSummary } from './notificationsStore.js';
 import './mobileNav.css';
 
 const TABS = [
@@ -22,6 +23,7 @@ export function activeTab(pathname) {
 export default function MobileNav() {
   const { pathname } = useLocation();
   const actual = activeTab(pathname);
+  const { noLeidas, abrir } = useNotificationsSummary();
   const previa = useRef(actual);
   const haciaDerecha = actual > previa.current;
   useEffect(() => { previa.current = actual; }, [actual]);
@@ -31,13 +33,22 @@ export default function MobileNav() {
     transition: haciaDerecha ? `right ${FAST}, left ${SLOW}` : `left ${FAST}, right ${SLOW}`,
   };
   return (
+    <>
+    {pathname !== '/' && abrir && (
+      <button type="button" className="lg pr m-bell" onClick={abrir} aria-label={`Notificaciones: ${noLeidas} sin leer`}>
+        <Icon name="campana" size={20} stroke={2} />
+        {noLeidas > 0 && <span className="m-bell-count" aria-hidden="true">{noLeidas > 99 ? '99+' : noLeidas}</span>}
+      </button>
+    )}
     <nav className="lg m-nav" aria-label="Secciones">
       <span className="m-lens" aria-hidden="true" style={lens} />
       {TABS.map(([to, label, icon], i) => (
         <Link key={to} to={to} className={`m-tab pr ${i === actual ? 'm-tab-on' : ''}`} aria-current={i === actual ? 'page' : undefined}>
-          <Icon name={icon} size={22} stroke={1.9} />{label}
+          <span className="m-tab-ic"><Icon name={icon} size={22} stroke={1.9} />{i === 0 && noLeidas > 0 && <span className="m-dot" aria-hidden="true" />}</span>{label}
+          {i === 0 && noLeidas > 0 && <span className="sr-only">, {noLeidas} sin leer</span>}
         </Link>
       ))}
     </nav>
+    </>
   );
 }

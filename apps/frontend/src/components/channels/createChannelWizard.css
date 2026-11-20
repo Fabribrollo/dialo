@@ -6,10 +6,10 @@
 .ccw { display: flex; width: 100%; height: 100%; }
 .ccw-side { width: 250px; flex: none; padding: 28px 18px; display: flex; flex-direction: column; gap: 6px; background: rgba(19, 19, 22, .03); border-right: 1px solid rgba(19, 19, 22, .06); }
 .ccw-title { font-size: 26px; padding: 0 12px 16px; }
-.ccw-step { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 16px; background: transparent; font: inherit; font-weight: 600; font-size: 14.5px; text-align: left; color: rgba(19, 19, 22, .56); cursor: pointer; }
+.ccw-step { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 16px; background: transparent; font: inherit; font-weight: 600; font-size: 14.5px; text-align: left; color: rgba(19, 19, 22, .64); cursor: pointer; }
 .ccw-step:disabled { cursor: default; }
 .ccw-step-on { background: #fff; color: #131316; box-shadow: 0 3px 10px -6px rgba(19, 19, 22, .3); }
-.ccw-num { width: 28px; height: 28px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: rgba(19, 19, 22, .07); color: rgba(19, 19, 22, .6); }
+.ccw-num { width: 28px; height: 28px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; background: rgba(19, 19, 22, .07); color: rgba(19, 19, 22, .64); }
 .ccw-num-on { background: #131316; color: #fff; }
 .ccw-num-done { background: var(--acc); color: #fff; }
 .ccw-main { flex: 1; min-width: 0; padding: 30px 32px 24px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
@@ -31,14 +31,14 @@
 .ccw-card { border-radius: 24px; padding: 18px; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; background: rgba(255, 255, 255, .8); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--acc) 12%, transparent), 0 5.4px 14.4px -8.4px rgba(19, 19, 22, .158); }
 .ccw-card .sk { align-self: stretch; }
 .ccw-thinking { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: var(--acc); }
-.ccw-card-ic { color: rgba(19, 19, 22, .55); display: flex; }
+.ccw-card-ic { color: rgba(19, 19, 22, .64); display: flex; }
 .ccw-card-t { font-size: 15px; font-weight: 600; }
 .ccw-badge { align-self: flex-start; }
 .ccw-name { height: 52px; }
 .ccw-group { display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 20px; background: rgba(19, 19, 22, .035); }
 .ccw-group-title { font-weight: 700; font-size: 15px; }
 .ccw-pills { display: flex; gap: 8px; flex-wrap: wrap; }
-.ccw-pill { height: 36px; border-radius: 18px; padding: 0 14px; border: 0; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; background: rgba(255, 255, 255, .9); color: rgba(19, 19, 22, .55); box-shadow: inset 0 0 0 1.5px rgba(19, 19, 22, .12); }
+.ccw-pill { height: 36px; border-radius: 18px; padding: 0 14px; border: 0; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; background: rgba(255, 255, 255, .9); color: rgba(19, 19, 22, .64); box-shadow: inset 0 0 0 1.5px rgba(19, 19, 22, .12); }
 .ccw-pill-on { background: var(--acc); color: #fff; box-shadow: none; }
 .ccw-pill:disabled { cursor: default; }
 .ccw-ab { display: flex; gap: 10px; align-items: flex-start; }

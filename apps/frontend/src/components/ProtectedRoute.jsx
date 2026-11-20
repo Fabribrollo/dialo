@@ -16,6 +16,9 @@ export default function ProtectedRoute() {
   if (estado === "cargando")
     return <BootScreen>Cargando sesión…</BootScreen>;
   if (estado === "error") return <SesionNoVerificada />;
-  if (estado === "noLogueado") return <Navigate to="/login" replace state={invitation ? { from: invitation } : undefined} />;
+  if (estado === "noLogueado") {
+    if (pathname === "/" && !invitation) return <Navigate to="/inicio" replace />;
+    return <Navigate to="/login" replace state={invitation ? { from: invitation } : undefined} />;
+  }
   return <Outlet />;
 }

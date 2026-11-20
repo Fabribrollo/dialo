@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { avisar } from './shell/systemToastsStore.js';
 import { useProfile } from '../hooks/useProfile.js';
 import { useSubmit } from '../hooks/useSubmit.js';
 import Avatar from './ui/Avatar.jsx';
@@ -42,6 +43,7 @@ export default function ProfileForm() {
     if (e.nombreVisible) return;
     const ok = await datos.submit({ nombreVisible: nombre, informacionPersonal: info.trim() || null, disponibilidad: estado, colorAvatar });
     setGuardado(ok);
+    if (ok) avisar({ id: 'perfil', texto: 'Cambios guardados', anunciar: false });
   }
 
   function onFoto(event) {

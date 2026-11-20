@@ -21,12 +21,29 @@ function Video({ track, label, contain = false }) {
   return <video ref={ref} className={contain ? 'ct-contain' : ''} autoPlay playsInline muted aria-label={label} />;
 }
 
-export function ScreenTile({ persona, onGrid }) {
+export function ScreenTile({ persona, otras = [], onElegir, onGrid, onStop }) {
+  const propia = persona.local;
   return (
-    <figure className="ct ct-screen">
-      <Video track={persona.videoPantalla} label={`Pantalla de ${persona.nombre}`} contain />
-      <figcaption className="ct-screen-tag"><Icon name="pantalla" size={15} stroke={2} />Pantalla de {persona.nombre}</figcaption>
-      <button type="button" className="pr ct-float" onClick={onGrid} aria-label="Ver solo las cámaras"><Icon name="grilla" size={15} stroke={2.2} />Ver cámaras</button>
+    <figure className={`ct ct-screen ${propia ? 'ct-screen-own' : ''}`}>
+      {propia ? (
+        <div className="ct-own">
+          <span className="ct-own-ic" aria-hidden="true"><Icon name="pantalla" size={26} stroke={1.9} /></span>
+          <b>Estás compartiendo tu pantalla</b>
+          <span>Los demás la ven en grande. Acá no la mostramos para que no se repita en espejo.</span>
+          {onStop && <button type="button" className="pr ct-stop" onClick={onStop}>Dejar de compartir pantalla</button>}
+        </div>
+      ) : (
+        <Video track={persona.videoPantalla} label={`Pantalla de ${persona.nombre}`} contain />
+      )}
+      <figcaption className="ct-screen-tag"><Icon name="pantalla" size={15} stroke={2} />{propia ? 'Tu pantalla' : `Pantalla de ${persona.nombre}`}</figcaption>
+      <div className="ct-screen-tools">
+        {otras.map((p) => (
+          <button key={p.idUsuario} type="button" className="pr ct-float" onClick={() => onElegir?.(p)}>
+            <Icon name="pantalla" size={15} stroke={2.2} />{p.local ? 'Ver la tuya' : `Ver la de ${p.nombre}`}
+          </button>
+        ))}
+        <button type="button" className="pr ct-float" onClick={onGrid}><Icon name="grilla" size={15} stroke={2.2} />Ver cámaras</button>
+      </div>
     </figure>
   );
 }
@@ -43,7 +60,9 @@ export default function CallTile({ persona, big = false, onScreen }) {
         {nombre}
       </figcaption>
       {persona.microfono === false && <span className="ct-muted" role="img" aria-label="Silenciado"><Icon name="silenciado" size={14} stroke={2.1} /></span>}
-      {persona.videoPantalla && onScreen && <button type="button" className="pr ct-see" onClick={onScreen}><Icon name="pantalla" size={13} stroke={2.2} />Ver pantalla</button>}
+      {(persona.videoPantalla || (persona.local && persona.pantalla)) && onScreen && (
+        <button type="button" className="pr ct-see" onClick={onScreen} aria-label={`Ver pantalla de ${persona.nombre}`}><Icon name="pantalla" size={13} stroke={2.2} />Ver pantalla</button>
+      )}
     </figure>
   );
 }

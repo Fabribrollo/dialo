@@ -336,10 +336,36 @@ it('la pantalla compartida va primero y Ver cámaras pasa a la grilla', async ()
   expect(deAna.attach).toHaveBeenCalledWith(video);
   expect(screen.getByRole('button', { name: 'Activar micrófono' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Encender cámara' })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Ver solo las cámaras' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ver cámaras' }));
   expect(screen.queryByLabelText('Pantalla de Ana')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Ver pantalla' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Ver pantalla de Ana' }));
   expect(screen.getByLabelText('Pantalla de Ana')).toBeInTheDocument();
+  await settle();
+});
+
+it('quien comparte no ve su propia pantalla en espejo y puede cortarla desde ahí', async () => {
+  setCall({ estado: 'CONECTADO', canal: transmite, misPermisos: transmite.misPermisos, pantalla: true, participantes: [
+    { idUsuario: 1, nombre: 'Fabri', local: true, microfono: true, pantalla: true, videoPantalla: pista() },
+    { idUsuario: 7, nombre: 'Ana', microfono: false },
+  ] });
+  show(transmite);
+  expect(screen.getByText('Estás compartiendo tu pantalla')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Pantalla de Fabri')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Dejar de compartir pantalla' }));
+  expect(call.alternarPantalla).toHaveBeenCalled();
+  await settle();
+});
+
+it('con dos pantallas compartidas se puede elegir cuál ver', async () => {
+  setCall({ estado: 'CONECTADO', canal: transmite, misPermisos: transmite.misPermisos, participantes: [
+    { idUsuario: 1, nombre: 'Fabri', local: true, microfono: true },
+    { idUsuario: 7, nombre: 'Ana', microfono: true, pantalla: true, videoPantalla: pista() },
+    { idUsuario: 8, nombre: 'Beto', microfono: true, pantalla: true, videoPantalla: pista() },
+  ] });
+  show(transmite);
+  expect(screen.getByLabelText('Pantalla de Ana')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Ver la de Beto' }));
+  expect(screen.getByLabelText('Pantalla de Beto')).toBeInTheDocument();
   await settle();
 });
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useSocket } from './useSocket.js';
 import { useAuth } from './useAuth.js';
 
@@ -23,7 +23,12 @@ export function useTyping(tipo, id) {
     };
     socket?.on('typing:updated', update);
     socket?.on('connect', reset); socket?.on('disconnect', reset);
-    const timer = setInterval(() => setPeople((p) => Object.fromEntries(Object.entries(p).filter(([,v]) => v.hasta > Date.now()))), 500);
+    // Solo crea un objeto nuevo si alguien dejó de escribir: así el chat no se vuelve a dibujar cada medio segundo.
+    const timer = setInterval(() => setPeople((p) => {
+      const ahora = Date.now();
+      const vivos = Object.entries(p).filter(([, v]) => v.hasta > ahora);
+      return vivos.length === Object.keys(p).length ? p : Object.fromEntries(vivos);
+    }), 500);
     return () => {
       clearTimeout(idle.current);clearInterval(timer);
       socket?.off('typing:updated', update);socket?.off('connect', reset);socket?.off('disconnect', reset);
@@ -46,5 +51,6 @@ export function useTyping(tipo, id) {
       active.current=false;sent.current=0;
     },3000);
   }
-  return { typing, names:Object.values(people).map((p)=>p.nombre).join(', ') };
+  const names = useMemo(() => Object.values(people).map((p) => p.nombre).join(', '), [people]);
+  return { typing, names };
 }

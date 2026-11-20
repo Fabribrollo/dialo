@@ -4,7 +4,7 @@
 .dm-av .pres, .dm-profile-av .pres { width: 14px; height: 14px; border-width: 3px; }
 .dm-who { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .dm-who h1 { margin: 0; font-size: 40px; line-height: .95; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dm-who span { font-size: 13.5px; font-weight: 500; color: rgba(19, 19, 22, .56); }
+.dm-who span { font-size: 13.5px; font-weight: 500; color: rgba(19, 19, 22, .64); }
 
 .dm-body { flex: 1; min-height: 0; position: relative; }
 .dm-scroll { position: absolute; inset: 0; overflow-y: auto; display: flex; flex-direction: column-reverse; }
@@ -17,13 +17,13 @@
 
 .dm-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; }
 .dm-center .empty { width: min(360px, 100%); }
-.dm-opening { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: rgba(19, 19, 22, .56); list-style: none; align-self: center; }
+.dm-opening { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: rgba(19, 19, 22, .64); list-style: none; align-self: center; }
 
 .dm-profile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 10px 6px 4px; }
 .dm-profile-av { font-size: 34px; box-shadow: 0 5.4px 13.6px -7px rgba(19, 19, 22, .225); }
 .dm-profile-av .pres { width: 18px; height: 18px; right: 3px; bottom: 3px; }
 .dm-profile-name { font-size: 26px; line-height: 1.05; margin-top: 6px; }
-.dm-profile-meta { font-size: 13.5px; color: rgba(19, 19, 22, .56); }
+.dm-profile-meta { font-size: 13.5px; color: rgba(19, 19, 22, .64); }
 .dm-profile-bio { font-size: 14px; line-height: 1.45; color: rgba(19, 19, 22, .75); margin-top: 4px; }
 
 .dm-back { display: none; }
@@ -40,6 +40,10 @@
   .dm-notices { width: calc(100% - 32px); }
 }
 .dm-head-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.dm-call { width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #131316; cursor: pointer; }
+.dm-call svg { flex: none; }
+.dm-call:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; }
+.dm-call[disabled] { opacity: .45; cursor: not-allowed; }
 
 /* Las ayudas comparten una capa visible con el compositor, sobre el scroll. */
 .chat-compose-area {

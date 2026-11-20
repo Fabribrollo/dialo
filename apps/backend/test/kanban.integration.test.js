@@ -157,6 +157,21 @@ test('notificaciones: no duplica, respeta permisos y sincroniza lectura',async()
   const removed=await request('/notifications',{as:dani});
   assert.equal(removed.body.items.some(n=>n.referencia===ch.id&&n.tipo==='canal'),false);
 });
+test('notificaciones: un aviso por integrante con acceso, nombre del destino y lectura por destino',async()=>{
+  const {notifyChannelMessage}=await import('../src/services/notificationsService.js');
+  const c=await community();await member(c,dani);
+  const ch=await prisma.canal.findFirstOrThrow({where:{idComunidad:c.id}});
+  const messageId=Math.floor(Math.random()*1e9);
+  await notifyChannelMessage(ch.id,ana.id,messageId);await notifyChannelMessage(ch.id,ana.id,messageId);
+  assert.equal(await prisma.notificacion.count({where:{origen:`mensaje:${messageId}`}}),1);
+  assert.equal(await prisma.notificacion.count({where:{origen:`mensaje:${messageId}`,idUsuario:ana.id}}),0);
+  const list=await request('/notifications',{as:dani});
+  const item=list.body.items.find(n=>n.tipo==='canal'&&n.referencia===ch.id);
+  assert.equal(item.contexto.nombre,ch.nombre);assert.equal(item.contexto.idComunidad,c.id);
+  assert.equal((await request('/notifications/read',{method:'POST',as:dani,body:{tipo:'canal',referencia:ch.id}})).status,204);
+  assert.equal(await prisma.notificacion.count({where:{idUsuario:dani.id,tipo:'canal',referencia:ch.id,leida:false}}),0);
+  assert.equal((await request('/notifications/read',{method:'POST',as:dani,body:{tipo:'canal'}})).status,400);
+});
 test('adjuntos: lectura autenticada, eliminación y pérdida de acceso cierran descarga',async()=>{
   const c=await community();await member(c,dani);
   const ch=await prisma.canal.findFirstOrThrow({where:{idComunidad:c.id}});

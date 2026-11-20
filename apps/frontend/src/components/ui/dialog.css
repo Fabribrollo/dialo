@@ -11,11 +11,11 @@
   box-shadow: 0 24px 60px -24px rgba(19, 19, 22, .45), inset 0 0 0 1px rgba(19, 19, 22, .05);
 }
 .dlg-confirm h3 { margin: 0; font-family: var(--font-ui); font-size: 19px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
-.dlg-sub { font-size: 14px; color: rgba(19, 19, 22, .56); line-height: 1.45; }
+.dlg-sub { font-size: 14px; color: rgba(19, 19, 22, .64); line-height: 1.45; }
 .dlg-error { border-radius: 20px; background: rgba(215, 38, 61, .08); padding: 10px 12px; font-size: 13px; display: flex; gap: 10px; align-items: center; line-height: 1.4; }
 .dlg-error svg { color: #D7263D; flex: none; }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
 .dlg-form { display: flex; flex-direction: column; gap: 14px; }
 .dlg-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-.dlg-fieldset p { margin: 0; font-size: 14px; color: rgba(19, 19, 22, .56); line-height: 1.45; }
+.dlg-fieldset p { margin: 0; font-size: 14px; color: rgba(19, 19, 22, .64); line-height: 1.45; }
