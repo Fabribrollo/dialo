@@ -27,6 +27,7 @@ export async function applyMigrations(admin, schema, { desde, hasta } = {}) {
         await tx.$executeRawUnsafe(statement);
       }
     },
-    { timeout: 30000 },
+    // Contra una base remota (Neon) aplicar todas las migraciones sentencia por sentencia puede tardar más de 30 s.
+    { timeout: Number(process.env.TEST_MIGRATIONS_TIMEOUT) || 180000, maxWait: 20000 },
   );
 }
