@@ -1,3 +1,5 @@
+import {auditCommunity} from '../middlewares/auditCommunity.js';
+import { kickMember } from '../services/memberActionsService.js';
 import { communityActivity } from '../services/communityActivityService.js';
 import { suggestChannel, suggestionInput } from '../services/channelSuggestionService.js';
 import { z } from 'zod';
@@ -37,7 +39,7 @@ import rolesRoutes from './rolesRoutes.js';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(authenticate);router.use(auditCommunity('comunidad'));
 router.post('/:id/ownership', validate({ params: communityIdParamsSchema, body: z.strictObject({ idUsuario: z.number().int().positive().max(2147483647) }) }), async (req, res) => {
   await transferOwnership(req.validated.params.id, req.user.id, req.validated.body.idUsuario);
   res.status(204).end();
@@ -56,6 +58,7 @@ router.post('/:id/imagen', validate({ params: communityIdParamsSchema }), limitI
 router.delete('/:id', validate({ params: communityIdParamsSchema }), deleteCommunity);
 router.get('/:id/members', validate({ params: communityIdParamsSchema }), listMembers);
 router.patch('/:id/members/:idUsuario', validate({ params: communityMemberParamsSchema, body: updateMemberRolesSchema }), updateMemberRoles);
+router.post('/:id/members/:idUsuario/kick',validate({params:communityMemberParamsSchema,body:z.strictObject({})}),async(req,res)=>{await kickMember(req.validated.params.id,req.user.id,req.validated.params.idUsuario);res.status(204).end();});
 router.get('/:id/bans', validate({ params: communityIdParamsSchema }), listBans);
 router.put('/:id/bans/:idUsuario', validate({ params: communityMemberParamsSchema, body: banMemberSchema }), banMember);
 router.delete('/:id/bans/:idUsuario', validate({ params: communityMemberParamsSchema }), removeBan);

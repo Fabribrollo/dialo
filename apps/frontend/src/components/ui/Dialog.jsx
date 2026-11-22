@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Button from './Button.jsx';
+import Notice from './Notice.jsx';
 import Icon from './Icon.jsx';
 import Field from './Field.jsx';
 import './dialog.css';
@@ -56,12 +57,7 @@ export function ConfirmDialog({
       {confirmText !== undefined && (
         <Field label={`Escribí «${confirmText}» para confirmar`} value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" />
       )}
-      {error && (
-        <div className="dlg-error" role="alert">
-          <Icon name="error" size={17} stroke={2.1} />
-          {error}
-        </div>
-      )}
+      {error && <Notice title={error}/>}
       <div className="dlg-actions">
         <Button variant="secundario" size="sm" onClick={onCancel} disabled={loading}>{cancelLabel}</Button>
         <Button variant={confirmVariant} size="sm" onClick={onConfirm} loading={loading} disabled={bloqueado}>{confirmLabel}</Button>

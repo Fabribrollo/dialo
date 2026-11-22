@@ -31,18 +31,19 @@ test('la búsqueda corta y los errores no conservan resultados',async()=>{
   await act(async()=>vi.advanceTimersByTime(300));expect(result.current.error).toBe('Acceso revocado');expect(result.current.items).toEqual([]);
   rerender({q:'a'});expect(result.current.active).toBe(false);
 });
-test('compartidos tardíos no aparecen en otro destino',async()=>{
-  const old=deferred();mocks.get.mockReturnValueOnce(old.promise);
-  const {rerender}=render(<SharedFiles tipo="canal" id={1}/>);fireEvent.click(screen.getByText('Ver compartido'));
-  rerender(<SharedFiles tipo="canal" id={2}/>);
-  await act(async()=>old.resolve({items:[{id:1,adjunto:{id:2,nombre:'secreto.pdf'}}]}));expect(screen.queryByText('secreto.pdf')).not.toBeInTheDocument();
+test('una subida tardía no actualiza otro destino ni ofrece historial compartido',async()=>{
+ const old=deferred(),sent=vi.fn();mocks.post.mockReturnValueOnce(old.promise);
+ const {rerender}=render(<SharedFiles tipo="canal" id={1} onSent={sent}/>);const input=document.querySelector('input[type=file]');
+ fireEvent.change(input,{target:{files:[new File(['x'],'imagen.png',{type:'image/png'})]}});rerender(<SharedFiles tipo="canal" id={2} onSent={sent}/>);
+ await act(async()=>old.resolve({}));expect(sent).not.toHaveBeenCalled();expect(screen.queryByText('Ver compartido')).not.toBeInTheDocument();
 });
-test('un canal de solo lectura muestra compartidos sin ofrecer adjuntar',()=>{
-  render(<SharedFiles tipo="canal" id={1} canWrite={false}/>);expect(screen.queryByLabelText(/Adjuntar/)).not.toBeInTheDocument();expect(screen.getByText('Ver compartido')).toBeInTheDocument();
+test('un canal de solo lectura no ofrece adjuntar ni selector de historial',()=>{
+ const {container}=render(<SharedFiles tipo="canal" id={1} canWrite={false}/>);expect(container).toBeEmptyDOMElement();expect(screen.queryByText('Ver compartido')).not.toBeInTheDocument();
 });
-test('un archivo demasiado grande se rechaza antes de enviarlo',()=>{
-  render(<SharedFiles tipo="canal" id={1}/>);const file=new File(['x'],'a.pdf',{type:'application/pdf'});Object.defineProperty(file,'size',{value:6*1024*1024});
-  fireEvent.change(screen.getByLabelText(/Adjuntar/),{target:{files:[file]}});expect(screen.getByRole('alert')).toHaveTextContent('5 MB');expect(mocks.post).not.toHaveBeenCalled();
+test('un video mayor a 2 MB y un archivo mayor a 5 MB se rechazan antes de enviarlos',()=>{
+ render(<SharedFiles tipo="canal" id={1}/>);const input=document.querySelector('input[type=file]');
+ const video=new File(['x'],'a.mp4',{type:'video/mp4'});Object.defineProperty(video,'size',{value:3*1024*1024});fireEvent.change(input,{target:{files:[video]}});expect(screen.getByText('El video no puede superar 2 MB.')).toBeInTheDocument();
+ fireEvent.click(screen.getByRole('button',{name:'Adjuntar recurso'}));fireEvent.click(screen.getByRole('menuitem',{name:/Documento/}));const file=new File(['x'],'a.pdf',{type:'application/pdf'});Object.defineProperty(file,'size',{value:6*1024*1024});fireEvent.change(input,{target:{files:[file]}});expect(screen.getByText('El archivo no puede superar 5 MB.')).toBeInTheDocument();expect(mocks.post).not.toHaveBeenCalled();
 });
 test('mencionar conserva el texto y permite elegir un integrante',()=>{
   const change=vi.fn();render(<MentionPicker value="Hola @an" onChange={change} members={[{usuario:{id:1,nombreUsuario:'ana',nombreVisible:'Ana'}}]}/>);

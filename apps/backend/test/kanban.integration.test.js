@@ -182,7 +182,7 @@ test('adjuntos: lectura autenticada, eliminación y pérdida de acceso cierran d
   assert.equal(response.status,201,JSON.stringify(data));
   const id=data.mensaje.adjunto.id;
   let download=await fetch(baseUrl+'/api/files/'+id,{headers:{Cookie:dani.cookie}});
-  assert.equal(download.status,200);assert.match(download.headers.get('content-disposition'),/attachment/);
+  assert.equal(download.status,200);assert.match(download.headers.get('content-disposition'),/inline/);
   assert.equal((await fetch(baseUrl+'/api/files/'+id,{headers:{Cookie:eli.cookie}})).status,404);
   await prisma.mensaje.update({where:{id:data.mensaje.id},data:{fechaEliminacion:new Date()}});
   assert.equal((await fetch(baseUrl+'/api/files/'+id,{headers:{Cookie:ana.cookie}})).status,404);
@@ -254,8 +254,8 @@ test('migrar un canal VIDEO conserva su id y sus grants al convertirlo a VOZ',as
     const [community]=await admin.$queryRawUnsafe(`INSERT INTO "${legacy}"."comunidad" (nombre) VALUES ('Anterior') RETURNING id_comunidad AS id`);
     const [channel]=await admin.$queryRawUnsafe(`INSERT INTO "${legacy}"."canal" (id_comunidad,nombre,tipo) VALUES ($1,'reunión','VIDEO') RETURNING id_canal AS id`,community.id);
     await admin.$executeRawUnsafe(`INSERT INTO "${legacy}"."canal_rol" (id_canal,rol,permisos) VALUES ($1,'INTEGRANTE',ARRAY['VER','TRANSMITIR']::"${legacy}"."permiso_canal"[])`,channel.id);
-    await applyMigrations(admin,legacy,{desde:'20261115220000_moderacion_comunidad'});
-    const migrated=await client.canal.findUniqueOrThrow({where:{id:channel.id},include:{habilitacionesRol:true}});
+    await applyMigrations(admin,legacy,{desde:'20261115220000_moderacion_comunidad',hasta:'20261119094000_llamadas_privadas'});
+    const migrated=await client.canal.findUniqueOrThrow({where:{id:channel.id},select:{tipo:true,idComunidad:true,habilitacionesRol:true}});
     assert.equal(migrated.tipo,'VOZ');assert.equal(migrated.idComunidad,community.id);
     assert.deepEqual(migrated.habilitacionesRol[0].permisos,['VER','TRANSMITIR']);
   }finally{
@@ -269,7 +269,7 @@ test('propuesta IA: valida la respuesta estructurada y no guarda canales automá
   env.openaiApiKey='test-no-real-key';process.env.OPENAI_GENERATION_MODEL='test-model';
   try{
     const c=await community(), count=await prisma.canal.count({where:{idComunidad:c.id}});
-    const propuesta={nombre:'estudio',privado:false,ver:['INTEGRANTE'],usar:['INTEGRANTE'],resumen:'Canal de estudio'};
+    const propuesta={nombre:'estudio',privado:false,permisosGlobales:['VER','ESCRIBIR'],resumen:'Canal de estudio'};
     const transport=async(url,options)=>{
       assert.equal(url,'https://api.openai.com/v1/responses');const body=JSON.parse(options.body);
       assert.equal(body.store,false);assert.equal(body.text.format.strict,true);

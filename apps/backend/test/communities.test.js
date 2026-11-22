@@ -482,9 +482,9 @@ function friendshipOf(a, b) {
   return prisma.amistad.create({ data: { idUsuarioA: Math.min(a.id, b.id), idUsuarioB: Math.max(a.id, b.id) } });
 }
 
-test('solo MODERADOR o más crea y lista invitaciones, con códigos no predecibles', async () => {
+test('solo ADMIN o propietario crea y lista invitaciones, con códigos no predecibles', async () => {
   const comunidad = await create(ana);
-  await addMember(comunidad, beto, 'MODERADOR');
+  await addMember(comunidad, beto, 'ADMIN');
   await addMember(comunidad, cata);
 
   const integrante = await request(`/communities/${comunidad.id}/invitations`, { method: 'POST', as: cata });

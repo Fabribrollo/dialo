@@ -13,7 +13,9 @@ React + Vite · Express · Prisma · PostgreSQL (Neon) · Socket.IO.
 - Canales con ordenamiento, acceso por rol/usuario, historial y mensajería con moderación.
 - Interfaz integrada con navegación lateral en escritorio y navegación inferior en móvil.
 
-Voz y video permiten configurar canales, pero todavía no hay llamadas. Siguen pendientes el explorador público, el ingreso directo y la transferencia de propiedad. El catálogo, la asignación y los permisos de roles personalizados se gestionan desde la comunidad. Desde **Integrantes**, el equipo de moderación puede banear a usuarios de menor rango y levantar baneos. T-15 invalida las sesiones activas de sockets cuando corresponde.
+Las llamadas privadas y de canales usan LiveKit. La llamada privada ocupa el área del chat y puede minimizarse a la barra superior. El catálogo, la asignación y los permisos de roles personalizados se gestionan desde la comunidad. Desde **Integrantes**, el equipo de moderación puede banear a usuarios de menor rango y levantar baneos. T-15 invalida las sesiones activas de sockets cuando corresponde.
+
+La revisión de chats, perfiles con portada, bloqueos, búsqueda por fecha y funciones pospuestas se describe en [Refinamiento de experiencia](docs/refinamiento-experiencia.md).
 
 ## Estructura
 
@@ -104,7 +106,7 @@ No existe un `npm test` global ni un script `test` general del backend. Las suit
 
 El seed es opcional. Reutiliza `seed_ana`, `seed_beto`, `seed_carla`, `seed_dario` y `seed_eva`; al crearlos asigna la contraseña `seed12345`. No restablece la contraseña si el usuario ya existía. Borra y recrea las comunidades llamadas `Comunidad de prueba (seed)` y `Comunidad publica (seed)`, con sus datos en cascada; no ejecutarlo sobre una base con datos que se necesiten conservar bajo esos nombres.
 
-En la comunidad privada: Ana es propietaria, Beto administrador, Carla moderadora y Dario/Eva integrantes. Incluye canales públicos, privados y de solo lectura, mensajes de ejemplo e invitación `seedprueba01` de hasta diez usos. No crea amistades ni conversaciones privadas. Para esos recorridos se pueden usar las solicitudes de amistad desde la UI.
+En la comunidad privada: Ana es propietaria, Beto administrador, Carla integrante con el rol personalizado Gestión de comunidad y Dario/Eva integrantes. Incluye canales públicos, privados y de solo lectura, mensajes de ejemplo e invitación `seedprueba01` de hasta diez usos. No crea amistades ni conversaciones privadas. Para esos recorridos se pueden usar las solicitudes de amistad desde la UI.
 
 ## Verificación y documentación
 
@@ -129,3 +131,5 @@ La suite frontend usa mocks y no necesita una base. Las suites backend requieren
 ### Integración del tablero de interfaz
 
 Ver [cambios, configuración y migraciones](docs/kanban-integracion.md). Incluye llamadas privadas, búsqueda completa, adjuntos, notificaciones internas y mejoras de perfil/permisos.
+
+Ver [armonía de interfaz y estado de chat](docs/armonia-interfaz.md): llamadas, adjuntos, avisos, permisos heredados, archivo y baneos temporales. Requiere la migración `20261121190000_armonia_chat`.

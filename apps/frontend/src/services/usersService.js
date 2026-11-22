@@ -9,3 +9,6 @@ export function uploadAvatar(archivo) {
 }
 
 export const removeAvatar = () => api.delete('/users/me/foto');
+
+export function uploadCover(archivo){const form=new FormData();form.append('portada',archivo);return api.post('/users/me/portada',form);}
+export const removeCover=()=>api.delete('/users/me/portada');

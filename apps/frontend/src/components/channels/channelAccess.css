@@ -20,3 +20,6 @@
 .cpa-add .inp { height: 40px; }
 .cpa-actions { display: flex; justify-content: flex-end; gap: 10px; }
 @media (max-width: 1023px) { .cpa-cols { grid-template-columns: 1fr; } }
+.cpa>.dsp{margin:0;font-size:clamp(24px,3vw,32px);line-height:1.15}.cpa-col>div+div{margin-top:10px}@media(max-width:560px){.cpa-add{align-items:stretch;flex-direction:column}.cpa-actions{position:sticky;bottom:0;padding-block:10px;background:rgba(247,246,253,.94);border-radius:18px}.cpa-col{padding:14px}}
+
+.channel-member-actions{padding:8px 0}.channel-member-actions>.cpa-col{padding:16px;margin-top:10px;border-radius:20px}

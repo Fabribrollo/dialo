@@ -1,11 +1,16 @@
+import {useGuardedAction} from '../context/UnsavedChangesContext.jsx';
+import {useDraftMap} from '../context/DraftsContext.jsx';
+import ChannelSettings from '../components/channels/ChannelSettings.jsx';
+import ChannelMemberActions from '../components/channels/ChannelMemberActions.jsx';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { useCommunity } from '../hooks/useCommunity.js';
 import { useChannels } from '../hooks/useChannels.js';
 import { CommunityState, useLostCommunity } from './CommunityPage.jsx';
 import CommunityActionDialog from '../components/communities/CommunityActionDialog.jsx';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import ChannelForm, { CHANNEL_TYPES } from '../components/channels/ChannelForm.jsx';
+import ChannelRequests, {LockedChannel} from '../components/channels/ChannelRequests.jsx';
 import ChannelAccessForm from '../components/channels/ChannelAccessForm.jsx';
 import ChannelList from '../components/channels/ChannelList.jsx';
 import ChannelRail from '../components/channels/ChannelRail.jsx';
@@ -27,11 +32,14 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
   const { canalId: param } = useParams();
   const list = useChannels(comunidad.id, true);
   const base = `/comunidades/${comunidad.id}/canales`;
+  const [search] = useSearchParams();
   const creating = param === 'nuevo';
   const selectedId = /^\d+$/.test(param ?? '') ? Number(param) : NaN;
   const selected = list.items.find((c) => c.id === selectedId);
-  const canManage = ['PROPIETARIO', 'ADMIN'].includes(comunidad.miRol);
-  const [drafts, setDrafts] = useState({});
+  const canManage = ['PROPIETARIO','ADMIN'].includes(comunidad.miRol)||comunidad.misPermisos?.includes('GESTIONAR_CANALES')||selected?.misPermisos.includes('GESTIONAR_CANALES');
+  const [drafts, setDrafts] = useDraftMap('canal');
+  const guard=useGuardedAction();
+  const [settingsTab,setSettingsTab]=useState('general');
   const [mode, setMode] = useState(null), [seed, setSeed] = useState(0), [confirm, setConfirm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState('');
@@ -39,9 +47,11 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
   const editTrigger = useRef(null), accessTrigger = useRef(null), previousMode = useRef(null);
   currentSelection.current = selectedId;
   const navigate = useNavigate();
+  const locked = selected && (selected.bloqueado === true || !selected.misPermisos.includes('VER'));
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const [buscar, setBuscar] = useState('');
-  useEffect(() => { setMode(null); setConfirm(false); setError(''); setBuscar(''); }, [param]);
+  useEffect(() => { setMode(null);setSettingsTab('general'); setConfirm(false); setError(''); setBuscar(''); }, [param]);
+  useEffect(()=>{if(search.has('solicitudes')&&canManage&&selected?.privado)setMode('settings-requests');},[param,search,canManage,selected?.privado]);
   useEffect(() => {
     if (!mode && previousMode.current) (previousMode.current === 'edit' ? editTrigger : accessTrigger).current?.focus();
     previousMode.current = mode;
@@ -89,7 +99,7 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
     {error && <Notice tone="error" title={error} />}
     {list.error && <Notice tone="error" title={list.error.message} actionLabel="Reintentar canales" onAction={refresh} />}
 
-    {!selected && mode !== 'access' && <>
+    {!selected && mode !== 'access' && !mode?.startsWith('settings') && <>
       <div className="chl-bar">
         <span className="chl-count">{list.items.length} {list.items.length === 1 ? 'canal' : 'canales'} · {texto} de texto y {voz} de voz</span>
         <span className="chl-actions">
@@ -100,7 +110,7 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
       {list.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando canales…</span> : <>
         {!list.error && list.items.length === 0 && <EmptyState icon="canalTexto" title="No hay canales disponibles para tu cuenta." />}
         {list.items.length > 0 && <ChannelList items={list.items} base={base} canManage={canManage} disabled={busy || list.refreshing} onReorder={reorder}
-          onEdit={(canal, el) => { editTrigger.current = el; setEditing(canal); }} />}
+          onEdit={(canal, el) => { editTrigger.current = el; setEditing(canal);setMode('settings'); }} />}
       </>}
       {param && !creating && !list.loading && !list.refreshing && (
         <div className="cs-error"><h2 className="cs-title">Canal no disponible</h2><p className="cs-text">El canal se eliminó o ya no tenés acceso.</p><Button size="sm" onClick={() => navigate(base)}>Volver a los canales</Button></div>
@@ -113,31 +123,31 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
         : <Notice tone="error" title="Tu rol no permite crear canales." />}
     </Dialog>
 
-    <Dialog open={Boolean(editing) && mode !== 'access'} onClose={() => setEditing(null)} label="Editar canal" className="chd-dialog" returnFocusRef={editTrigger}>
+    <Dialog open={Boolean(editing) && mode !== 'access'&&!mode?.startsWith('settings')} onClose={() => guard(()=>setEditing(null))} label="Editar canal" className="chd-dialog" returnFocusRef={editTrigger}>
       {editing && <ChannelForm key={`${editing.id}-edit-${seed}`} canal={editing} version={list.version(editing.id)}
         onSaved={saved} onCancel={() => setEditing(null)} onReload={reloadEditor} onUnavailable={refresh}
         onEditAccess={() => setMode('access')} onDelete={(el) => { trigger.current = el; setConfirm(true); }} />}
     </Dialog>
 
-    {selected && <section className="chd" aria-label="Detalle del canal">
+    {selected && mode !== 'access' && !mode?.startsWith('settings') && <section className="chd" aria-label="Detalle del canal">
       <header className="chd-head">
         <Link to={base} className="lg pr dm-back" aria-label="Volver"><span><Icon name="chevron" size={18} stroke={2} /></span></Link>
         <span className="chd-title">
           <h1 className="dsp"><Icon name={selected.tipo === 'TEXTO' ? 'canalTexto' : 'canalVoz'} size={26} stroke={2.2} />{selected.nombre}</h1>
           <span className="chd-sub">{CHANNEL_TYPES[selected.tipo]} · {selected.privado ? 'Privado' : 'Público'}</span>
         </span>
-        {selected.tipo === 'TEXTO' && !mode && <span className="chd-search"><ChatSearch key={selected.id} value={buscar} onChange={setBuscar} /></span>}
-        {canManage && !mode && <span className="chd-actions">
-          <Button ref={editTrigger} size="sm" variant="secundario" onClick={() => setMode('edit')}>Editar canal</Button>
-          <Button ref={accessTrigger} size="sm" variant="secundario" onClick={() => setMode('access')}>Permisos</Button>
-        </span>}
+        {selected.tipo === 'TEXTO' && !locked && !mode && <span className="chd-search"><ChatSearch key={selected.id} value={buscar} onChange={setBuscar} /></span>}
+        {!locked&&!mode&&(canManage||selected.misPermisos.some(p=>['SILENCIAR','EXPULSAR'].includes(p)))&&<Button ref={accessTrigger} size="sm" variant="secundario" onClick={()=>setMode('settings')}><Icon name="ajustes" size={16}/>Ajustes</Button>}
       </header>
+
+      {locked && <LockedChannel key={selected.id} canal={selected} onChanged={list.reload}/>}
       <ChannelRail items={list.items} base={base} selectedId={selected.id} />
-      {selected.tipo === 'TEXTO' && !selected.misPermisos.includes('ESCRIBIR') && <Notice tone="conflicto" title="Este canal es de solo lectura para tu cuenta">Podés leer, pero no escribir.</Notice>}
-      {selected.tipo !== 'TEXTO' && !mode && <CallPanel key={selected.id} canal={selected} />}
-      {selected.tipo === 'TEXTO' && <VoiceSidePanel canales={list.items.filter((c) => c.tipo !== 'TEXTO')} base={base} />}
-      {selected.tipo === 'TEXTO' && !mode && <ChannelChat key={selected.id} canal={selected} buscar={buscar} draft={drafts[selected.id] ?? ''}
+      {selected.tipo === 'TEXTO' && !locked && !selected.misPermisos.includes('ESCRIBIR') && <Notice tone="conflicto" title="Este canal es de solo lectura para tu cuenta">Podés leer, pero no escribir.</Notice>}
+      {selected.tipo !== 'TEXTO' && !locked && !mode && <CallPanel key={selected.id} canal={selected} />}
+      {selected.tipo === 'TEXTO' && !locked && <VoiceSidePanel canales={list.items.filter((c) => c.tipo !== 'TEXTO' && c.misPermisos.includes('VER'))} base={base} />}
+      {selected.tipo === 'TEXTO' && !locked && !mode && <ChannelChat key={selected.id} canal={selected} buscar={buscar} setBuscar={setBuscar} draft={drafts[selected.id] ?? ''}
         setDraft={(value) => setDrafts((old) => ({ ...old, [selected.id]: typeof value === 'function' ? value(old[selected.id] ?? '') : value }))} />}
+      {canManage && mode === 'requests' && <ChannelRequests key={selected.id} canal={selected} onChanged={refresh} onCancel={()=>{setMode(null);navigate(`${base}/${selected.id}`,{replace:true});}}/>}
       {canManage && mode === 'edit' && <div className="chd-panel"><ChannelForm key={`${selected.id}-edit-${seed}`} canal={selected} version={list.version(selected.id)}
         onSaved={saved} onCancel={() => setMode(null)} onReload={reloadEditor} onUnavailable={refresh} /></div>}
     </section>}
@@ -145,6 +155,8 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
     {canManage && mode === 'access' && target && <ChannelAccessForm key={`${target.id}-access-${seed}`} canal={target} version={list.version(target.id)}
       onSaved={() => { list.reload(); setMode(null); setEditing(null); setNotice('Permisos guardados.'); }} onCancel={() => setMode(null)}
       onReload={reloadEditor} onUnavailable={refresh} />}
+
+    {target&&mode?.startsWith('settings')&&<ChannelSettings key={`${target.id}-settings-${seed}`} canal={target} admin={['ADMIN','PROPIETARIO'].includes(comunidad.miRol)} initial={mode==='settings-requests'?'requests':settingsTab} onTabChange={setSettingsTab} version={list.version(target.id)} onSaved={()=>{setNotice('Ajustes guardados.');list.reload();setMode(null);setEditing(null);}} onCancel={()=>{setMode(null);setEditing(null);navigate(selected?`${base}/${selected.id}`:base,{replace:true});}} onReload={reloadEditor} onUnavailable={refresh} onDelete={el=>{trigger.current=el;setConfirm(true);}}/>}
 
     {canManage && confirm && target && <CommunityActionDialog title={`¿Eliminar «${target.nombre}»?`}
       description="Se eliminan el canal, sus mensajes y sus permisos. No se puede deshacer."

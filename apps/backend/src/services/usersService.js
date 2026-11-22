@@ -28,6 +28,7 @@ export function getMe(id) {
 }
 
 export async function updateMe(id, cambios) {
+  if(cambios.preferencias){const actual=await getMe(id);cambios={...cambios,preferencias:{...(actual.preferencias??{}),...cambios.preferencias}};}
   const usuario = await prisma.usuario.update({
     where: { id },
     data: cambios,
@@ -40,7 +41,7 @@ export async function updateMe(id, cambios) {
 export async function getUserById(id) {
   const usuario = await prisma.usuario.findUnique({
     where: { id },
-    select: usuarioPublicoSelect,
+    select: {...usuarioPublicoSelect,fechaCreacion:true},
   });
   if (!usuario)
     throw new AppError(404, "USER_NOT_FOUND", "El usuario no existe");
@@ -58,3 +59,9 @@ export async function updateAvatar(id, buffer, mimetype) {
 }
 
 export async function emitUserUpdatedById(id) { const user = await getMe(id); if (user) await emitUserUpdated(user); }
+
+export async function updateCover(id,buffer,mimetype){
+ await moderateImage(buffer,mimetype);
+ const portadaUrl=await uploadImage(buffer,{folder:'dialo/covers',publicId:`usuario-${id}`,width:1200,height:400});
+ return updateMe(id,{portadaUrl});
+}

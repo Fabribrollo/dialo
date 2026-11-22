@@ -442,3 +442,21 @@ El evento `community:bans-changed` envía solo `{ idComunidad }` a quienes puede
 ## Eventos de la integración
 
 La integración del tablero de interfaz incorpora búsqueda completa, adjuntos, actividad, perfil y llamadas privadas. Ver [contratos, migraciones, alcance y verificación](kanban-integracion.md).
+
+### Notificaciones — T-42
+
+`notifications:changed` conserva el payload `{}` y se dirige únicamente a las pestañas del destinatario. Indica que deben reconsultar `GET /api/notifications`; nunca transporta texto privado ni permisos. También se emite tras una lectura que cambie registros. Roles, restricciones, baneos y rehabilitaciones publican este evento después de confirmar la transacción. Al reconectar se recupera el historial por HTTP, sin volver a insertar avisos.
+
+### Catálogo y pedidos privados
+
+`channels:catalog-changed {idComunidad}` invalida el catálogo para los miembros, incluidos quienes solo ven canales bloqueados. No transporta mensajes ni participantes de esos canales. `channel:requests-changed {idComunidad}` se dirige al solicitante y a propietario/admin para reconsultar el catálogo o su cola autorizada. `notifications:changed {}` anuncia los avisos persistidos después del commit. La aceptación no suscribe automáticamente a la sala: la siguiente suscripción verifica VER. Perder acceso desmonta contenido y muestra el canal bloqueado, manteniendo la revocación del socket.
+
+## Lectura, archivado y actividad
+
+`chat-state:changed` se emite solo a las sesiones de la cuenta afectada, sin texto ni metadatos privados. El cliente reconsulta GET /api/chat-state, que aplica permisos actuales y descarta respuestas anteriores. `community:activity-changed` invalida el resumen de llamadas de la comunidad sin incluir nombres de canales privados; la consulta HTTP filtra el resultado. Los cambios de archivado se guardan por usuario y filtran nuevos destinatarios de notificaciones.
+
+Los envíos de mensajes privados y de canal aceptan `idEnvio` UUID opcional. Un reintento del mismo envío retorna el mensaje vigente en el ack y no vuelve a emitir el evento de creación. Con otra carga/destino devuelve `SEND_KEY_CONFLICT`; se conserva la revalidación de sesión y permisos. Ver docs/experiencia-chat.md.
+
+## Interacciones de mensajes
+
+`message:interact` y `channel-message:interact` permiten reaccionar, fijar/desfijar y listar fijados. Las mutaciones publican los eventos existentes de mensaje actualizado, sin generar mensajes nuevos. Los envíos admiten `idRespuesta` opcional. Ver [payloads, respuestas y permisos](menu-mensajes.md).

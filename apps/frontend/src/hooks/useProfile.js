@@ -15,5 +15,7 @@ export function useProfile() {
   }
 
   async function removeAvatar() { const data = await usersService.removeAvatar(); setUsuario(data.usuario); }
-  return { usuario, updateProfile, updateAvatar, removeAvatar };
+  async function updateCover(file){const data=await usersService.uploadCover(file);setUsuario(data.usuario);}
+  async function removeCover(){const data=await usersService.removeCover();setUsuario(data.usuario);}
+  return { updateCover,removeCover,usuario, updateProfile, updateAvatar, removeAvatar };
 }

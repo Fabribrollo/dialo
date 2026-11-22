@@ -1,3 +1,4 @@
+import { hasCommunityPermission } from '../../utils/permissionCatalog.js';
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import Badge from '../ui/Badge.jsx';
@@ -20,8 +21,8 @@ export function CommunityHeader({ comunidad, collapsible = false }) {
     { value: `${base}/canales`, label: 'Canales' },
     { value: `${base}/integrantes`, label: 'Integrantes' },
     { value: `${base}/roles`, label: 'Roles' },
-    ...(['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(rol) ? [{ value: `${base}/invitaciones`, label: 'Invitaciones' }] : []),
-    ...(['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(rol) ? [{ value: `${base}/moderacion`, label: 'Moderación' }] : []),
+    ...(hasCommunityPermission(comunidad,'GESTIONAR_INVITACIONES') ? [{ value: `${base}/invitaciones`, label: 'Invitaciones' }] : []),
+    ...(hasCommunityPermission(comunidad,'GESTIONAR_MODERACION') ? [{ value: `${base}/moderacion`, label: 'Moderación' }] : []),
   ];
   const actual = tabs.slice(1).find((t) => pathname.startsWith(t.value))?.value ?? base;
 
@@ -45,7 +46,7 @@ export function CommunityHeader({ comunidad, collapsible = false }) {
             </span>
           </span>
         </div>}
-        {(!collapsible || abierto) && ['ADMIN', 'PROPIETARIO'].includes(rol) && (
+        {(!collapsible || abierto) && hasCommunityPermission(comunidad,'EDITAR_COMUNIDAD') && (
           <Button variant="secundario" onClick={() => navigate(`${base}/editar`)}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4.5 19.5l1-4.2L15.8 5a2 2 0 0 1 2.9 0l.3.3a2 2 0 0 1 0 2.9L8.7 18.5z" /></svg>
             Editar comunidad

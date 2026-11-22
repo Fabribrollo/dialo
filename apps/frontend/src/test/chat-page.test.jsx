@@ -1,5 +1,5 @@
 import { beforeEach, it, expect, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import ConversationsPage from "../pages/ConversationsPage.jsx";
 import { useMessages } from "../hooks/useMessages.js";
@@ -69,16 +69,14 @@ beforeEach(() => {
   };
   useConversations.mockReturnValue(state);
 });
+const ownMenu=()=>{fireEvent.click(within(screen.getByText("Mensaje propio").closest(".msg")).getByRole("button",{name:"Opciones del mensaje"}));return within(screen.getByRole("menu",{name:"Acciones del mensaje"}));};
 it("identifica ambos autores y ofrece controles únicamente para el mensaje propio", () => {
   renderChat();
   expect(screen.getByText("Mensaje propio")).toBeInTheDocument();
   expect(screen.getByText("Mensaje ajeno")).toBeInTheDocument();
-  expect(
-    screen.getAllByRole("button", { name: /^Editar mensaje de/ }),
-  ).toHaveLength(1);
-  expect(
-    screen.getAllByRole("button", { name: /^Eliminar mensaje de/ }),
-  ).toHaveLength(1);
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  const menu=ownMenu();expect(menu.getByRole("menuitem",{name:"Editar mensaje"})).toBeInTheDocument();expect(menu.getByRole("menuitem",{name:"Eliminar mensaje"})).toBeInTheDocument();
+  fireEvent.click(within(screen.getByText("Mensaje ajeno").closest(".msg")).getByRole("button",{name:"Opciones del mensaje"}));expect(screen.getAllByRole("menu")).toHaveLength(1);expect(screen.queryByRole("menuitem",{name:"Eliminar mensaje"})).not.toBeInTheDocument();expect(screen.queryByRole("menuitem",{name:"Editar mensaje"})).not.toBeInTheDocument();
 });
 it("conserva el borrador si el envío falla", async () => {
   action.mockRejectedValueOnce(new Error("No pudimos confirmar"));
@@ -120,6 +118,7 @@ it("Enter envía y Shift+Enter permite seguir componiendo", async () => {
     expect(action).toHaveBeenCalledWith("message:send", {
       idConversacion: 3,
       contenido: "Hola",
+      idEnvio:expect.any(String),
     }),
   );
 });
@@ -144,12 +143,12 @@ it("sin conexión conserva texto y deshabilita envío; sin amistad deshabilita c
 });
 it("eliminar requiere confirmación y permite cancelar sin operar", async () => {
   renderChat();
-  fireEvent.click(screen.getByRole("button", { name: /^Eliminar mensaje de/ }));
+  fireEvent.click(ownMenu().getByRole("menuitem",{name:"Eliminar mensaje"}));
   expect(screen.getByRole("dialog")).toBeInTheDocument();
   expect(action).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /^Eliminar mensaje de/ }));
+  fireEvent.click(ownMenu().getByRole("menuitem",{name:"Eliminar mensaje"}));
   fireEvent.click(
     screen.getByRole("button", { name: "Eliminar mensaje", exact: true }),
   );
@@ -180,4 +179,8 @@ it('mencionar por nombre visible muestra el selector junto al compositor y devue
   expect(picker.closest('.chat-compose-area')).toBe(input.closest('.chat-compose-area'));
   fireEvent.click(screen.getByRole('button',{name:'@fabri · Fabri'}));
   expect(input).toHaveValue('Hola @fabri ');expect(input).toHaveFocus();
+});
+
+it('reintentar el mismo texto conserva su identificador si se pierde la confirmación',async()=>{
+ action.mockRejectedValueOnce(Object.assign(new Error('Sin confirmación'),{code:'ACK_TIMEOUT'}));renderChat();const input=await screen.findByRole('textbox',{name:/Mensaje para/});fireEvent.change(input,{target:{value:'Reintento'}});fireEvent.keyDown(input,{key:'Enter'});await screen.findByText('No pudimos confirmar la operación');const key=action.mock.calls[0][1].idEnvio;fireEvent.keyDown(input,{key:'Enter'});await waitFor(()=>expect(action).toHaveBeenCalledTimes(2));expect(action.mock.calls[1][1].idEnvio).toBe(key);
 });

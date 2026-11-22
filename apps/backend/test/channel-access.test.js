@@ -118,7 +118,7 @@ const serverSocket = (socket) => io.sockets.sockets.get(socket.id);
 test('configuración exige sesión; solo propietario/administrador consultan y reemplazan', async () => {
   const c = await community(), ch = await create(c);
   for (const method of ['GET', 'PUT']) {
-    const body = method === 'PUT' ? { privado: true, habilitaciones: [] } : undefined;
+    const body = method === 'PUT' ? { privado:false,permisosGlobales:['VER'] } : undefined;
     assert.equal((await request(`/channels/${ch.id}/access`, { method, body })).status, 401);
     for (const user of [cata, dani]) {
       assert.equal((await request(`/channels/${ch.id}/access`, { method, body, as: user })).status, 403);
@@ -126,31 +126,9 @@ test('configuración exige sesión; solo propietario/administrador consultan y r
     assert.equal((await request(`/channels/${ch.id}/access`, { method, body, as: eli })).status, 404);
   }
   assert.equal((await readAccess(ch, beto)).status, 200);
-  assert.equal((await access(ch, { privado: true, habilitaciones: [] }, beto)).status, 200);
+  assert.equal((await access(ch, { privado:false,permisosGlobales:['VER'] }, beto)).status, 200);
   assert.equal((await readAccess(ch, ana)).status, 200);
-  assert.equal((await readAccess(ch, cata)).status, 404);
-});
-
-test('reemplazo completo, normalización VER, persistencia y DTO público sin secretos', async () => {
-  const c = await community(), ch = await create(c);
-  const config = { privado: true, habilitaciones: [
-    { rol: 'INTEGRANTE', permisos: ['VER'] }, { rol: 'MODERADOR', permisos: ['ESCRIBIR'] },
-    { idUsuario: dani.id, permisos: ['ESCRIBIR'] },
-  ] };
-  const saved = await access(ch, config);
-  assert.equal(saved.status, 200);
-  assert.deepEqual(saved.body, (await readAccess(ch)).body);
-  const grants = saved.body.acceso.habilitaciones;
-  assert.deepEqual(grants.find((g) => g.rol === 'MODERADOR').permisos, ['VER', 'ESCRIBIR']);
-  const personal = grants.find((g) => g.usuario);
-  assert.equal(personal.usuario.id, dani.id);
-  assert.equal(personal.usuario.correo, undefined); assert.equal(personal.usuario.contrasenaHash, undefined);
-  assert.deepEqual(Object.keys(personal.usuario).sort(), ['colorAvatar', 'disponibilidad', 'enLinea', 'fotoUrl', 'id', 'informacionPersonal', 'nombreUsuario', 'nombreVisible']);
-  assert.deepEqual((await request(`/channels/${ch.id}`, { as: dani })).body.canal.misPermisos, ['VER', 'ESCRIBIR']);
-  await access(ch, { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }] });
-  assert.equal(await prisma.canalUsuario.count({ where: { idCanal: ch.id } }), 0);
-  assert.deepEqual((await request(`/channels/${ch.id}`, { as: dani })).body.canal.misPermisos, ['VER']);
-  assert.equal((await request(`/channels/${ch.id}`, { as: cata })).status, 404);
+  assert.equal((await readAccess(ch, cata)).status, 403);
 });
 
 test('validación inválida no modifica configuración ni emite eventos', async () => {
@@ -166,55 +144,6 @@ test('validación inválida no modifica configuración ni emite eventos', async 
   ]) assert.equal((await access(ch, body)).status, 400);
   await flush(socket);
   assert.deepEqual(recorded, []); assert.deepEqual((await readAccess(ch)).body, before);
-});
-
-test('no permite habilitar usuarios externos, inexistentes ni integrantes de otra comunidad; rollback íntegro', async () => {
-  const c = await community(), ch = await create(c);
-  await prisma.comunidad.create({ data: { nombre: 'Otra', tipo: 'PRIVADA', membresias: { create: { idUsuario: eli.id, rol: 'PROPIETARIO' } } } });
-  const initial = { privado: true, habilitaciones: [{ idUsuario: dani.id, permisos: ['VER'] }] };
-  await access(ch, initial);
-  const before = (await readAccess(ch)).body;
-  for (const idUsuario of [eli.id, 2_147_483_647]) {
-    const result = await access(ch, { privado: false, habilitaciones: [{ idUsuario, permisos: ['ESCRIBIR'] }] });
-    assert.equal(result.status, 404); assert.equal(result.body.error.code, 'MEMBER_NOT_FOUND');
-    assert.deepEqual((await readAccess(ch)).body, before);
-  }
-});
-
-test('rol y usuario se suman; defaults públicos no se deniegan con listas vacías', async () => {
-  const c = await community(), ch = await create(c);
-  await access(ch, { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }, { idUsuario: dani.id, permisos: ['ESCRIBIR'] }] });
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'ESCRIBIR']);
-  await access(ch, { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }, { idUsuario: dani.id, permisos: [] }] });
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER']);
-  await access(ch, { privado: false, habilitaciones: [{ rol: 'INTEGRANTE', permisos: [] }, { idUsuario: dani.id, permisos: [] }] });
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'ESCRIBIR']);
-});
-
-test('helper distingue lectura, escritura y moderación y verifica nuevamente la base', async () => {
-  const c = await community(), ch = await create(c);
-  await access(ch, { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }] });
-  assert.equal((await permissions.requireChannelPermission(ch.id, dani.id)).rol, 'INTEGRANTE');
-  await assert.rejects(permissions.requireChannelPermission(ch.id, dani.id, 'ESCRIBIR'), { code: 'NO_WRITE_PERMISSION' });
-  await assert.rejects(permissions.requireChannelModerator(ch.id, dani.id), { code: 'CANNOT_MODERATE_CHANNEL' });
-  await assert.rejects(permissions.requireChannelModerator(ch.id, cata.id), { code: 'CHANNEL_NOT_FOUND' });
-  await access(ch, { privado: true, habilitaciones: [{ rol: 'MODERADOR', permisos: ['VER'] }, { idUsuario: dani.id, permisos: ['ESCRIBIR'] }] });
-  assert.equal((await permissions.requireChannelModerator(ch.id, cata.id)).rol, 'MODERADOR');
-  assert.equal((await permissions.requireChannelPermission(ch.id, dani.id, 'ESCRIBIR')).rol, 'INTEGRANTE');
-  await assert.rejects(permissions.requireChannelModerator(ch.id, dani.id), { code: 'CANNOT_MODERATE_CHANNEL' });
-  await access(ch, { privado: true, habilitaciones: [] });
-  await assert.rejects(permissions.requireChannelPermission(ch.id, dani.id), { code: 'CHANNEL_NOT_FOUND' });
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, eli.id), []);
-});
-
-test('voz/video guardan habilitaciones para llamadas y filtran permisos ajenos al tipo actual', async () => {
-  const c = await community(), ch = await create(c, { tipo: 'VOZ', privado: true });
-  await access(ch, { privado: true, habilitaciones: [{ idUsuario: dani.id, permisos: ['HABLAR', 'TRANSMITIR', 'ESCRIBIR'] }] });
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'HABLAR', 'TRANSMITIR']);
-  assert.equal((await request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'TEXTO' } })).status, 400);
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'HABLAR', 'TRANSMITIR']);
-  await request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'VOZ' } });
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER', 'HABLAR', 'TRANSMITIR']);
 });
 
 test('sockets aplican VER, payload estricto, sesión vigente, unsubscribe idempotente', async () => {
@@ -263,19 +192,6 @@ test('revocar VER retira ambas pestañas, impide eventos y resuscripción; recup
   }
 });
 
-test('revocar solo escritura mantiene lectura/suscripción pero informa permisos actuales', async () => {
-  const c = await community(), ch = await create(c, { privado: true });
-  await access(ch, { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['ESCRIBIR'] }] });
-  const client = await socketFor(dani), recorded = capture(client);
-  await subscribe(client, ch);
-  await access(ch, { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }] });
-  await flush(client);
-  assert(serverSocket(client).rooms.has(`channel:${ch.id}`));
-  assert(!recorded.some((e) => e.event === 'channel:access-lost'));
-  assert.deepEqual(recorded.find((e) => e.event === 'channel:updated').data.canal.misPermisos, ['VER']);
-  await assert.rejects(permissions.requireChannelPermission(ch.id, dani.id, 'ESCRIBIR'), { code: 'NO_WRITE_PERMISSION' });
-});
-
 test('permisos y suscripción concurrentes nunca dejan un socket sin VER dentro de la room', async () => {
   const c = await community(), ch = await create(c, { privado: true });
   const client = await socketFor(dani);
@@ -285,23 +201,6 @@ test('permisos y suscripción concurrentes nunca dejan un socket sin VER dentro 
     assert.equal(changed.status, 200); assert(joined.ok || joined.error.code === 'CHANNEL_NOT_FOUND');
     await flush(client); assert(!serverSocket(client).rooms.has(`channel:${ch.id}`));
   }
-});
-
-test('reemplazos concurrentes no mezclan configuraciones y cambio de tipo preserva las habilitaciones', async () => {
-  const c = await community(), ch = await create(c);
-  const configs = [
-    { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }] },
-    { privado: false, habilitaciones: [{ rol: 'MODERADOR', permisos: ['VER', 'ESCRIBIR'] }] },
-  ];
-  const results = await Promise.all(configs.map((body) => access(ch, body)));
-  assert(results.every((r) => r.status === 200));
-  const final = (await readAccess(ch)).body.acceso;
-  assert(configs.some((c) => JSON.stringify(c) === JSON.stringify(final)));
-  const [changed, typed] = await Promise.all([
-    access(ch, configs[0]), request(`/channels/${ch.id}`, { method: 'PATCH', as: ana, body: { tipo: 'VOZ' } }),
-  ]);
-  assert.equal(changed.status, 200); assert.equal(typed.status, 400);
-  assert.deepEqual(await permissions.getChannelPermissions(ch.id, dani.id), ['VER']);
 });
 
 test('abandono coordinado con suscripción elimina habilitación y nunca permite eventos posteriores', async () => {

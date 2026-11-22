@@ -1,3 +1,6 @@
+import BlockedUsers from '../components/BlockedUsers.jsx';
+import AppearanceSettings from '../components/AppearanceSettings.jsx';
+import {useGuardedAction} from '../context/UnsavedChangesContext.jsx';
 import DeviceSettings from '../components/DeviceSettings.jsx';
 import { useState } from 'react';
 import ProfileForm from '../components/ProfileForm.jsx';
@@ -9,6 +12,7 @@ import '../styles/page.css';
 
 export default function ProfilePage() {
   const { logout } = useAuth();
+  const guard=useGuardedAction();
   const [saliendo, setSaliendo] = useState(false);
   const [error, setError] = useState(false);
 
@@ -27,13 +31,13 @@ export default function ProfilePage() {
     <div className="page">
       <header className="page-head page-head-line">
         <h1 className="dsp">Mi perfil</h1>
-        <Button variant="secundario" loading={saliendo} onClick={salir}>
+        <Button variant="secundario" loading={saliendo} onClick={()=>guard(salir)}>
           {!saliendo && <Icon name="cerrarSesion" size={16} stroke={2} />}Cerrar sesión
         </Button>
       </header>
       <div className="page-body page-body-profile">
         {error && <Notice tone="error" title="No se pudo cerrar la sesión" actionLabel="Reintentar" onAction={salir}>Revisá tu conexión y probá de nuevo.</Notice>}
-        <ProfileForm /><DeviceSettings />
+        <ProfileForm /><DeviceSettings /><AppearanceSettings/><BlockedUsers/>
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import { api } from '../services/api.js';
+import CommunityActionDialog from '../components/communities/CommunityActionDialog.jsx';
 import OwnershipTransfer from '../components/communities/OwnershipTransfer.jsx';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -28,7 +30,9 @@ export default function CommunityMembersPage() {
   const list = useCommunityCollection(id, getCommunityMembers, Boolean(detail.comunidad));
   const socket = useSocket(), { usuario } = useAuth();
   const actor = detail.comunidad?.miRol;
-  const catalog = useCommunityCollection(id, getCommunityRoles, ['ADMIN', 'PROPIETARIO'].includes(actor));
+  const permissions=detail.comunidad?.misPermisos??[];
+  const [kicking,setKicking]=useState(null);
+  const catalog = useCommunityCollection(id, getCommunityRoles, (['ADMIN','PROPIETARIO'].includes(actor)||permissions.includes('GESTIONAR_ROLES')));
   const [editing, setEditing] = useState(null), [notice, setNotice] = useState(null);
   const [banning, setBanning] = useState(null);
   const trigger = useRef(null), heading = useRef(null);
@@ -54,35 +58,39 @@ export default function CommunityMembersPage() {
           <SearchInput className="cm-search" label="Buscar integrante" placeholder="Buscar integrante" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           <span className="cm-count">{list.items.length} {list.items.length === 1 ? 'integrante' : 'integrantes'}</span>
         </div>
-        {visibles.length > 0 && <Card as="ul">{visibles.map((member) => <ListRow as="li" key={member.usuario.id}>
-          <Avatar nombre={member.usuario.nombreVisible} foto={member.usuario.fotoUrl} color={member.usuario.colorAvatar} presence={member.usuario.disponibilidad === 'INVISIBLE' ? 'AUSENTE' : member.usuario.disponibilidad} dark={member.usuario.id === usuario.id} />
+        {visibles.length > 0 && <Card as="ul" className="member-list">{visibles.map((member) => <ListRow as="li" key={member.usuario.id}>
+          <Avatar idUsuario={member.usuario.id} nombre={member.usuario.nombreVisible} foto={member.usuario.fotoUrl} color={member.usuario.colorAvatar} presence={member.usuario.disponibilidad === 'INVISIBLE' ? 'AUSENTE' : member.usuario.disponibilidad} dark={member.usuario.id === usuario.id} />
           <span className="cm-who"><span className="li-title">{member.usuario.nombreVisible}{member.usuario.id === usuario.id ? ' (vos)' : ''}</span><span className="li-sub">@{member.usuario.nombreUsuario}</span></span>
           <span className="cm-roles">
             <span className="bdg bdg-base">{['PROPIETARIO', 'ADMIN'].includes(member.rol) && <Icon name="corona" size={12} stroke={2} />}{COMMUNITY_ROLES[member.rol]}</span>
-            {member.rolesPersonalizados?.map((role) => <span key={role.id} className="bdg bdg-acento">{role.nombre}</span>)}
+            {member.rolesPersonalizados?.map((role) => <span key={role.id} className="bdg bdg-acento member-role-chip" title={role.nombre}><span className="member-role-dot"/>{role.nombre}</span>)}
           </span>
-          {!list.error && canManageMember(actor, usuario.id, member) && <Button size="sm" variant="secundario"
+          <span className="member-actions">
+          {!list.error && canManageMember(actor, usuario.id, member,permissions) && <Button size="sm" variant="secundario"
             aria-label={`Editar roles de ${member.usuario.nombreVisible}`} onClick={(e) => {
               trigger.current = e.currentTarget;
               setNotice(null);
               setEditing({ id, member });
             }}>Editar roles</Button>}
-          {!list.error && canBanMember(actor, usuario.id, member) && <button type="button" className="li-quiet cm-ban pr"
+          {!list.error && canBanMember(actor, usuario.id, member,permissions) && <button type="button" className="li-quiet cm-ban pr"
             aria-label={`Banear a ${member.usuario.nombreVisible}`} onClick={(e) => {
               trigger.current = e.currentTarget;
               setNotice(null);
               setBanning({ id, member });
             }}>Banear</button>}
+          {member.usuario.id!==usuario.id&&member.rol!=='PROPIETARIO'&&(member.rol!=='ADMIN'||actor==='PROPIETARIO')&&['ADMIN','PROPIETARIO'].includes(actor)&&<button type="button" className="li-quiet cm-ban pr" onClick={e=>{trigger.current=e.currentTarget;setKicking(member);}}>Echar</button>}
+          </span>
         </ListRow>)}</Card>}
         {!list.error && list.items.length === 0 && <span className="cm-state">No hay integrantes para mostrar.</span>}
       </>}
       {detail.comunidad && !list.loading && !list.error && <OwnershipTransfer comunidad={detail.comunidad} members={list.items} onDone={() => { detail.reload(); list.reload(); }} />}
-      {canManageBans(actor) && <CommunityBans key={id} id={id} />}
-      {banTarget && <BanMemberDialog key={`${id}:${banTarget.usuario.id}`} id={id} actor={actor} userId={usuario.id}
+      {canManageBans(actor,permissions) && <CommunityBans key={id} id={id} />}
+      {banTarget && <BanMemberDialog key={`${id}:${banTarget.usuario.id}`} id={id} actor={actor} permissions={permissions} userId={usuario.id}
         original={banTarget} member={list.items.find((member) => member.usuario.id === banTarget.usuario.id)}
         list={list} returnFocusRef={trigger} fallbackFocusRef={heading}
         onClose={(message) => { setBanning(null); if (message) setNotice({ id, message }); }} />}
-      {active && <MemberRolesDialog key={`${id}:${active.usuario.id}`} id={id} actor={actor} userId={usuario.id}
+      {kicking&&<CommunityActionDialog title={`¿Echar a ${kicking.usuario.nombreVisible}?`} description="Perderá su membresía, roles y permisos. Podrá volver con una invitación válida." confirmLabel="Echar integrante" returnFocusRef={trigger} onClose={()=>setKicking(null)} onConfirm={async()=>{await api.post(`/communities/${id}/members/${kicking.usuario.id}/kick`,{});setKicking(null);list.reload();}}/>}
+      {active && <MemberRolesDialog key={`${id}:${active.usuario.id}`} id={id} actor={actor} permissions={permissions} userId={usuario.id}
         original={active} member={list.items.find((member) => member.usuario.id === active.usuario.id)}
         catalog={catalog} list={list} detail={detail} returnFocusRef={trigger} fallbackFocusRef={heading}
         onClose={(message) => { setEditing(null); if (message) setNotice({ id, message }); }} />}

@@ -1,3 +1,6 @@
+import PermissionPills from '../components/channels/PermissionPills.jsx';
+import { api } from '../services/api.js';
+import { permissionLabels, hasCommunityPermission } from '../utils/permissionCatalog.js';
 import { useRef, useState } from 'react';
 import { useParams } from 'react-router';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
@@ -18,11 +21,13 @@ const reserved = new Set(Object.keys(COMMUNITY_ROLES).map((role) => role.toLower
 function RolesCatalog({ detail }) {
   const { id, miRol } = detail.comunidad;
   const list = useCommunityCollection(id, service.getCommunityRoles);
-  const allowed = ['ADMIN', 'PROPIETARIO'].includes(miRol);
+  const allowed = hasCommunityPermission(detail.comunidad,'GESTIONAR_ROLES');
   const [action, setAction] = useState(null), [nombre, setNombre] = useState(''), [notice, setNotice] = useState('');
+  const [permisos,setPermisos]=useState([]),[description,setDescription]=useState(''),[suggesting,setSuggesting]=useState(false),[suggestionError,setSuggestionError]=useState(''),[summary,setSummary]=useState('');
+  const proposalEpoch=useRef(0);
   const trigger = useRef(null), heading = useRef(null);
   const current = list.items.find((role) => role.id === action?.role?.id);
-  const stale = action?.role && (!current || current.nombre !== action.role.nombre);
+  const stale = action?.role && (!current || current.nombre !== action.role.nombre || [...(current.permisos??[])].sort().join() !== [...(action.role.permisos??[])].sort().join());
   const blocked = !allowed ? 'Tu rol ya no permite administrar este catálogo.'
     : list.refreshing ? 'Verificando el catálogo…'
       : list.error ? 'No se pudo verificar el catálogo. Cerrá el formulario y reintentá.'
@@ -31,11 +36,20 @@ function RolesCatalog({ detail }) {
     trigger.current = event.currentTarget;
     setNotice('');
     setNombre(role?.nombre ?? '');
+    setPermisos(role?.permisos??[]);
+    proposalEpoch.current++;setSuggestionError('');setSummary('');setDescription('');
     setAction({ type, role });
   }
   function close(message) {
+    proposalEpoch.current++;setSuggesting(false);
     setAction(null);
     if (message) setNotice(message);
+  }
+  async function suggest(){
+    const epoch=++proposalEpoch.current;setSuggesting(true);setSuggestionError('');
+    try{const {propuesta}=await api.post(`/communities/${id}/roles/suggestion`,{descripcion:description.trim()});if(epoch===proposalEpoch.current){setNombre(propuesta.nombre);setPermisos(propuesta.permisos);setSummary(propuesta.resumen);}}
+    catch(e){if(epoch===proposalEpoch.current)setSuggestionError(e.message);}
+    finally{if(epoch===proposalEpoch.current)setSuggesting(false);}
   }
   async function mutate(operation) {
     try {
@@ -49,7 +63,7 @@ function RolesCatalog({ detail }) {
       throw error;
     }
   }
-  const base = [['PROPIETARIO', 'Todo, incluso eliminar la comunidad.'], ['ADMIN'], ['MODERADOR'], ['INTEGRANTE', 'Ve y participa en los canales públicos.']];
+  const base = [['PROPIETARIO', 'Todo, incluso eliminar la comunidad.'], ['ADMIN','Acceso total, excepto eliminar o transferir la comunidad y quitar la administración a otros.'], ['INTEGRANTE', 'Ve y participa en los canales públicos.']];
   return <>
     <h1 tabIndex={-1} ref={heading} className="sr-only">Roles</h1>
     {detail.error && <Notice tone="error" title="No se pudo actualizar la comunidad." actionLabel="Reintentar" onAction={detail.reload} />}
@@ -70,28 +84,30 @@ function RolesCatalog({ detail }) {
       {!list.error && !list.items.length && <span className="cm-state">Todavía no hay roles personalizados.</span>}
       {list.items.length > 0 && <Card as="ul">{list.items.map((role) => <ListRow as="li" key={role.id}>
         <span className="cr-dot" />
-        <span className="li-text"><span className="li-title cr-name">{role.nombre}</span></span>
+        <span className="li-text"><span className="li-title cr-name">{role.nombre}</span><span className="li-sub">{role.permisos?.length?role.permisos.map(p=>permissionLabels[p]).join(' · '):'Sin permisos adicionales'}</span></span>
         {allowed && !list.error && <>
           <Button size="sm" variant="secundario" onClick={(e) => open(e, 'edit', role)} aria-label={`Editar ${role.nombre}`}>Editar</Button>
           <button type="button" className="li-quiet cm-ban pr" onClick={(e) => open(e, 'delete', role)} aria-label={`Eliminar ${role.nombre}`}>Eliminar</button>
         </>}
       </ListRow>)}</Card>}
     </>}
-    {action && action.type !== 'delete' && <CommunityRoleFormDialog title={action.type === 'create' ? 'Crear rol' : `Editar ${action.role.nombre}`}
-      blocked={blocked} onClose={close} returnFocusRef={trigger} fallbackFocusRef={heading}
+    {action && action.type !== 'delete' && <CommunityRoleFormDialog dirty={nombre!==(action.role?.nombre??'')||[...permisos].sort().join()!==[...(action.role?.permisos??[])].sort().join()} signature={JSON.stringify([nombre,permisos])} title={action.type === 'create' ? 'Crear rol' : `Editar ${action.role.nombre}`}
+      blocked={blocked||(suggesting?'Esperando la propuesta…':'')} onClose={close} returnFocusRef={trigger} fallbackFocusRef={heading}
       onSave={async () => {
         const name = nombre.trim();
         if (!name || name.length > 32 || reserved.has(name.toLowerCase())) {
           throw new Error('Ingresá un nombre de hasta 32 caracteres distinto de los roles base.');
         }
-        await mutate(() => action.type === 'create' ? service.createCommunityRole(id, { nombre: name })
-          : service.updateCommunityRole(id, action.role.id, { nombre: name }));
+        await mutate(() => action.type === 'create' ? service.createCommunityRole(id, { nombre: name, permisos })
+          : service.updateCommunityRole(id, action.role.id, { nombre: name, permisos }));
         return action.type === 'create' ? 'Rol creado.' : 'Rol actualizado.';
       }}>
+      {action.type==='create'&&<section className="role-ai"><Field as="textarea" label="¿Qué tarea tendrá este rol? (opcional)" value={description} maxLength={800} onChange={e=>setDescription(e.target.value)} disabled={suggesting}/><Button variant="secundario" size="sm" loading={suggesting} disabled={description.trim().length<5} onClick={suggest}>Proponer permisos con IA</Button>{suggestionError&&<Notice title={suggestionError}/>}{summary&&<p role="status">{summary} Revisá los permisos antes de guardar.</p>}</section>}
       <Field label="Nombre del rol" value={nombre} maxLength={32} onChange={(e) => setNombre(e.target.value)} autoFocus required />
+      <div className="role-permissions"><p className="li-sub">El rol hereda estas capacidades en todos los canales a los que su integrante tenga acceso. Los canales no recortan un rol personalizado.</p><PermissionPills tipo="TODOS" label="Permisos del rol" value={permisos} onChange={setPermisos}/></div>
     </CommunityRoleFormDialog>}
     {action?.type === 'delete' && <CommunityRoleFormDialog title={`¿Eliminar ${action.role.nombre}?`}
-      destructive confirmLabel="Eliminar rol" blocked={blocked} onClose={close} returnFocusRef={trigger} fallbackFocusRef={heading}
+      destructive confirmLabel="Eliminar rol" blocked={blocked||(suggesting?'Esperando la propuesta…':'')} onClose={close} returnFocusRef={trigger} fallbackFocusRef={heading}
       onSave={async () => {
         await mutate(() => service.deleteCommunityRole(id, action.role.id));
         return 'Rol eliminado.';

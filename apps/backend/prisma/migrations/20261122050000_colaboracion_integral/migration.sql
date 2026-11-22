@@ -1,0 +1,13 @@
+ALTER TABLE "usuario" ADD COLUMN "titulo_perfil" VARCHAR(80), ADD COLUMN "pronombres" VARCHAR(30), ADD COLUMN "color_perfil" VARCHAR(7);
+ALTER TABLE "mensaje" ADD COLUMN "id_hilo" INTEGER, ADD COLUMN "fecha_entrega" TIMESTAMP(3), ADD COLUMN "fecha_lectura" TIMESTAMP(3);
+ALTER TABLE "mensaje" ADD CONSTRAINT "mensaje_hilo_fkey" FOREIGN KEY ("id_hilo") REFERENCES "mensaje"("id_mensaje") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX "mensaje_hilo_idx" ON "mensaje"("id_hilo","id_mensaje");
+ALTER TABLE "notificacion" ADD COLUMN "distincion" VARCHAR(16);
+ALTER TABLE "estado_chat" ADD COLUMN "silenciado_hasta" TIMESTAMP(3), ADD COLUMN "silencio_permanente" BOOLEAN NOT NULL DEFAULT FALSE;
+CREATE TABLE "encuesta" ("id_mensaje" INTEGER PRIMARY KEY REFERENCES "mensaje"("id_mensaje") ON DELETE CASCADE ON UPDATE CASCADE, "opciones" TEXT[] NOT NULL, "multiple" BOOLEAN NOT NULL DEFAULT FALSE, "cerrada" BOOLEAN NOT NULL DEFAULT FALSE);
+CREATE TABLE "voto_encuesta" ("id_mensaje" INTEGER NOT NULL REFERENCES "encuesta"("id_mensaje") ON DELETE CASCADE ON UPDATE CASCADE, "id_usuario" INTEGER NOT NULL REFERENCES "usuario"("id_usuario") ON DELETE CASCADE ON UPDATE CASCADE, "opcion" INTEGER NOT NULL, PRIMARY KEY ("id_mensaje","id_usuario","opcion"));
+CREATE TABLE "bloqueo_usuario" ("id_actor" INTEGER NOT NULL REFERENCES "usuario"("id_usuario") ON DELETE CASCADE, "id_objetivo" INTEGER NOT NULL REFERENCES "usuario"("id_usuario") ON DELETE CASCADE, "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY ("id_actor","id_objetivo"), CHECK ("id_actor"<>"id_objetivo"));
+CREATE TABLE "reporte_usuario" ("id" SERIAL PRIMARY KEY, "id_autor" INTEGER NOT NULL, "id_objetivo" INTEGER NOT NULL, "id_comunidad" INTEGER, "motivo" VARCHAR(1000) NOT NULL, "estado" VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE', "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "reporte_usuario_id_comunidad_id_idx" ON "reporte_usuario"("id_comunidad","id");
+CREATE TABLE "auditoria" ("id" SERIAL PRIMARY KEY, "id_comunidad" INTEGER NOT NULL, "id_actor" INTEGER NOT NULL, "accion" VARCHAR(140) NOT NULL, "fecha" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX "auditoria_id_comunidad_id_idx" ON "auditoria"("id_comunidad","id");

@@ -27,7 +27,7 @@
 .dm-profile-bio { font-size: 14px; line-height: 1.45; color: rgba(19, 19, 22, .75); margin-top: 4px; }
 
 .dm-back { display: none; }
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width:1023px) and (max-height:550px) {
   .dm-head { position: relative; z-index: 25; gap: 10px; padding: 56px 14px 12px; border-bottom: 0; background: rgba(249, 249, 251, .8); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); }
   .dm-back { display: flex; width: 40px; height: 40px; border-radius: 50%; flex: none; align-items: center; justify-content: center; color: #131316; }
   .dm-back span { display: flex; transform: rotate(90deg); }
@@ -59,4 +59,6 @@
 .chat-compose-area .mention-picker button { color: #fff; background: #5130bf; padding: 7px 12px; font-size: 13px; }
 .chat-compose-area .chat-typing { align-self: flex-start; margin: 0; padding: 4px 12px; border-radius: 12px; font-size: 13px; font-weight: 500; color: #34303f; background: #f9f9fb; }
 .dm-list { padding-bottom: 180px; }
-@media (max-width: 767px) { .chat-compose-area { bottom: 16px; width: calc(100% - 32px); } }
+@media (max-width: 767px), (max-width:1023px) and (max-height:550px) { .chat-compose-area { bottom: 16px; width: calc(100% - 32px); } }
+
+.dm-body{display:flex;flex-direction:column;min-height:0;overflow:hidden}.dm-scroll{position:relative;inset:auto;flex:1;min-height:0}.chat-compose-area{position:relative!important;inset:auto!important;transform:none!important;width:auto!important;flex:none;margin:8px 20px 16px}.dm-list{padding:24px 24px 16px}.composer-bar{padding-left:10px}.msg-col:has(.attachment-card){max-width:min(400px,80%)}@media(max-width:767px),(max-width:1023px) and (max-height:550px){.chat-compose-area{margin:6px 12px max(12px,env(safe-area-inset-bottom))}.dm-list{padding:20px 14px 12px}.msg-col:has(.attachment-card){max-width:90%}}

@@ -1,4 +1,4 @@
-import { mensajeSelect } from './messages.js';
+import { mensajeSelect, messageInteractions } from './messages.js';
 import { toUsuarioPublico, usuarioPublicoSelect } from './selects.js';
 
 // Compartido con los futuros eventos de T-26. Los campos internos de auditoría
@@ -14,6 +14,9 @@ export function toChannelMessage(mensaje) {
   const eliminado = mensaje.fechaEliminacion !== null;
   return {
     ...(mensaje.adjunto && !eliminado && { adjunto: mensaje.adjunto }),
+    ...(mensaje.registroLlamada && {registroLlamada:true}),
+    ...(mensaje.idGrupoAdjuntos&&{grupoAdjuntos:{id:mensaje.idGrupoAdjuntos,total:mensaje.cantidadGrupoAdjuntos}}),
+    ...messageInteractions(mensaje),
     id: mensaje.id,
     idCanal: mensaje.idCanal,
     autor: toUsuarioPublico(mensaje.autor),

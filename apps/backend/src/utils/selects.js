@@ -1,5 +1,6 @@
 import { isOnline } from './presence.js';
 export const usuarioPublicoSelect = {
+  portadaUrl:true,tituloPerfil:true,pronombres:true,colorPerfil:true,
   id: true,
   nombreUsuario: true,
   nombreVisible: true,
@@ -20,6 +21,8 @@ export function toUsuarioPublico(usuario) {
   if (!usuario) return null;
   const { id, nombreUsuario, nombreVisible, fotoUrl, colorAvatar, informacionPersonal, disponibilidad } = usuario;
   return {
+    ...(usuario.portadaUrl&&{portadaUrl:usuario.portadaUrl}),...(usuario.fechaCreacion&&{fechaCreacion:usuario.fechaCreacion}),
+    ...(usuario.tituloPerfil&&{tituloPerfil:usuario.tituloPerfil}),...(usuario.pronombres&&{pronombres:usuario.pronombres}),...(usuario.colorPerfil&&{colorPerfil:usuario.colorPerfil}),
     id,
     enLinea: disponibilidad !== 'INVISIBLE' && isOnline(id),
     nombreUsuario,

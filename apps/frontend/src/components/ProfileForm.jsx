@@ -1,3 +1,4 @@
+import {useUnsavedChanges} from '../context/UnsavedChangesContext.jsx';
 import { useRef, useState } from 'react';
 import { avisar } from './shell/systemToastsStore.js';
 import { useProfile } from '../hooks/useProfile.js';
@@ -21,7 +22,9 @@ function fotoError(error) {
 }
 
 export default function ProfileForm() {
-  const { usuario, updateProfile, updateAvatar, removeAvatar } = useProfile();
+  const { usuario, updateProfile, updateAvatar, removeAvatar,updateCover,removeCover } = useProfile();
+  const cover=useSubmit(updateCover),clearCover=useSubmit(removeCover),coverInput=useRef(null);
+  const [title,setTitle]=useState(usuario.tituloPerfil??''),[pronouns,setPronouns]=useState(usuario.pronombres??'');
   const datos = useSubmit(updateProfile);
   const foto = useSubmit(updateAvatar);
   const quitar = useSubmit(removeAvatar);
@@ -33,6 +36,7 @@ export default function ProfileForm() {
   const [guardado, setGuardado] = useState(false);
   const [menuEstado, setMenuEstado] = useState(false);
   const [errores, setErrores] = useState({});
+  const {markSaved}=useUnsavedChanges(nombre!==usuario.nombreVisible||info!==(usuario.informacionPersonal??'')||estado!==usuario.disponibilidad||colorAvatar!==(usuario.colorAvatar||'#756222')||title!==(usuario.tituloPerfil??'')||pronouns!==(usuario.pronombres??''),'Perfil',JSON.stringify([nombre,info,estado,colorAvatar,title,pronouns]));
   const problemaFoto = fotoError(foto.error);
 
   async function onSubmit(event) {
@@ -41,8 +45,8 @@ export default function ProfileForm() {
     const e = { nombreVisible: nombre.trim().length >= 2 && nombre.trim().length <= 40 ? '' : 'Tiene que tener entre 2 y 40 caracteres.' };
     setErrores(e);
     if (e.nombreVisible) return;
-    const ok = await datos.submit({ nombreVisible: nombre, informacionPersonal: info.trim() || null, disponibilidad: estado, colorAvatar });
-    setGuardado(ok);
+    const ok = await datos.submit({ nombreVisible: nombre, informacionPersonal: info.trim() || null, disponibilidad: estado, colorAvatar,tituloPerfil:title.trim()||null,pronombres:pronouns.trim()||null });
+    setGuardado(ok);if(ok)markSaved();
     if (ok) avisar({ id: 'perfil', texto: 'Cambios guardados', anunciar: false });
   }
 
@@ -56,6 +60,10 @@ export default function ProfileForm() {
     <form className="pf" onSubmit={onSubmit} noValidate>
       <div className="pf-side">
         <Card className="pf-id">
+          <div className="pf-cover">{usuario.portadaUrl?<img src={usuario.portadaUrl} alt="Portada del perfil"/>:<span>Tu portada</span>}</div>
+          <input ref={coverInput} type="file" accept="image/jpeg,image/png,image/webp" hidden aria-label="Seleccionar foto de portada" onChange={e=>{const file=e.target.files[0];e.target.value='';if(file)cover.submit(file);}}/>
+          <div className="pf-cover-actions"><Button size="sm" variant="secundario" loading={cover.enviando} onClick={()=>coverInput.current.click()}>Cambiar portada</Button>{usuario.portadaUrl&&<Button size="sm" variant="secundario" loading={clearCover.enviando} onClick={()=>clearCover.submit()}>Quitar portada</Button>}</div>
+          {cover.error&&<Notice tone="error" title={cover.error.message}/>}{clearCover.error&&<Notice tone="error" title={clearCover.error.message}/>}
           <Avatar nombre={usuario.nombreVisible} foto={usuario.fotoUrl} color={colorAvatar} size={132} presence={estado} dark className="pf-av" />
           <span className="pf-names">
             <span className="dsp pf-name">{usuario.nombreVisible}</span>
@@ -102,10 +110,12 @@ export default function ProfileForm() {
       <Card className="pf-main">
         {datos.error && !datos.error.details?.length && <Notice tone="error" title="No pudimos guardar los cambios">Revisá tu conexión y probá de nuevo.</Notice>}
         <Field label="Nombre visible" value={nombre} maxLength={40} onChange={(e) => setNombre(e.target.value)} error={errores.nombreVisible || datos.errorDe('nombreVisible')} />
+        <Field label="Presentación" value={title} maxLength={80} onChange={e=>setTitle(e.target.value)} error={datos.errorDe('tituloPerfil')}/>
+        <Field label="Pronombres" value={pronouns} maxLength={30} onChange={e=>setPronouns(e.target.value)} error={datos.errorDe('pronombres')}/>
         <Field label="Usuario" value={`@${usuario.nombreUsuario}`} disabled readOnly />
         <Field as="textarea" label="Información personal" value={info} maxLength={190} onChange={(e) => setInfo(e.target.value)} error={datos.errorDe('informacionPersonal')} />
         <div className="pf-actions">
-          {guardado && <span className="pf-saved" role="status"><Icon name="check" size={17} stroke={2.6} />Cambios guardados</span>}
+
           <Button type="submit" loading={datos.enviando}>{datos.enviando ? 'Guardando…' : 'Guardar cambios'}</Button>
         </div>
         {problemaFoto === 'bloqueada' && (

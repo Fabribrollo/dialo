@@ -1,3 +1,5 @@
+import {useUnsavedChanges} from '../../context/UnsavedChangesContext.jsx';
+import { hasCommunityPermission } from '../../utils/permissionCatalog.js';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import '../ui/badge.css';
@@ -40,13 +42,14 @@ export default function CommunityForm({ comunidad }) {
   const [touched, setTouched] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
+  const {guard,markSaved}=useUnsavedChanges(nombre!==(comunidad?.nombre??'')||tipo!==(comunidad?.tipo??'PRIVADA')||Boolean(imagen),'Comunidad',JSON.stringify([nombre,tipo,imagen?.name]));
   const [created, setCreated] = useState(null);
   const inFlight = useRef(false);
   const saved = useRef(comunidad ?? null);
   const fileInput = useRef(null);
   const alive = useRef(true);
   const editing = Boolean(comunidad);
-  const canManage = !comunidad || ['ADMIN', 'PROPIETARIO'].includes(comunidad.miRol);
+  const canManage = !comunidad || hasCommunityPermission(comunidad,'EDITAR_COMUNIDAD');
   const clean = nombre.trim();
   const nombreOk = clean.length >= 2 && clean.length <= 64;
   const currentImage = preview || comunidad?.imagenUrl || saved.current?.imagenUrl;
@@ -79,7 +82,7 @@ export default function CommunityForm({ comunidad }) {
   }
 
   function done(target) {
-    if (alive.current) navigate(`/comunidades/${target.id}`, { replace: true, state: { notice: editing || created ? 'Cambios guardados.' : 'Comunidad creada.' } });
+    if (alive.current) {markSaved();navigate(`/comunidades/${target.id}`, { replace: true, state: { notice: editing || created ? 'Cambios guardados.' : 'Comunidad creada.' } });}
   }
 
   async function submit(event) {
@@ -197,7 +200,7 @@ export default function CommunityForm({ comunidad }) {
               {imageError && <span className="fld-error cf-body" role="alert"><Icon name="error" size={15} stroke={2} />{imageError}</span>}
             </div>
             <div className="cf-foot">
-              {!busy && <Button variant="secundario" onClick={() => navigate(cancelPath)}>Cancelar</Button>}
+              {!busy && <Button variant="secundario" onClick={() => guard(()=>navigate(cancelPath))}>Cancelar</Button>}
               <Button type="submit" className="cf-submit" loading={busy} disabled={Boolean(imageError) || !nombreOk && touched}>{subLabel}</Button>
             </div>
           </Card>

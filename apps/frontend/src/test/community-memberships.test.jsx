@@ -1,3 +1,5 @@
+import SystemToasts from '../components/shell/SystemToasts.jsx';
+import {leerAvisos,cerrarAviso} from '../components/shell/systemToastsStore.js';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router';
@@ -24,19 +26,20 @@ vi.mock('../services/communityRolesService.js', () => ({
   deleteCommunityRole: vi.fn(), updateCommunityMemberRoles: vi.fn(),
 }));
 vi.mock('../services/invitationsService.js', () => ({ getInvitations: vi.fn(), createInvitation: vi.fn(), revokeInvitation: vi.fn() }));
-const community = { id: 4, nombre: 'Club', tipo: 'PRIVADA', miRol: 'MODERADOR', cantidadIntegrantes: 2, fechaCreacion: '2026-10-19T12:00:00Z' };
-const member = { usuario: { id: 1, nombreUsuario: 'valen', nombreVisible: 'Valen', disponibilidad: 'EN_LINEA' }, rol: 'MODERADOR', fechaIngreso: community.fechaCreacion };
+const community = { id: 4, nombre: 'Club', tipo: 'PRIVADA', miRol: 'INTEGRANTE', misPermisos:['GESTIONAR_INVITACIONES','BANEAR'], cantidadIntegrantes: 2, fechaCreacion: '2026-10-19T12:00:00Z' };
+const member = { usuario: { id: 1, nombreUsuario: 'valen', nombreVisible: 'Valen', disponibilidad: 'EN_LINEA' }, rol: 'INTEGRANTE', fechaIngreso: community.fechaCreacion };
 const invitation = { id: 7, idComunidad: 4, codigo: 'enlace_unico', creador: member.usuario, estado: 'ACTIVA', usos: 0, usosMaximos: 5,
   fechaCreacion: community.fechaCreacion, fechaExpiracion: null };
 let listeners;
 function fire(event, data) { act(() => listeners.get(event)?.forEach((fn) => fn(data))); }
 function show(path = '/comunidades/4/invitaciones') {
-  return render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/comunidades" element={<CommunitiesLayout />}>
+  return render(<MemoryRouter initialEntries={[path]}><SystemToasts/><Routes><Route path="/comunidades" element={<CommunitiesLayout />}>
     <Route index element={<CommunitiesPage />} /><Route path=":id" element={<CommunityPage />} />
     <Route path=":id/roles" element={<CommunityRolesPage />} /><Route path=":id/invitaciones" element={<CommunityInvitationsPage />} /><Route path=":id/integrantes" element={<CommunityMembersPage />} />
   </Route></Routes></MemoryRouter>);
 }
 beforeEach(() => {
+  leerAvisos().forEach(a=>cerrarAviso(a.key));
   Object.values(communities).forEach((fn) => fn.mockReset());
   Object.values(bans).forEach((fn) => fn.mockReset());
   Object.values(roles).forEach((fn) => fn.mockReset());
@@ -57,13 +60,13 @@ beforeEach(() => {
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: vi.fn().mockResolvedValue() } });
 });
 it('un integrante no puede administrar invitaciones ni consulta sus códigos', async () => {
-  communities.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol: 'INTEGRANTE' } });
+  communities.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol: 'INTEGRANTE',misPermisos:[] } });
   show();
   expect(await screen.findByRole('alert')).toHaveTextContent('Tu rol no permite');
   expect(invitations.getInvitations).not.toHaveBeenCalled();
   expect(screen.queryByRole('button', { name: 'Crear invitación' })).not.toBeInTheDocument();
 });
-it.each(['MODERADOR', 'ADMIN', 'PROPIETARIO'])('%s crea invitaciones con los límites elegidos', async (miRol) => {
+it.each(['INTEGRANTE', 'ADMIN', 'PROPIETARIO'])('%s crea invitaciones con los límites elegidos', async (miRol) => {
   communities.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol } });
   show();
   const button = await screen.findByRole('button', { name: 'Crear invitación' });
@@ -148,11 +151,11 @@ it('presenta vencimiento y agotamiento sin permitir compartir enlaces inactivos'
 it('muestra integrantes y roles, identifica la cuenta propia y recupera ingresos en tiempo real', async () => {
   show('/comunidades/4/integrantes');
   await screen.findByText('Valen (vos)');
-  expect(screen.getByText('Moderador')).toBeInTheDocument();
+  expect(screen.getAllByText('Integrante').length).toBeGreaterThan(0);expect(screen.queryByText('Moderador')).not.toBeInTheDocument();
   communities.getCommunityMembers.mockResolvedValue({ items: [member, { ...member, usuario: { ...member.usuario, id: 2, nombreVisible: 'Feli', nombreUsuario: 'feli' }, rol: 'INTEGRANTE' }] });
   fire('community:member-joined', { idComunidad: 4 });
   await screen.findByText('Feli');
-  expect(screen.getByText('Integrante')).toBeInTheDocument();
+  expect(screen.getAllByText('Integrante').length).toBeGreaterThan(0);
   communities.getCommunityMembers.mockResolvedValue({ items: [member] });
   fire('community:member-left', { idComunidad: 4, idUsuario: 2 });
   await waitFor(() => expect(screen.queryByText('Feli')).not.toBeInTheDocument());
@@ -230,7 +233,7 @@ it('crea, renombra y elimina un rol desde el catálogo, con confirmación', asyn
   });
   fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
   expect(await screen.findByText('Rol creado.')).toBeInTheDocument();
-  expect(roles.createCommunityRole).toHaveBeenCalledWith(4, { nombre: 'Lectura' });
+  expect(roles.createCommunityRole).toHaveBeenCalledWith(4, { nombre: 'Lectura',permisos:[] });
   fireEvent.click(await screen.findByRole('button', { name: 'Editar Lectura' }));
   fireEvent.change(screen.getByLabelText('Nombre del rol'), { target: { value: 'Escritura' } });
   roles.updateCommunityRole.mockImplementation(async () => {
@@ -238,7 +241,7 @@ it('crea, renombra y elimina un rol desde el catálogo, con confirmación', asyn
   });
   fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
   expect(await screen.findByText('Rol actualizado.')).toBeInTheDocument();
-  expect(roles.updateCommunityRole).toHaveBeenCalledWith(4, 9, { nombre: 'Escritura' });
+  expect(roles.updateCommunityRole).toHaveBeenCalledWith(4, 9, { nombre: 'Escritura',permisos:[] });
   fireEvent.click(await screen.findByRole('button', { name: 'Eliminar Escritura' }));
   expect(screen.getByRole('dialog')).toHaveTextContent('Se quitarán sus asignaciones y permisos');
   expect(roles.deleteCommunityRole).not.toHaveBeenCalled();
@@ -272,19 +275,19 @@ it('asigna varios roles, respeta la jerarquía y permite quitar todos', async ()
   asAdmin();
   roles.updateCommunityMemberRoles.mockImplementation(async (_id, _user, body) => {
     const rolesPersonalizados = (body.idsRoles ?? [7]).map((id) => ({ id, nombre: id === 7 ? 'Diseño' : 'Eventos' }));
-    communities.getCommunityMembers.mockResolvedValue({ items: [{ ...otherMember, rol: body.rol ?? 'MODERADOR', rolesPersonalizados }] });
+    communities.getCommunityMembers.mockResolvedValue({ items: [{ ...otherMember, rol: body.rol ?? 'INTEGRANTE', rolesPersonalizados }] });
   });
   show('/comunidades/4/integrantes');
   expect(await screen.findByText('Diseño')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Editar roles de Valen' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Editar roles de Luz' }));
   const dialog = screen.getByRole('dialog');
-  expect(within(dialog).queryByRole('option', { name: 'Admin' })).not.toBeInTheDocument();
-  fireEvent.change(within(dialog).getByLabelText('Rol base'), { target: { value: 'MODERADOR' } });
+  expect(within(dialog).getByRole('option',{name:'Admin'})).toBeInTheDocument();expect(within(dialog).queryByRole('option',{name:'Moderador'})).not.toBeInTheDocument();
+  fireEvent.change(within(dialog).getByLabelText('Rol base'), { target: { value: 'INTEGRANTE' } });
   fireEvent.click(within(dialog).getByLabelText('Eventos'));
   fireEvent.click(within(dialog).getByRole('button', { name: 'Guardar' }));
   expect(await screen.findByText('Roles actualizados.')).toBeInTheDocument();
-  expect(roles.updateCommunityMemberRoles).toHaveBeenLastCalledWith(4, 2, { rol: 'MODERADOR', idsRoles: [7, 8] });
+  expect(roles.updateCommunityMemberRoles).toHaveBeenLastCalledWith(4, 2, { idsRoles: [7, 8] });
   expect(await screen.findByText('Eventos')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Editar roles de Luz' }));
   const next = within(screen.getByRole('dialog'));
@@ -299,7 +302,7 @@ it('bloquea guardar si un cambio remoto vuelve obsoleto el formulario de integra
   show('/comunidades/4/integrantes');
   fireEvent.click(await screen.findByRole('button', { name: 'Editar roles de Luz' }));
   expect(within(screen.getByRole('dialog')).getByRole('option', { name: 'Admin' })).toBeInTheDocument();
-  communities.getCommunityMembers.mockResolvedValue({ items: [{ ...otherMember, rol: 'MODERADOR' }] });
+  communities.getCommunityMembers.mockResolvedValue({ items: [{ ...otherMember, rol: 'INTEGRANTE',rolesPersonalizados:[] }] });
   fire('community:member-updated', { idComunidad: 4, integrante: otherMember });
   expect(await screen.findByText(/Los roles cambiaron/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Guardar' })).toBeDisabled();
@@ -313,13 +316,14 @@ it('actualiza el catálogo por socket y oculta acciones cuando se pierde autorid
   roles.getCommunityRoles.mockResolvedValue({ items: [{ id: 7, nombre: 'Diseño actualizado' }] });
   fire('community:role-updated', { idComunidad: 4, rol: { id: 7, nombre: 'Diseño actualizado' } });
   await screen.findByRole('button', { name: 'Editar Diseño actualizado' });
-  communities.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol: 'INTEGRANTE' } });
+  communities.getCommunity.mockResolvedValue({ comunidad: { ...community, miRol: 'INTEGRANTE',misPermisos:[] } });
   fire('community:member-updated', { idComunidad: 4, integrante: { ...member, rol: 'INTEGRANTE' } });
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Crear rol' })).not.toBeInTheDocument());
   expect(screen.getByText('Diseño actualizado')).toBeInTheDocument();
 });
 
-it('un moderador puede banear a un integrante y levantar el baneo sin restaurar su membresía', async () => {
+it('un administrador puede banear con duración y levantarlo sin restaurar membresía', async () => {
+  asAdmin();
   const target = { ...member, usuario: { ...member.usuario, id: 2, nombreVisible: 'Ana', nombreUsuario: 'ana' }, rol: 'INTEGRANTE' };
   communities.getCommunityMembers.mockResolvedValue({ items: [member, target] });
   bans.banCommunityMember.mockImplementation(async () => {
@@ -338,7 +342,7 @@ it('un moderador puede banear a un integrante y levantar el baneo sin restaurar 
   fireEvent.change(screen.getByLabelText('Motivo (opcional)'), { target: { value: ' Incumplimiento ' } });
   fireEvent.click(screen.getByRole('button', { name: 'Confirmar baneo' }));
   await screen.findByText('El integrante fue baneado.');
-  expect(bans.banCommunityMember).toHaveBeenCalledExactlyOnceWith(4, 2, 'Incumplimiento');
+  expect(bans.banCommunityMember).toHaveBeenCalledExactlyOnceWith(4, 2, 'Incumplimiento', 'PERMANENTE');
   expect(screen.queryByRole('button', { name: 'Banear a Ana' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Ver baneos' }));
   await screen.findByText('Motivo: Incumplimiento');
@@ -347,4 +351,15 @@ it('un moderador puede banear a un integrante y levantar el baneo sin restaurar 
   await screen.findByText('Se levantó el baneo.');
   expect(bans.removeCommunityBan).toHaveBeenCalledExactlyOnceWith(4, 2);
   expect(screen.queryByRole('button', { name: 'Banear a Ana' })).not.toBeInTheDocument();
+});
+
+it('crea un rol granular y no ofrece Moderador como rol base',async()=>{
+ asAdmin();roles.createCommunityRole.mockResolvedValue({rol:{id:9,nombre:'Equipo cámara',permisos:['CAMARA','EXPULSAR']}});
+ show('/comunidades/4/roles');fireEvent.click(await screen.findByRole('button',{name:'Crear rol'}));
+ const dialog=within(screen.getByRole('dialog'));fireEvent.change(dialog.getByLabelText('Nombre del rol'),{target:{value:'Equipo cámara'}});
+ fireEvent.click(dialog.getByLabelText('Permisos del rol: Activar cámara'));fireEvent.click(dialog.getByLabelText('Permisos del rol: Expulsar usuarios'));
+ expect(dialog.getByLabelText('Permisos del rol: Compartir pantalla')).not.toBeChecked();
+ fireEvent.click(dialog.getByRole('button',{name:'Guardar'}));
+ await waitFor(()=>expect(roles.createCommunityRole).toHaveBeenCalledWith(4,{nombre:'Equipo cámara',permisos:['CAMARA','EXPULSAR']}));
+ expect(screen.queryByText('Moderador')).not.toBeInTheDocument();
 });

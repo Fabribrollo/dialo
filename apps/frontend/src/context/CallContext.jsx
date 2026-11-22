@@ -1,6 +1,9 @@
+import { useSocket } from '../hooks/useSocket.js';
 import { useAuth } from '../hooks/useAuth.js';
 import { createContext, useEffect, useRef, useState } from 'react';
-import { DisconnectReason, Room, RoomEvent, Track } from 'livekit-client';
+let DisconnectReason, Room, RoomEvent, Track;
+let mediaImport;
+function loadMedia(){return mediaImport??=(import('livekit-client').then(sdk=>{({DisconnectReason,Room,RoomEvent,Track}=sdk);}).catch(e=>{mediaImport=null;throw e;}));}
 import { ApiError } from '../services/api.js';
 import { joinCall, leaveCall } from '../services/callsService.js';
 
@@ -8,7 +11,7 @@ export const CallContext = createContext(null);
 
 const ACTIVOS = ['CONECTANDO', 'CONECTADO', 'RECONECTANDO'];
 
-const EVENTOS_DE_PARTICIPANTES = [
+const eventosDeParticipantes = () => [
   RoomEvent.ParticipantConnected,
   RoomEvent.ParticipantDisconnected,
   RoomEvent.ActiveSpeakersChanged,
@@ -20,11 +23,11 @@ const EVENTOS_DE_PARTICIPANTES = [
   RoomEvent.LocalTrackUnpublished,
 ];
 
-const DESCONEXIONES_FINALES = {
+const desconexionesFinales = () => ({
   [DisconnectReason.PARTICIPANT_REMOVED]: 'Saliste de la llamada desde otro lugar o perdiste el acceso al canal.',
   [DisconnectReason.DUPLICATE_IDENTITY]: 'Entraste a esta llamada desde otra pestaña o dispositivo.',
   [DisconnectReason.ROOM_DELETED]: 'La llamada terminó.',
-};
+});
 
 const ERRORES_DE_MICROFONO = {
   NotAllowedError: 'El navegador no dio permiso para usar el micrófono.',
@@ -85,6 +88,7 @@ function aError(e) {
 
 export function CallProvider({ children }) {
   const { usuario } = useAuth() || {};
+  const socket=useSocket();
   const preferenciasRef = useRef(usuario?.preferencias || {});
   preferenciasRef.current = usuario?.preferencias || {};
   async function elegirDispositivo(kind, deviceId) {
@@ -101,6 +105,27 @@ export function CallProvider({ children }) {
   const canalRef = useRef(null);
   const intentoRef = useRef(0);
   const audiosRef = useRef(null);
+
+  useEffect(()=>{
+    if(!socket)return;
+    const updated=async({canal:next})=>{
+      if(next?.id!==canalRef.current?.id)return;
+      canalRef.current=next;setCanal(next);setMisPermisos(next.misPermisos);
+      const room=roomRef.current;if(!room)return;
+      const permissions=next.misPermisos;
+      const legacy=permissions.includes('TRANSMITIR');
+      await Promise.allSettled([
+        ...(!permissions.includes('HABLAR')&&room.localParticipant.isMicrophoneEnabled?[room.localParticipant.setMicrophoneEnabled(false)]:[]),
+        ...(!permissions.includes('CAMARA')&&!legacy&&room.localParticipant.isCameraEnabled?[room.localParticipant.setCameraEnabled(false)]:[]),
+        ...(!permissions.includes('PANTALLA')&&!legacy&&room.localParticipant.isScreenShareEnabled?[room.localParticipant.setScreenShareEnabled(false)]:[]),
+      ]);
+      if(room===roomRef.current)setParticipantes(leerParticipantes(room));
+    };
+    const lost=({idCanal})=>{if(idCanal===canalRef.current?.id)void salir();};
+    const left=({idComunidad})=>{if(idComunidad===canalRef.current?.idComunidad)void salir();};
+    socket.on('channel:updated',updated);socket.on('channel:access-lost',lost);socket.on('channel:deleted',lost);socket.on('community:left',left);
+    return()=>{socket.off('channel:updated',updated);socket.off('channel:access-lost',lost);socket.off('channel:deleted',lost);socket.off('community:left',left);};
+  },[socket]);
 
   function soltarRoom() {
     const room = roomRef.current;
@@ -120,7 +145,7 @@ export function CallProvider({ children }) {
 
   function escuchar(room, destino) {
     const refrescar = () => setParticipantes(leerParticipantes(room));
-    EVENTOS_DE_PARTICIPANTES.forEach((evento) => room.on(evento, refrescar));
+    eventosDeParticipantes().forEach((evento) => room.on(evento, refrescar));
     room.on(RoomEvent.TrackSubscribed, (track) => {
       if (track.kind === Track.Kind.Audio) audiosRef.current?.append(track.attach());
       refrescar();
@@ -140,6 +165,8 @@ export function CallProvider({ children }) {
   }
 
   async function conectar(destino, intento, { reemplazar = false, microfono = false } = {}) {
+    await loadMedia();
+    if(intento !== intentoRef.current)return;
     let respuesta;
     try {
       respuesta = await joinCall(destino.id);
@@ -188,7 +215,7 @@ export function CallProvider({ children }) {
   async function perderConexion(destino, razon) {
     soltarRoom();
     setParticipantes([]);
-    const final = DESCONEXIONES_FINALES[razon];
+    const final = desconexionesFinales()[razon];
     if (final) {
       canalRef.current = null;
       fallar({ code: 'CALL_ENDED', message: final });
@@ -236,7 +263,7 @@ export function CallProvider({ children }) {
 
   async function alternarDispositivo(permiso, estaActivo, cambiar, errorDe) {
     const room = roomRef.current;
-    if (!room || !misPermisos.includes(permiso)) return;
+    if (!room || !(misPermisos.includes(permiso)||(['CAMARA','PANTALLA'].includes(permiso)&&misPermisos.includes('TRANSMITIR')))) return;
     const local = room.localParticipant;
     try {
       await cambiar(local, !estaActivo(local));
@@ -252,11 +279,11 @@ export function CallProvider({ children }) {
       setError({ code: 'SCREEN_UNSUPPORTED', message: 'Este navegador no permite compartir pantalla. Usá Chrome, Edge, Firefox o Safari en una computadora.', details: [] });
       return Promise.resolve();
     }
-    return alternarDispositivo('TRANSMITIR', (l) => l.isScreenShareEnabled, (l, v) => l.setScreenShareEnabled(v, { audio: true }), errorDePantalla);
+    return alternarDispositivo('PANTALLA', (l) => l.isScreenShareEnabled, (l, v) => l.setScreenShareEnabled(v, { audio: true }), errorDePantalla);
   }
 
   const alternarMicrofono = () => alternarDispositivo('HABLAR', (l) => l.isMicrophoneEnabled, (l, v) => l.setMicrophoneEnabled(v), errorDeMicrofono);
-  const alternarCamara = () => alternarDispositivo('TRANSMITIR', (l) => l.isCameraEnabled, (l, v) => l.setCameraEnabled(v), errorDeCamara);
+  const alternarCamara = () => alternarDispositivo('CAMARA', (l) => l.isCameraEnabled, (l, v) => l.setCameraEnabled(v), errorDeCamara);
 
   function activarAudio() {
     const room = roomRef.current;
@@ -275,7 +302,7 @@ export function CallProvider({ children }) {
   const value = {
     estado, canal, error, misPermisos, participantes, audioBloqueado, desde,
     microfono: yo?.microfono ?? false, camara: yo?.camara ?? false, pantalla: yo?.pantalla ?? false, puedeCompartirPantalla: soportaPantalla(),
-    elegirDispositivo, entrar, salir, alternarMicrofono, alternarCamara, alternarPantalla, activarAudio,
+        elegirDispositivo, entrar, salir, alternarMicrofono, alternarCamara, alternarPantalla, activarAudio,
   };
 
   return <CallContext.Provider value={value}>

@@ -125,7 +125,7 @@ test('TRANSMITIR habilita camara y pantalla; solo VER no permite publicar nada',
   const transmite = claims((await entrar(video, dani)).body.llamada.token);
   assert.deepEqual(transmite.video.canPublishSources.sort(), ['camera', 'screen_share', 'screen_share_audio']);
   const oyente = await canal(c, { nombre: 'oyentes', privado: true });
-  await request(`/channels/${oyente.id}/access`, { method: 'PUT', as: ana, body: { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }] } });
+  await request(`/channels/${oyente.id}/access`, { method: 'PUT', as: ana, body: { privado: true, habilitaciones: [{ idUsuario: dani.id, permisos: ['VER'] }] } });
   const solo = claims((await entrar(oyente, dani)).body.llamada.token);
   assert.equal(solo.video.canPublish, false);
   assert.equal(solo.video.canSubscribe, true);
@@ -242,4 +242,19 @@ test('la reconciliacion quita conexiones que ya no existen y saca a quien entro 
   await prisma.participanteLlamada.update({ where: { idUsuario: ana.id }, data: { fechaAutorizacion: new Date(Date.now() - 11 * 60 * 1000) } });
   await calls.reconciliarLlamadas();
   assert.equal(await prisma.participanteLlamada.count(), 0);
+});
+
+
+test('sin webhook el listado recupera solo ingresos confirmados por LiveKit y revalida sesión',async()=>{
+ const c=await comunidad(),ch=await canal(c);const a=await entrar(ch,dani);assert.equal(a.status,200);const ingreso=await ingresoDe(dani);
+ assert.deepEqual(await participantes(ch),[]);
+ enLiveKit=[{idUsuario:dani.id,ingreso:'falso'}];assert.deepEqual(await participantes(ch),[]);
+ enLiveKit=[{idUsuario:dani.id,ingreso}];const result=await participantes(ch);assert.equal(result.length,1);assert.equal(result[0].usuario.id,dani.id);assert.equal(result[0].usuario.correo,undefined);
+ assert.equal((await prisma.participanteLlamada.findUnique({where:{idUsuario:dani.id}})).conectado,true);
+});
+test('la reconciliación confirma presencia pendiente real sin admitir un token sin usar',async()=>{
+ const c=await comunidad(),ch=await canal(c);await entrar(ch,dani);await entrar(ch,ana);
+ enLiveKit=[{idUsuario:dani.id,ingreso:await ingresoDe(dani)}];await calls.reconciliarLlamadas();
+ assert.equal((await prisma.participanteLlamada.findUnique({where:{idUsuario:dani.id}})).conectado,true);
+ assert.equal((await prisma.participanteLlamada.findUnique({where:{idUsuario:ana.id}})).conectado,false);
 });

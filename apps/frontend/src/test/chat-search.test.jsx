@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { expect, it } from 'vitest';
+import SearchResults from '../components/chat/SearchResults.jsx';
 import ChatSearch, { filterMessages } from '../components/chat/ChatSearch.jsx';
 
 const mensajes = [
@@ -17,13 +18,13 @@ it('filtra los mensajes cargados sin importar mayúsculas y saltea los eliminado
 
 function Demo() {
   const [q, setQ] = useState('');
-  return <><ChatSearch value={q} onChange={setQ} /><p>{q || 'vacío'}</p></>;
+  return <><ChatSearch value={q} onChange={setQ} /><SearchResults value={q} onChange={setQ} search={{active:Boolean(q),items:[],loading:false}}/><p>{q || 'vacío'}</p></>;
 }
 
 it('abre con la lupa y Escape la cierra y limpia', () => {
   render(<Demo />);
   fireEvent.click(screen.getByRole('button', { name: 'Buscar en la conversación' }));
-  const input = screen.getByLabelText('Buscar en la conversación');
+  const input = screen.getByRole('textbox',{name:'Buscar mensajes'});
   fireEvent.change(input, { target: { value: 'cable' } });
   expect(screen.getByText('cable')).toBeInTheDocument();
   fireEvent.keyDown(input, { key: 'Escape' });

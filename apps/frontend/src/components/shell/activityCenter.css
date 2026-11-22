@@ -12,12 +12,16 @@
   box-shadow: 0 0 0 2px #fff;
 }
 
-/* El panel sale al lado de la barra lateral, a la altura de la campana. */
-.dlg.act-panel {
-  width: 400px; max-height: calc(100dvh - 44px); margin: 22px auto auto 334px; padding: 20px 14px 14px; gap: 12px;
-  border-radius: 30px; overflow: hidden;
-}
-.dlg.act-panel::backdrop { background: rgba(236, 236, 240, .35); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.act-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 12px; width: 100%; overflow: hidden; }
+.act-panel .act-title { font-size: 21px; }
+.act-panel .act-head { flex-wrap: wrap; gap: 8px; padding: 0 4px; }
+.act-panel .act-list { flex: 1; }
+.act-panel .act-close { width: 32px; height: 32px; }
+.act-panel .act-foot { flex-shrink: 0; padding: 12px 4px 0; align-items: flex-start; }
+.act-panel .act-switch { margin-left: 0; }
+.act-panel .act-item { gap: 8px; padding: 10px 8px; }
+.act-panel .act-name, .act-panel .act-detail { white-space: normal; overflow-wrap: anywhere; }
+.act-panel .act-meta { align-self: flex-start; padding-top: 3px; }
 .act-head { display: flex; align-items: center; gap: 10px; padding: 0 6px 0 10px; }
 .act-title { margin: 0; font-family: var(--font-display); font-weight: 800; font-size: 24px; letter-spacing: -.035em; }
 .act-pill { height: 24px; padding: 0 10px; border-radius: 12px; display: inline-flex; align-items: center; font-size: 12px; font-weight: 600; background: color-mix(in srgb, var(--acc) 12%, #fff); color: var(--acc); }
@@ -68,10 +72,6 @@
 .act-toggle.on { background: var(--acc); }
 .act-toggle.on::after { transform: translateX(16px); }
 .act-hint { margin: 0; padding: 0 8px; font-size: 12.5px; line-height: 1.45; color: rgba(19, 19, 22, .64); }
-
-@media (max-width: 767px) {
-  .dlg.act-panel { width: 100%; max-width: 100%; max-height: 86dvh; margin: auto 0 0; border-radius: 30px 30px 0 0; padding-bottom: max(14px, env(safe-area-inset-bottom)); }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .act-toggle, .act-toggle::after, .act-item { transition: none; }

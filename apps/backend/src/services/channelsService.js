@@ -1,9 +1,12 @@
+import { requireCommunityPermission } from './communityPermissionsService.js';
+import { accessNotices, publishNotices } from './notificationsService.js';
+import { CHANNEL_PERMISSIONS } from '../utils/channelPermissions.js';
 import { trackEffect } from '../utils/backgroundEffects.js';
 import { prisma } from '../prisma/client.js';
 import { requireRole } from './communitiesService.js';
 import { AppError } from '../utils/AppError.js';
 import { canModerateChannel, channelSelect, effectiveChannelPermissions, memberRoleIds, memberSelect, toChannel } from '../utils/channelPermissions.js';
-import { closeChannel, emitToUser, leaveChannel } from '../sockets/emitter.js';
+import { closeChannel, emitToCommunity, emitToUser, leaveChannel } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
 import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 
@@ -27,7 +30,7 @@ async function channelContext(db, idCanal, idUsuario) {
 async function requireChannel(db, idCanal, idUsuario, admin = false) {
   const context = await channelContext(db, idCanal, idUsuario);
   if (!context?.permisos.includes('VER')) throw notFound();
-  if (admin && !canAdminister(context.rol)) throw new AppError(403, 'INSUFFICIENT_ROLE', 'Tu rol no permite administrar canales');
+  if (admin && !canAdminister(context.rol) && !context.permisos.includes('GESTIONAR_CANALES')) throw new AppError(403, 'INSUFFICIENT_ROLE', 'Tu rol no permite administrar canales');
   return context;
 }
 
@@ -77,9 +80,11 @@ export async function listChannels(idComunidad, idUsuario) {
       where: { idComunidad_idUsuario: { idComunidad, idUsuario } }, select: memberSelect,
     }));
     const canales = await tx.canal.findMany({ where: { idComunidad }, orderBy: [{ posicion: 'asc' }, { id: 'asc' }], select: channelSelect });
-    return canales.flatMap((canal) => {
+    const requests = await tx.solicitudAccesoCanal.findMany({where:{idComunidad,idUsuario},select:{idCanal:true,estado:true}});
+    const states = new Map(requests.map(q=>[q.idCanal,q.estado]));
+    return canales.map((canal) => {
       const permisos = effectiveChannelPermissions(canal, rol, idUsuario, idsRoles);
-      return permisos.includes('VER') ? [toChannel(canal, permisos)] : [];
+      return {...toChannel(canal, permisos), solicitud: states.get(canal.id) ?? null};
     });
   });
 }
@@ -137,6 +142,7 @@ export function publishAccessDiff(before, after) {
     }
   }
   notifyAccessChanges(changes);
+  if (changes.length) emitToCommunity(changes[0].idComunidad, 'channels:catalog-changed', {idComunidad: changes[0].idComunidad});
   return changes;
 }
 
@@ -146,9 +152,16 @@ export async function withCommunityAccessChange(idComunidad, operation, missing,
   const saved = await withCommunityChannelsLock(idComunidad, async (tx) => {
     const before = await communityAccess(tx, idComunidad);
     const result = await operation(tx);
-    return { result, before, after: await communityAccess(tx, idComunidad) };
+    const after = await communityAccess(tx, idComunidad);
+    const notices = [];
+    for (const [id, prev] of before) {
+      const next = after.get(id);
+      if (next) notices.push(...await accessNotices(tx, next.canal, prev.permisos, next.permisos));
+    }
+    return { result, before, after, notices };
   }, missing, async (saved) => {
     publishAccessDiff(saved.before, saved.after);
+    publishNotices(saved.notices);
     await afterCommit?.(saved.result);
   });
   return saved.result;
@@ -163,13 +176,26 @@ export function publishChannelChange(canal, before, after, event = EVENTS.CHANNE
     emitToUser(idUsuario, event, { canal: toChannel(canal, permisos) });
   }
   notifyAccessChanges(channelChanges(canal, before, after));
+  emitToCommunity(canal.idComunidad, 'channels:catalog-changed', {idComunidad:canal.idComunidad});
+}
+
+export function channelPermissions(tipo, values) {
+  const allowed = CHANNEL_PERMISSIONS[tipo] ?? [];
+  if (values.some(p => !allowed.includes(p))) throw new AppError(400, 'INVALID_CHANNEL_PERMISSIONS', 'Algún permiso no corresponde al tipo de canal');
+  const result = new Set(values);
+  result.add('VER');
+  return allowed.filter(p=>result.has(p));
 }
 
 export async function createChannel(idComunidad, idUsuario, datos) {
   const saved = await withCommunityChannelsLock(idComunidad, async (tx) => {
-    const { rol } = await requireRole(idComunidad, idUsuario, 'ADMIN', tx);
+    const actor=await requireCommunityPermission(idComunidad,idUsuario,'GESTIONAR_CANALES',tx);
+    const {rol}=actor;
     const last = await tx.canal.aggregate({ where: { idComunidad }, _max: { posicion: true } });
-    const canal = await tx.canal.create({ data: { idComunidad, ...datos, posicion: (last._max.posicion ?? -1) + 1 }, select: channelSelect });
+    const defaults = datos.tipo === 'TEXTO' ? ['VER','ESCRIBIR'] : ['VER','HABLAR'];
+    const permisosGlobales = channelPermissions(datos.tipo, datos.privado ? [] : datos.permisosGlobales ?? defaults);
+    if(!canAdminister(rol)&&permisosGlobales.some(p=>!['VER','ESCRIBIR','HABLAR'].includes(p)&&!actor.permisos.includes(p)))throw new AppError(403,'ROLE_PRIVILEGE_ESCALATION','No podés otorgar permisos que no tenés');
+    const canal = await tx.canal.create({ data: { idComunidad, ...datos, permisosGlobales, posicion: (last._max.posicion ?? -1) + 1 }, select: channelSelect });
     return { canal, rol, after: audience(canal, await getChannelMembers(tx, idComunidad)) };
   }, undefined, (saved) => publishChannelChange(saved.canal, new Map(), saved.after, EVENTS.CHANNEL_CREATED));
   return toChannel(saved.canal, saved.after.get(idUsuario) ?? []);
@@ -181,12 +207,15 @@ export async function mutateChannel(idCanal, idUsuario, operation, afterCommit) 
   return withCommunityChannelsLock(original.idComunidad, async (tx) => {
     const context = await requireChannel(tx, idCanal, idUsuario, true);
     const miembros = await getChannelMembers(tx, original.idComunidad);
-    return operation(tx, context, miembros);
-  }, notFound, afterCommit);
+    const result = await operation(tx, context, miembros);
+    if (result?.before && result?.after) result.notices = await accessNotices(tx, result.canal, result.before, result.after);
+    return result;
+  }, notFound, async (result) => { publishNotices(result?.notices); await afterCommit?.(result); });
 }
 
 export async function updateChannel(idCanal, idUsuario, cambios) {
   const saved = await mutateChannel(idCanal, idUsuario, async (tx, { canal: previous, rol }, miembros) => {
+    if ('privado' in cambios || 'tipo' in cambios) throw new AppError(400,'CHANNEL_TYPE_IMMUTABLE','El tipo y la privacidad del canal se definen al crearlo');
     const canal = await tx.canal.update({ where: { id: idCanal }, data: cambios, select: channelSelect });
     return { canal, rol, before: audience(previous, miembros), after: audience(canal, miembros) };
   }, (saved) => publishChannelChange(saved.canal, saved.before, saved.after));
@@ -200,6 +229,7 @@ export async function deleteChannel(idCanal, idUsuario) {
     return { canal, before };
   }, (saved) => {
     closeChannel(idCanal);
+    emitToCommunity(saved.canal.idComunidad, 'channels:catalog-changed', {idComunidad:saved.canal.idComunidad});
     notifyAccessChanges(channelChanges(saved.canal, saved.before, new Map()));
     for (const [id, permisos] of saved.before) if (permisos.includes('VER')) {
       emitToUser(id, EVENTS.CHANNEL_DELETED, { idComunidad: saved.canal.idComunidad, idCanal });
@@ -209,7 +239,7 @@ export async function deleteChannel(idCanal, idUsuario) {
 
 export async function reorderChannels(idComunidad, idUsuario, orden) {
   await withCommunityChannelsLock(idComunidad, async (tx) => {
-    await requireRole(idComunidad, idUsuario, 'ADMIN', tx);
+    await requireCommunityPermission(idComunidad,idUsuario,'GESTIONAR_CANALES',tx);
     const canales = await tx.canal.findMany({ where: { idComunidad }, select: channelSelect });
     const ids = new Set(canales.map((c) => c.id));
     if (new Set(orden).size !== orden.length || orden.length !== ids.size || orden.some((id) => !ids.has(id))) {

@@ -67,7 +67,7 @@ try {
   assert.equal((await request(`/channels/${hidden.id}`, { as: b })).status, 404);
   assert.equal((await request(path, { method: 'POST', as: b, body: { nombre: 'no', tipo: 'TEXTO' } })).status, 403);
   const memberList = await request(path, { as: b });
-  assert.equal(memberList.status, 200); assert(!memberList.data.items.some((i) => i.id === hidden.id));
+  assert.equal(memberList.status, 200); assert.equal(memberList.data.items.find(i=>i.id===hidden.id).bloqueado,true);
   assert.deepEqual(memberList.data.items.find((i) => i.id === voice.id).misPermisos, ['VER', 'HABLAR']);
   assert.equal((await request(`/channels/${visible.id}`, { method: 'PATCH', as: a, body: { nombre: 'actualizado' } })).status, 200);
   assert.equal((await request(`/channels/${visible.id}`, { as: a })).data.canal.nombre, 'actualizado');
@@ -102,7 +102,7 @@ try {
   assert(!recorded[2].find((e) => e.event === 'channels:reordered').data.orden.includes(hidden.id));
   assert.deepEqual(recorded[3], []);
   recorded.forEach((r) => r.splice(0));
-  await request(`/channels/${visible.id}`, { method: 'PATCH', as: a, body: { privado: true } });
+  await request(`/channels/${visible.id}/members/${b.id}/kick`, { method: 'POST', as: a, body: {} });
   await Promise.all(clients.map(ready));
   assert(recorded[2].some((e) => e.event === 'channel:access-lost' && e.data.idCanal === visible.id));
   assert.equal((await request(`/channels/${visible.id}`, { as: b })).status, 404);

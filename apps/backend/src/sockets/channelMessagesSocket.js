@@ -1,3 +1,4 @@
+import {interactionSchema,interactMessage} from '../services/messageInteractionsService.js';
 import { requireSocketUser } from './authenticate.js';
 import { AppError } from '../utils/AppError.js';
 import { requireMessageQuota } from '../utils/rateLimit.js';
@@ -9,6 +10,7 @@ export function registerChannelMessageHandlers(socket, ready) {
   for (const [event, schema, operation] of [
     [EVENTS.CHANNEL_MESSAGE_SEND, sendChannelMessageSchema, service.sendChannelMessage],
     [EVENTS.CHANNEL_MESSAGE_EDIT, editChannelMessageSchema, service.editChannelMessage],
+    [EVENTS.CHANNEL_MESSAGE_INTERACT, interactionSchema, (actor,data,authorize)=>interactMessage(actor,data,'canal',authorize)],
     [EVENTS.CHANNEL_MESSAGE_DELETE, deleteChannelMessageSchema, service.deleteChannelMessage],
   ]) socket.on(event, async (payload, ack) => {
     const reply = typeof ack === 'function' ? ack : () => {};

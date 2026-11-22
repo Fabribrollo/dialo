@@ -32,13 +32,7 @@ export default function CommunityDashboard({ comunidad }) {
         {channels.loading && <span className="cd-state" role="status"><Spinner size={15} />Cargando canales…</span>}
         {channels.error && <Notice tone="error" title="No se pudieron cargar los canales." actionLabel="Reintentar canales" onAction={channels.reload} />}
         {!channels.loading && !channels.error && !channels.items.length && <span className="cd-state">No hay canales disponibles para tu cuenta.</span>}
-        {channels.items.slice(0, 8).map((canal) => (
-          <Link key={canal.id} to={`${base}/canales/${canal.id}`} className="li cd-channel">
-            <span className="cd-ch-ic">{canal.tipo === 'TEXTO' ? <Icon name="canalTexto" size={16} stroke={2.1} /> : <Icon name="canalVoz" size={17} stroke={2} />}</span>
-            <span className="cd-ch-name">{canal.nombre}</span>
-            <span className="cd-ch-priv">{canal.privado ? <><Icon name="privado" size={13} stroke={2} />Privada</> : <><Icon name="publica" size={13} stroke={2} />Pública</>}</span>
-          </Link>
-        ))}
+        {!channels.loading&&!channels.error&&channels.items.length>0&&<div className="cd-mem-row"><span className="cd-stack cd-channel-icons" aria-hidden="true">{['TEXTO','VOZ'].filter(tipo=>channels.items.some(c=>tipo==='VOZ'?c.tipo!=='TEXTO':c.tipo==='TEXTO')).map(tipo=><span className="av" key={tipo}><Icon name={tipo==='TEXTO'?'canalTexto':'canalVoz'} size={20}/></span>)}</span><span className="cd-mem-count"><span className="dsp">{channels.items.length}</span><span>canales · {channels.items.filter(c=>c.tipo==='TEXTO').length} de texto y {channels.items.filter(c=>c.tipo!=='TEXTO').length} de voz</span></span></div>}
       </Card>
         <Card className="cd-card cd-members cd-mem">
           <div className="cd-head"><h2>Integrantes</h2><Link className="lnk lnk-primario cd-link" to={`${base}/integrantes`} aria-label="Ver integrantes">Ver integrantes</Link></div>

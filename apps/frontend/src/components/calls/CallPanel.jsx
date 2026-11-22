@@ -1,3 +1,4 @@
+import {useCallScene} from '../../context/CallOriginContext.jsx';
 import { useCall } from '../../hooks/useCall.js';
 import { useCallParticipants } from '../../hooks/useCallParticipants.js';
 import { useCallTime } from '../../hooks/useCallTime.js';
@@ -40,6 +41,7 @@ function personasConectadas(n) {
   return n === 1 ? 'Hay 1 persona conectada.' : `Hay ${n} personas conectadas.`;
 }
 
+
 export function MicrophoneButton({ call, dark = false }) {
   return (
     <button type="button" className={`ib pr call-ctl ${dark ? 'call-ctl-dk' : 'lg'} ${call.microfono ? '' : 'call-ctl-off'}`} disabled={call.estado !== 'CONECTADO'} onClick={call.alternarMicrofono}
@@ -67,7 +69,7 @@ export function ScreenButton({ call, dark = false }) {
   );
 }
 
-function CallPill({ call, canal, puedeHablar, puedeTransmitir }) {
+function CallPill({ call, canal, puedeHablar, puedeCamara, puedePantalla }) {
   const tiempo = useCallTime(call.desde);
   const [ref, filtro] = useRefraction({ scale: 26, backdrop: 'blur(6px) saturate(1.6)' });
   return (
@@ -77,8 +79,8 @@ function CallPill({ call, canal, puedeHablar, puedeTransmitir }) {
         <span>{canal.nombre}{tiempo && ` · ${tiempo}`}</span>
       </span>
       {puedeHablar && <MicrophoneButton call={call} dark />}
-      {puedeTransmitir && <CameraButton call={call} dark />}
-      {puedeTransmitir && call.puedeCompartirPantalla && <ScreenButton call={call} dark />}
+      {puedeCamara && <CameraButton call={call} dark />}
+      {puedePantalla && call.puedeCompartirPantalla && <ScreenButton call={call} dark />}
       <span className="call-pill-sep" />
       <button type="button" className="pr call-leave" disabled={call.estado === 'SALIENDO'} aria-label="Salir de la llamada" onClick={call.salir}>
         <Icon name="cerrarSesion" size={17} stroke={2.2} />Salir
@@ -113,8 +115,10 @@ export default function CallPanel({ canal }) {
   const enEste = call.canal?.id === canal.id;
   const estado = enEste ? call.estado : 'DESCONECTADO';
   const enLlamada = ['CONECTANDO', 'CONECTADO', 'RECONECTANDO', 'SALIENDO'].includes(estado);
+  useCallScene(`/comunidades/${canal.idComunidad}/canales/${canal.id}`,enLlamada);
   const puedeHablar = canal.misPermisos.includes('HABLAR') && call.misPermisos.includes('HABLAR');
-  const puedeTransmitir = canal.misPermisos.includes('TRANSMITIR') && call.misPermisos.includes('TRANSMITIR');
+  const allowed=p=>(canal.misPermisos.includes(p)||canal.misPermisos.includes('TRANSMITIR'))&&(call.misPermisos.includes(p)||call.misPermisos.includes('TRANSMITIR'));
+  const puedeCamara=allowed('CAMARA'),puedePantalla=allowed('PANTALLA');
   const otraLlamada = call.canal && !enEste && call.estado !== 'ERROR' ? call.canal : null;
   const personas = unirParticipantes(participantes.items, enEste && estado === 'CONECTADO' ? call.participantes : []);
   const hablando = personas.find((p) => p.hablando);
@@ -165,14 +169,14 @@ export default function CallPanel({ canal }) {
 
       <div className="call-notices">
         {!canal.misPermisos.includes('HABLAR') && <Notice tone="conflicto" title="Podés escuchar y ver, pero no hablar">En este canal no tenés permiso para usar el micrófono.</Notice>}
-        {puedeTransmitir && !call.puedeCompartirPantalla && <Notice tone="conflicto" title="Este navegador no permite compartir pantalla">Probá desde Chrome, Edge, Firefox o Safari en una compu.</Notice>}
+        {puedePantalla && !call.puedeCompartirPantalla && <Notice tone="conflicto" title="Este navegador no permite compartir pantalla">Probá desde Chrome, Edge, Firefox o Safari en una compu.</Notice>}
         {dispositivo && <Notice tone="error" title={dispositivo[0]} actionLabel="Reintentar" onAction={call[dispositivo[1]]}>{call.error.message}</Notice>}
         {enEste && call.audioBloqueado && <Notice tone="espera" title="El navegador frenó el audio" actionLabel="Activar audio" onAction={call.activarAudio}>Tocá para escuchar a los demás.</Notice>}
         {participantes.error && <Notice tone="error" title={participantes.error} />}
       </div>
 
       <CallStage personas={personas} onStopShare={call.alternarPantalla} />
-      <CallPill call={call} canal={canal} puedeHablar={puedeHablar} puedeTransmitir={puedeTransmitir} />
+      <CallPill call={call} canal={canal} puedeHablar={puedeHablar} puedeCamara={puedeCamara} puedePantalla={puedePantalla} />
     </section>
   );
 }

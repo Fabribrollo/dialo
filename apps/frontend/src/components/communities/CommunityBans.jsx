@@ -11,22 +11,23 @@ import { banCommunityMember, getCommunityBans, removeCommunityBan } from '../../
 import CommunityRoleFormDialog from './CommunityRoleFormDialog.jsx';
 
 const rank = { INTEGRANTE: 1, MODERADOR: 2, ADMIN: 3, PROPIETARIO: 4 };
-export const canManageBans = (actor) => rank[actor] >= rank.MODERADOR;
-export const canBanMember = (actor, userId, member) =>
-  canManageBans(actor) && !!member && member.usuario.id !== userId && rank[actor] > rank[member.rol];
+export const canManageBans = (actor,permissions=[]) => ['ADMIN','PROPIETARIO'].includes(actor);
+export const canBanMember = (actor, userId, member,permissions=[]) =>
+  canManageBans(actor,permissions) && !!member && member.usuario.id !== userId && member.rol!=='PROPIETARIO'&&(member.rol!=='ADMIN'||actor==='PROPIETARIO');
 
-export function BanMemberDialog({ id, actor, userId, original, member, list, onClose, returnFocusRef, fallbackFocusRef }) {
-  const [reason, setReason] = useState('');
-  const blocked = list.error || !canBanMember(actor, userId, member) ? 'Ya no podés banear a este integrante.' : '';
+export function BanMemberDialog({ id, actor, permissions=[], userId, original, member, list, onClose, returnFocusRef, fallbackFocusRef }) {
+  const [reason, setReason] = useState(''),[duration,setDuration]=useState('PERMANENTE');
+  const blocked = list.error || !canBanMember(actor, userId, member,permissions) ? 'Ya no podés banear a este integrante.' : '';
   return <CommunityRoleFormDialog title={`Banear a ${original.usuario.nombreVisible}`} confirmLabel="Confirmar baneo" destructive
     blocked={blocked} onClose={onClose} returnFocusRef={returnFocusRef} fallbackFocusRef={fallbackFocusRef}
     onSave={async () => {
-      await banCommunityMember(id, original.usuario.id, reason.trim());
+      await banCommunityMember(id, original.usuario.id, reason.trim(),duration);
       list.mutate((items) => items.filter(({ usuario }) => usuario.id !== original.usuario.id));
       list.reload();
       return 'El integrante fue baneado.';
     }}>
     <p>Perderá el acceso a la comunidad y no podrá volver por invitación hasta que levantes el baneo.</p>
+    <Field as="select" label="Duración del baneo" value={duration} onChange={e=>setDuration(e.target.value)}><option value="30_MIN">30 minutos</option><option value="5_HORAS">5 horas</option><option value="PERMANENTE">Permanente</option></Field>
     <Field as="textarea" label="Motivo (opcional)" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
   </CommunityRoleFormDialog>;
 }
@@ -52,7 +53,7 @@ export default function CommunityBans({ id }) {
       {bans.items.length > 0 && <Card as="ul">{bans.items.map((ban) => <ListRow as="li" key={ban.usuario.id}>
         <RowText title={ban.usuario.nombreVisible}>
           @{ban.usuario.nombreUsuario} · {new Date(ban.fechaCreacion).toLocaleDateString('es-AR')} · {ban.autor?.nombreVisible ?? 'Autor no disponible'}
-          {ban.motivo && <span className="cb-reason">Motivo: {ban.motivo}</span>}
+          <span className="li-sub">{ban.fechaVencimiento?`Hasta ${new Date(ban.fechaVencimiento).toLocaleString('es-AR')}`:'Permanente'}</span>{ban.motivo && <span className="cb-reason">Motivo: {ban.motivo}</span>}
         </RowText>
         {!bans.error && <Button size="sm" variant="secundario" aria-label={`Levantar baneo de ${ban.usuario.nombreVisible}`} onClick={(e) => {
           trigger.current = e.currentTarget; setTarget(ban); setNotice('');

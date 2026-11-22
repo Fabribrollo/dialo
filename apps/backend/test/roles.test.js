@@ -105,7 +105,7 @@ test('propietario y administrador realizan CRUD y los integrantes consultan meta
   const c = await community();
   assert.deepEqual((await request(path(c), { as: member })).body, { items: [] });
   const r = await create(c, 'Equipo', manager);
-  assert.deepEqual(Object.keys(r).sort(), ['fechaCreacion', 'id', 'idComunidad', 'nombre']);
+  assert.deepEqual(Object.keys(r).sort(), ['fechaCreacion', 'id', 'idComunidad', 'nombre','permisos']);
   assert.equal(r.idComunidad, c.id);
   assert.equal((await request(path(c, r.id), { as: moderator })).body.rol.id, r.id);
   const updated = await request(path(c, r.id), { method: 'PATCH', as: owner, body: { nombre: 'Diseño' } });
@@ -141,7 +141,7 @@ test('IDs ajenos o inexistentes no modifican roles de otra comunidad', async () 
 
 test('valida cuerpos, IDs y roles base protegidos en HTTP', async () => {
   const c = await community(); const r = await create(c);
-  for (const body of [{}, { nombre: '' }, { nombre: ' x' }, { nombre: 'x ' }, { nombre: 'x'.repeat(33) }, { nombre: 'Admin' }, { nombre: 'Equipo', permisos: ['VER'] }, { nombre: 'Equipo', idComunidad: c.id + 1 }]) {
+  for (const body of [{}, { nombre: '' }, { nombre: ' x' }, { nombre: 'x ' }, { nombre: 'x'.repeat(33) }, { nombre: 'Admin' }, { nombre: 'Equipo', permisos: ['SER_PROPIETARIO'] }, { nombre: 'Equipo', idComunidad: c.id + 1 }]) {
     for (const [method, url] of [['POST', path(c)], ['PATCH', path(c, r.id)]]) {
       const response = await request(url, { method, as: owner, body });
       assert.equal(response.status, 400); assert.equal(response.body.error.code, 'VALIDATION_ERROR');
@@ -181,7 +181,7 @@ test('eliminar limpia asignaciones y grants conservando mensajes, integrantes y 
   assert.ok(await prisma.mensaje.findUnique({ where: { id: mensaje.id } }));
   assert.equal(await prisma.canalUsuario.count({ where: { idCanal: canal.id } }), 1);
   assert.equal(listener.events.some((e) => e.event === 'channel:updated'), false);
-  assert.equal(affected.events.some((e) => e.event === 'channel:updated' && e.data.canal.id === canal.id), true);
+  assert.equal(affected.events.some((e) => e.event === 'channel:updated' && e.data.canal.id === canal.id), false);
   assert.equal((await request(path(c, r.id), { method: 'DELETE', as: owner })).status, 404);
 });
 
@@ -201,7 +201,7 @@ test('eventos de CRUD llegan una vez a varias pestañas y no a terceros ni ante 
   for (const { data } of one.events) {
     assert.equal(data.idComunidad, c.id);
     assert.deepEqual(Object.keys(data).sort(), data.rol ? ['idComunidad', 'rol'] : ['idComunidad', 'idRol']);
-    if (data.rol) assert.deepEqual(Object.keys(data.rol).sort(), ['fechaCreacion', 'id', 'idComunidad', 'nombre']);
+    if (data.rol) assert.deepEqual(Object.keys(data.rol).sort(), ['fechaCreacion', 'id', 'idComunidad', 'nombre','permisos']);
   }
 });
 

@@ -15,7 +15,7 @@ export default function ChannelRail({ items, base, selectedId }) {
             {index >= 0 && <span className="lens lg dk chr-lens" style={{ transform: `translateX(${index * 104}px)` }} />}
             {textos.map((c) => (
               <Link key={c.id} to={`${base}/${c.id}`} className={`seg chr-seg ${c.id === selectedId ? 'chr-on' : ''}`} aria-label={`Texto ${c.nombre}`} aria-current={c.id === selectedId ? 'page' : undefined}>
-                <span className="chr-hash">#</span>{c.nombre}
+                <span className="chr-hash">{c.bloqueado?<Icon name="privado" size={13}/>:"#"}</span>{c.nombre}
               </Link>
             ))}
           </div>

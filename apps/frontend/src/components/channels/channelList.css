@@ -31,7 +31,7 @@
 .chd-title { display: flex; flex-direction: column; gap: 4px; }
 .chd-sub { font-size: 13.5px; font-weight: 500; color: rgba(19, 19, 22, .64); }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width:1023px) and (max-height:550px) {
   .shell-chat .cn-head, .shell-chat .cn-tabs, .shell-chat .chr { display: none; }
   .shell-chat .cn-body { padding: 0; }
   .shell-chat .chd-head { position: relative; z-index: 25; padding: 56px 14px 12px; background: rgba(249, 249, 251, .8); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); flex-wrap: nowrap; }

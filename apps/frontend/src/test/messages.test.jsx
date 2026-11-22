@@ -121,3 +121,9 @@ it("limpia exactamente sus listeners al desmontarse", async () => {
   unmount();
   expect([...listeners.values()].every((s) => !s.size)).toBe(true);
 });
+
+it('integra adjuntos confirmados sin volver a cargar el historial y deduplica el socket',async()=>{
+ const {result}=renderHook(()=>useMessages(3));await waitFor(()=>expect(result.current.loading).toBe(false));const count=getMessages.mock.calls.length;
+ act(()=>result.current.acceptMessages([m(8),m(9,{idConversacion:99})]));fire('message:new',{mensaje:m(8)});expect(result.current.messages.filter(x=>x.id===8)).toHaveLength(1);expect(result.current.messages.some(x=>x.id===9)).toBe(false);expect(getMessages).toHaveBeenCalledTimes(count);
+ fire('message:deleted',{idConversacion:3,idMensaje:8});act(()=>result.current.acceptMessages([m(8)]));expect(result.current.messages.find(x=>x.id===8).eliminado).toBe(true);
+});

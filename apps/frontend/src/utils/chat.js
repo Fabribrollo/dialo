@@ -27,6 +27,7 @@ export function mergeMessages(current, incoming) {
     byId.set(message.id, {
       ...old,
       ...message,
+      ...((old?.fechaEntrega||message.fechaEntrega)&&{fechaEntrega:message.fechaEntrega??old.fechaEntrega}),...((old?.fechaLectura||message.fechaLectura)&&{fechaLectura:message.fechaLectura??old.fechaLectura}),
       ...(message.eliminado && { contenido: null }),
     });
   }

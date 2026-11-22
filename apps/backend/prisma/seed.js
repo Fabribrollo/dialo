@@ -47,41 +47,44 @@ async function crearComunidadPrivada(u) {
             create: [
               { idUsuario: u.ana, rol: "PROPIETARIO" },
               { idUsuario: u.beto, rol: "ADMIN" },
-              { idUsuario: u.carla, rol: "MODERADOR" },
+              { idUsuario: u.carla, rol: "INTEGRANTE" },
               { idUsuario: u.dario, rol: "INTEGRANTE" },
               { idUsuario: u.eva, rol: "INTEGRANTE" },
             ],
           },
         },
       });
+      const equipoGestion=await tx.rolPersonalizado.create({data:{idComunidad:comunidad.id,nombre:'Gestión de comunidad',permisos:['GESTIONAR_INVITACIONES','BANEAR','EXPULSAR','ELIMINAR_MENSAJES']}});
+      await tx.membresiaRol.create({data:{idComunidad:comunidad.id,idUsuario:u.carla,idRol:equipoGestion.id}});
       const crearCanal = (datos) =>
-        tx.canal.create({ data: { idComunidad: comunidad.id, ...datos } });
+        tx.canal.create({ data: { idComunidad: comunidad.id, permisosGlobales:datos.privado?[]:datos.tipo==='VOZ'?['VER','HABLAR']:['VER','ESCRIBIR'], ...datos } });
 
       // Publico: todos ven y escriben.
       const general = await crearCanal({ nombre: "general", posicion: 0 });
 
-      // Solo lectura para integrantes; los moderadores escriben.
+      // Privado con permisos individuales definidos por administración.
       const anuncios = await crearCanal({
         nombre: "anuncios",
         posicion: 1,
         privado: true,
-        habilitacionesRol: {
-          create: [
-            { rol: "INTEGRANTE", permisos: ["VER"] },
-            { rol: "MODERADOR", permisos: ["VER", "ESCRIBIR"] },
-          ],
-        },
+
       });
 
-      // Solo moderadores (y admin/propietario, que siempre tienen acceso).
-      await crearCanal({
+      await tx.canalUsuario.createMany({data:[
+        {idCanal:anuncios.id,idComunidad:comunidad.id,idUsuario:u.dario,permisos:['VER','ESCRIBIR']},
+        {idCanal:anuncios.id,idComunidad:comunidad.id,idUsuario:u.eva,permisos:['VER']},
+        {idCanal:anuncios.id,idComunidad:comunidad.id,idUsuario:u.carla,permisos:['VER','ESCRIBIR']},
+      ]});
+
+      // Privado habilitado a Carla (admin/propietario siempre tienen acceso).
+      const moderacion = await crearCanal({
         nombre: "moderacion",
         posicion: 2,
         privado: true,
-        habilitacionesRol: {
-          create: [{ rol: "MODERADOR", permisos: ["VER", "ESCRIBIR"] }],
-        },
+
       });
+
+      await tx.canalUsuario.create({data:{idCanal:moderacion.id,idComunidad:comunidad.id,idUsuario:u.carla,permisos:['VER','ESCRIBIR']}});
 
       // Privado con un integrante habilitado por usuario: Dario entra, Eva no.
       const proyecto = await crearCanal({
@@ -98,9 +101,9 @@ async function crearComunidadPrivada(u) {
         },
       });
 
-      // Roles personalizados: Eva entra a proyecto por su rol y Dario escribe en anuncios.
+      // Ejemplos de roles con capacidades y habilitaciones por canal.
       const equipo = await tx.rolPersonalizado.create({
-        data: { idComunidad: comunidad.id, nombre: "Equipo de proyecto" },
+        data: { idComunidad: comunidad.id, nombre: "Equipo de proyecto",permisos:["VER","ESCRIBIR"] },
       });
       const anunciantes = await tx.rolPersonalizado.create({
         data: { idComunidad: comunidad.id, nombre: "Anunciantes" },
@@ -115,22 +118,7 @@ async function crearComunidadPrivada(u) {
           },
         ],
       });
-      await tx.canalRolPersonalizado.createMany({
-        data: [
-          {
-            idCanal: proyecto.id,
-            idComunidad: comunidad.id,
-            idRol: equipo.id,
-            permisos: ["VER", "ESCRIBIR"],
-          },
-          {
-            idCanal: anuncios.id,
-            idComunidad: comunidad.id,
-            idRol: anunciantes.id,
-            permisos: ["VER", "ESCRIBIR"],
-          },
-        ],
-      });
+      await tx.canalRolPersonalizado.create({data:{idCanal:proyecto.id,idComunidad:comunidad.id,idRol:equipo.id,permisos:['VER','ESCRIBIR']}});
 
       // Voz: se configura, pero las llamadas son de F-10.
       await crearCanal({ nombre: "charla", tipo: "VOZ", posicion: 4 });

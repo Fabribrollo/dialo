@@ -15,7 +15,7 @@ Guía de la implementación integrada hasta T-27. Los contratos del servidor est
 | `/comunidades/:id` | Resumen con canales autorizados, integrantes y acciones según rol |
 | `/comunidades/:id/editar` | Editar comunidad |
 | `/comunidades/:id/integrantes` | Lista de integrantes |
-| `/comunidades/:id/invitaciones` | Administración de invitaciones para MODERADOR o superior |
+| `/comunidades/:id/invitaciones` | Invitaciones con GESTIONAR_INVITACIONES o administración |
 | `/comunidades/:id/canales` | Catálogo de canales |
 | `/comunidades/:id/canales/nuevo` | Crear canal para ADMIN/PROPIETARIO; `nuevo` se interpreta dentro de la ruta `:canalId` |
 | `/comunidades/:id/canales/:canalId` | Chat de texto o detalle de voz/video y administración autorizada |
@@ -83,7 +83,7 @@ Tipos ofrecidos: Texto y Voz. Un canal `VIDEO` creado antes (o por API) se etiqu
 
 Eliminar exige confirmación. Crear/editar bloquean envíos repetidos y conservan borradores ante error. El tipo se elige solo al crear; al editar se muestra fijo ("El tipo no se puede cambiar después de crearlo.").
 
-El formulario Permisos consulta `/channels/:id/access` y la lista de integrantes solo al abrirlo. Permite canal privado, habilitaciones MODERADOR/INTEGRANTE y usuarios individuales. Escribir/Hablar/Transmitir implica Ver; quitar una habilitación no deniega lo concedido por otra vía. Los públicos conservan sus defaults; para solo lectura se configura privado y Ver. ADMIN/PROPIETARIO conservan todos los permisos aplicables.
+El formulario Permisos consulta acceso, catálogo de roles e integrantes al abrir. Muestra globales en públicos y excepciones por rol/persona en ambos tipos. La excepción individual reemplaza la herencia, incluso vacía. No permite cambiar la privacidad. Ver [modelo granular](roles-permisos.md).
 
 El guardado reemplaza la configuración completa y admite hasta 50 entradas. Los permisos de otro tipo se conservan configurados aunque no sean efectivos. No se asignan roles ni moderación desde este formulario.
 
@@ -96,7 +96,7 @@ Los borradores administrativos se marcan obsoletos ante cambios del canal, desco
 `useChannelMessages` registra handlers antes de suscribir y pide el historial después del ack de `channel:subscribe`. Combina HTTP, ack y eventos por ID, incluyendo versiones de edición y marcas de eliminación que impiden recuperar contenido borrado. Las suscripciones/bajas de una misma room se serializan para contemplar A → B → A.
 
 - Historial T-25 y eventos T-26 con múltiples autores, identidad pública, fechas y distinción entre borrado propio/moderado.
-- Enviar y editar propios requieren `ESCRIBIR`; eliminar propios también. Eliminar ajenos exige `VER`, rol MODERADOR o superior y jerarquía estrictamente mayor a la del autor actual. Si el autor abandonó, su rango es cero. No se ofrece editar mensajes ajenos.
+- Enviar/editar/eliminar propios requiere ESCRIBIR. Eliminar ajenos exige VER y ELIMINAR_MENSAJES, protegiendo propietario y administradores. No se permite editar ajenos.
 - Borradores por canal en memoria; cambiar de canal o fallar el envío los conserva. Salir de la pantalla, recargar o cerrar sesión los elimina. No se guardan en almacenamiento persistente.
 - Enter, Shift+Enter y composición de teclado contemplados. Un ack no borra texto nuevo escrito mientras se esperaba.
 - Generaciones invalidan HTTP/acks de un canal anterior. Reconexión, foco, permisos, membresía y eventos de perfil revalidan y recuperan la última página. Se descarta la ventana antigua y se pueden volver a cargar anteriores, sin suponer un máximo de eventos perdidos.
@@ -133,17 +133,17 @@ El chat usa la altura disponible y desplaza el historial separado del compositor
 
 ## Cámara (F-10/T-38)
 
-- `alternarCamara()` publica o apaga la cámara solo si los permisos de la llamada incluyen TRANSMITIR; el micrófono se controla aparte y no cambia. El botón aparece en el panel y en la barra solo con TRANSMITIR vigente.
+- `alternarCamara()` publica o apaga la cámara solo si tiene CAMARA (o el alias histórico TRANSMITIR); el micrófono se controla aparte y no cambia. El botón aparece en el panel y en la barra solo con CAMARA vigente.
 - Apagarla (o salir) detiene la captura: LiveKit para el track de cámara al silenciarlo y al desconectar, y se apaga la luz del dispositivo.
 - Permiso denegado, cámara ausente u ocupada, o un `MediaDevicesError` de LiveKit (por ejemplo, la cámara se desconecta) dejan un `error` de cámara y la llamada y el audio siguen.
 - Cada participante expone `video`: el track de cámara si está encendida y no silenciada. `VideoGrid` aparece cuando al menos uno tiene video y muestra una tarjeta por participante con nombre, "(vos)" y "sin cámara". La propia se ve espejada.
 - Los `<video>` van siempre `muted`: el audio se reproduce una sola vez desde el contenedor oculto del provider. El contexto no adjunta ni quita tracks de video; cada tarjeta hace `attach` al montarse y `detach` al desmontarse o cambiar de track.
-- Sin TRANSMITIR se recibe el video de los demás (alcanza VER), pero no se puede publicar: el token no incluye la fuente cámara.
+- Sin CAMARA se recibe el video de los demás (alcanza VER), pero no se puede publicar: el token no incluye la fuente cámara.
 - La grilla usa `auto-fit` con mínimo de 220 px y relación 16:9, así que en móvil queda una columna y se reacomoda al entrar o salir gente.
 
 ## Compartir pantalla (F-10/T-39)
 
-- `alternarPantalla()` exige TRANSMITIR en los permisos de la llamada y llama a `setScreenShareEnabled(true, { audio: true })` desde el clic, que abre el selector del navegador. El backend también lo controla: el token solo incluye las fuentes de pantalla con TRANSMITIR, así que un cliente alterado no puede publicarla.
+- `alternarPantalla()` exige PANTALLA en los permisos de la llamada y llama a `setScreenShareEnabled(true, { audio: true })` desde el clic, que abre el selector del navegador. El backend también lo controla: el token solo incluye las fuentes de pantalla con PANTALLA, así que un cliente alterado no puede publicarla.
 - La pantalla es una fuente aparte de la cámara: se pueden tener las dos, y micrófono y cámara siguen con sus propios botones. En la grilla, la pantalla ocupa el ancho completo arriba, sin recortar, con la etiqueta "Pantalla de …". En la lista aparece "Compartiendo pantalla".
 - Detener: desde el botón del panel, desde la barra ("Dejar de compartir", visible solo mientras se comparte) o desde el aviso del navegador. En ese último caso LiveKit despublica el track al terminar y el estado se actualiza con `LocalTrackUnpublished`; los demás reciben `TrackUnpublished`.
 - Cancelar el selector (`NotAllowedError` sin "system") no muestra error ni transmisión. Un bloqueo del sistema operativo, la falta de pantallas o cualquier otra falla deja un `error` de pantalla y la llamada sigue.
@@ -169,8 +169,8 @@ Requiere las claves de LiveKit en `apps/backend/.env` (`GET /api/media/health` e
 4. Activar micrófono en dos cuentas y hablar por turnos: "Hablando" sigue a quien habla, no a quien tiene el micrófono abierto. Silenciar muestra "Silenciado" en los demás.
 5. Navegar a Amigos durante la llamada: la barra sigue visible, el audio no se corta y "Volver al canal" regresa.
 6. Salir desde la barra: los demás ven la salida sin recargar. Cerrar la pestaña de otro participante: desaparece al llegar el webhook.
-7. Con TRANSMITIR, encender y apagar la cámara: los demás la ven aparecer y desaparecer sin recargar y la luz se apaga. Una cuenta sin TRANSMITIR ve el video pero no tiene botón de cámara. Abrir la cámara en otra app y encenderla en Dialo: aparece el error y el audio sigue.
-8. Con TRANSMITIR, compartir pantalla: los demás la ven sin recargar y figura "Compartiendo pantalla". Cancelar el selector no cambia nada. Detener desde el aviso del navegador y desde la barra estando en otra página: los receptores dejan de verla. Probar desde un celular: aparece la explicación.
+7. Con CAMARA, encender y apagar la cámara: los demás la ven aparecer y desaparecer sin recargar y la luz se apaga. Una cuenta sin CAMARA ve el video pero no tiene botón de cámara. Abrir la cámara en otra app y encenderla en Dialo: aparece el error y el audio sigue.
+8. Con PANTALLA, compartir pantalla: los demás la ven sin recargar y figura "Compartiendo pantalla". Cancelar el selector no cambia nada. Detener desde el aviso del navegador y desde la barra estando en otra página: los receptores dejan de verla. Probar desde un celular: aparece la explicación.
 9. Denegar el micrófono en el navegador: aparece el error y la llamada sigue. Cortar la red unos segundos: "Reconectando…" y vuelta a "Estás en la llamada."
 10. Repetir con teclado y a 360 px de ancho, con tres cámaras encendidas y una pantalla compartida.
 
@@ -213,20 +213,19 @@ La latencia de mensajes observada en la instancia del equipo sigue pendiente de 
 
 Desde una comunidad, **Roles** muestra los roles base protegidos y el catálogo personalizado. Propietario y administradores pueden crear, renombrar o eliminar roles personalizados. La confirmación de borrado explica que se revocan sus asignaciones y habilitaciones por canal, sin expulsar integrantes.
 
-En **Integrantes**, cada persona muestra su rol base y sus roles personalizados. **Editar roles** aparece únicamente para integrantes de menor jerarquía y nunca para la cuenta propia. El propietario puede otorgar Administrador; un administrador puede otorgar Moderador o Integrante. El formulario permite seleccionar varios roles personalizados o quitar todos. El backend sigue validando las operaciones.
+En **Integrantes** se gestionan rol base, personalizados, expulsión y baneo según capacidades. Un administrador puede otorgar ADMIN; solo el propietario puede modificar a otro administrador. Moderador no aparece como opción. No se puede modificar la propia membresía.
 
 El catálogo usa las rutas de T-29 y el editor envía `PATCH /api/communities/:id/members/:idUsuario` de T-30. Envía solo los campos editados; `idsRoles: []` quita todas las asignaciones personalizadas. Los eventos de catálogo y membresía, la reconexión y el regreso a la pestaña reconsultan los datos. Si el estado cargado cambia mientras se edita, se bloquea el guardado hasta volver a abrir el formulario. Los errores conservan el borrador y la confirmación aparece después de la respuesta exitosa.
 
-Para probar: crear, renombrar y eliminar un rol; asignar dos roles y después quitar ambos; verificar que un administrador no pueda promover a Administrador, editar a un par ni editarse. En dos pestañas, cambiar los roles desde una y comprobar que la otra recargue la lista y bloquee un editor abierto con datos viejos. Los permisos personalizados por canal se administran desde Canales (T-33).
+Para probar: crear un rol con permisos, asignarlo, editar sus capacidades y quitarlo; verificar excepciones por rol/usuario, cámara/pantalla independientes y revocación en dos pestañas. Probar que un administrador puede promover y no degradar a otro administrador.
 
-## Permisos por canal para roles personalizados (F-09/T-33)
+## Permisos y solicitudes de canal
 
-En **Canales → Permisos**, propietario y administradores pueden agregar un rol del catálogo de la comunidad, marcar los permisos aplicables y quitar su habilitación. El formulario conserva las habilitaciones de roles base e integrantes no editadas. Al agregar un rol se activa Ver; activar otro permiso también implica Ver. Quitar Ver elimina la habilitación del destinatario. Los permisos guardados para otro tipo de canal se conservan mientras no se quite la habilitación.
+En **Canales → Permisos**, ambos tipos admiten excepciones por rol y usuario. Los públicos también muestran globales; los privados requieren habilitación explícita. La excepción individual reemplaza la herencia.
 
-Para probar, usá una cuenta con el rol personalizado que no sea propietaria ni administradora. En tres canales privados, habilitá respectivamente Ver y Escribir, solo Ver y ninguna habilitación. Verificá que esa cuenta pueda escribir en el primero, leer en el segundo y no vea el tercero, siempre que no reciba permisos de otra fuente. En canales públicos el rol agrega permisos a los valores por defecto; no puede denegarlos.
+Todos los integrantes ven el catálogo; un canal bloqueado abre una pantalla sin mensajes, buscador ni llamada. Si es privado, ofrece Solicitar acceso, estado Pendiente o Volver a solicitar tras rechazo. El propietario/admin revisa la cola desde **Solicitudes**, elige permisos antes de aceptar o rechaza. También puede habilitar personas directamente desde Permisos. Los cambios y la reconexión recargan el catálogo y la cola.
 
-Los eventos de edición del canal, cambios del catálogo, salida de integrantes y reconexión invalidan un formulario abierto. Recargar el formulario descarta el borrador y obtiene los datos vigentes. Si el servidor rechaza un rol o integrante que ya no existe, se pide recargar sin anunciar éxito. El reemplazo de acceso usa el contrato existente de T-31; la interfaz detecta cambios notificados, sin un control de versión atómico en el servidor.
-
+La creación define los permisos públicos iniciales y los guarda junto al canal, en una sola operación. Texto usa Ver/Escribir; voz Ver/Hablar/Cámara/Pantalla. Admin y propietario mantienen todos los permisos.
 
 ## Baneo de integrantes (T-41)
 
@@ -245,3 +244,65 @@ La integración del tablero de interfaz incorpora búsqueda completa, adjuntos, 
 - **Lateral:** el sondeo de actividad de comunidades se saltea con la pestaña oculta y el refresco al volver a la pestaña es como mucho cada 15 segundos.
 - **Estilos base:** los elementos sin clase propia (`button`, `input`, `select`, títulos) usan los botones, campos y la tipografía de Dialo; no hace falta estilarlos uno por uno para que no queden con el aspecto del navegador.
 - **Vidrio líquido:** `.win` y las superficies flotantes (diálogos, avisos, paneles) usan desenfoque con saturación, borde con brillo y un fondo con luz de color detrás (`.shell::before`) para que el vidrio se note.
+
+### T-42: centro de actividad y avisos de seguridad
+
+Se reutilizan el panel, las filas, los avisos flotantes, la tipografía y los estilos actuales del centro de actividad. Los nuevos avisos no incorporan otra paleta ni otro sistema de componentes.
+
+Además de mensajes y solicitudes, aparecen cambios de roles, restricciones de permisos, baneos y levantamientos de baneo. Los cambios de roles incluyen asignaciones, eliminación de un rol asignado y transferencia de propiedad. Las restricciones de canal se generan cuando se pierde algún permiso efectivo; repetir una configuración sin cambios no duplica avisos. Se respeta la preferencia de silenciar notificaciones.
+
+Los avisos de baneo y rehabilitación siempre son genéricos: no muestran comunidad, motivo, autor ni enlace. Levantar un baneo no restaura la membresía. Los avisos de roles o permisos muestran el destino únicamente mientras el usuario conserve acceso. Sin acceso, «Entendido» marca la lectura sin navegar. Antes de abrir un destino se revalida su autorización por HTTP; un destino eliminado o revocado mantiene el panel con una explicación.
+
+Al recibir revocaciones, salidas, cambios o eliminaciones se descartan datos y avisos flotantes anteriores, se cierran avisos del navegador y se reconsulta. Una respuesta de paginación anterior no puede restaurar contenido retirado. La reconexión recupera el estado persistido y la lectura se sincroniza entre pestañas.
+
+Recorrido manual con dos usuarios y dos pestañas del destinatario:
+
+1. Cambiar su rol y comprobar el aviso en la campana, abrir integrantes y verificar el rol vigente.
+2. Restringir un canal: debe desaparecer el aviso previo de sus mensajes y quedar un aviso genérico si se pierde VER. Si conserva VER, puede abrir el canal y consultar los permisos actuales.
+3. Banear y levantar el baneo: ambos avisos carecen de nombres privados y navegación; no se recupera automáticamente la membresía.
+4. Leer un aviso en una pestaña y comprobar el contador en la otra; recargar y reconectar sin duplicados.
+5. Eliminar un destino o revocar acceso antes de pulsar un aviso: no se debe abrir una pantalla bloqueada ni conservar su vista previa flotante.
+
+### Ajuste visual y permisos de T-42
+
+El centro de notificaciones reemplaza temporalmente la búsqueda, filtros y lista de la barra lateral. Conserva la cabecera, el perfil y los materiales visuales actuales. No utiliza modal, backdrop ni desenfoque del contenido. Escape, la cruz o abrir un destino cierran el panel y recuperan la navegación; el foco vuelve al disparador al cerrar. En pantallas pequeñas el panel ocupa la vista lateral y permite regresar al contenido.
+
+Los públicos parten de permisos globales y suman los roles heredados íntegros. En privados se admiten personas y se resuelven solicitudes por administración. La creación pública permite elegir los valores iniciales. Propietario y administradores siempre tienen acceso completo.
+
+Los avisos de `solicitud_canal` aparecen solo al equipo administrador mientras el pedido esté pendiente. Abrirlos revalida la autoridad y abre el panel de Solicitudes del canal. El solicitante recibe `acceso_aceptado` o `acceso_rechazado`; si ya perdió acceso, no se conserva contexto privado ni enlace al contenido. El panel lateral de notificaciones mantiene su comportamiento de foco, lectura y sincronización entre pestañas.
+
+La privacidad queda fija al crear el canal. El formulario de permisos no ofrece un checkbox ni un switch para convertir públicos/privados. En privados tampoco duplica el botón de gestionar solicitudes: la cola se abre únicamente desde el apartado **Solicitudes** del canal o desde su aviso autorizado.
+
+## Ajustes de roles e interfaz
+
+[Contrato granular](roles-permisos.md). Moderador se retira; Roles permite elegir capacidades y pedir una propuesta de IA revisable. El catálogo y la gestión de integrantes se habilitan según `misPermisos`, sin conceder privilegios por controles del cliente.
+
+Los avisos de éxito se publican mediante SystemToasts, centrados sin ocupar espacio de página. Informativos, errores y avisos de llamada usan la misma salida Toast; Notice publica sin reservar espacio. Los permisos se editan desde arriba, reemplazando el cuerpo del canal. Los adjuntos usan AttachmentCard con MIME validado y vista previa de imágenes/videos, sin nombre de archivo en el historial. La carga requiere elegir tipo, revisar la vista previa y confirmar el envío. Los controles de avisos del navegador y silencio están en Ajustes; ActivityCenter conserva listado y lectura. CallContext aplica en vivo las actualizaciones de fuentes y cierra la llamada al perder acceso.
+
+## Armonía de llamadas, chat y permisos
+
+Ver [implementación, límites y recorrido manual](armonia-interfaz.md). Los adjuntos están integrados al compositor con visor completo y videos de hasta 2 MiB. Las llamadas comparten barra sin desplegable. Ajustes de canal reúne las acciones y el resumen de comunidad muestra cantidades. El lateral permite archivar/silenciar o quitar una conversación, con contadores por destino y marcadores de llamada.
+
+## Pulido posterior a armonía
+
+Ver [cambios y verificaciones](pulido-interfaz.md). Se retira Dispositivos del perfil y la lista de integrantes del chat; se corrigen menús únicos, espaciado de pestañas, vistas móviles y la sincronización de participantes.
+
+## Adjuntos múltiples y optimización de cargas
+
+El menú de adjuntos permite preparar hasta seis recursos con un texto y confirmarlos juntos. Los registros de llamadas son inmutables. Las rutas de administración y el SDK de llamadas se descargan cuando se necesitan; la actividad lateral agrupa eventos y revalida destinos específicos. Ver [análisis, cambios y mediciones](ajustes-rendimiento.md).
+
+## Borradores, lectura, galería y formularios
+
+Ver [experiencia de chat y verificación](experiencia-chat.md). Los borradores viven en la sesión del shell; la lectura respeta el scroll y las subidas ofrecen progreso/cancelación. Los reintentos recuperan recibos confirmados. La galería recorre recursos ya cargados y los formularios usan una confirmación común al abandonar cambios. Las tipografías se sirven desde public/fonts, con Archivo diferido a la landing.
+
+## Álbumes y adaptación de recursos
+
+Ver [agrupación, acciones y verificación](albumes-adjuntos.md). Los envíos de cuatro a seis recursos se muestran como mosaicos por identificador de envío. La vista previa respeta proporciones y los recursos solo admiten eliminación, con validación también en el servidor.
+
+## Menú contextual de mensajes
+
+Ver [acciones, permisos y validación](menu-mensajes.md). Los tres puntos reúnen responder, reacciones, copiar, fijar y las acciones existentes de edición/eliminación. Las respuestas se componen con cita y los fijados tienen un listado independiente del historial cargado.
+
+## Burbujas y fijados compactos
+
+Ver [estructura, navegación y validación](burbujas-fijados.md). Cada mensaje reúne sus elementos en una burbuja; el acceso al último mensaje tiene una fila propia y los fijados aparecen bajo la cabecera, con vista previa y navegación al original.

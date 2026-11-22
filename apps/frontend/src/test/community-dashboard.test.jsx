@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 it('abre los canales reales por ID y resume los integrantes', () => {
   view();
-  expect(screen.getByRole('link', { name: /canal-2/ })).toHaveAttribute('href', '/comunidades/4/canales/2');
+  expect(screen.queryByRole('link', { name: /canal-2/ })).not.toBeInTheDocument();expect(screen.getByText('canales · 2 de texto y 0 de voz')).toBeInTheDocument();
   expect(screen.getByRole('link', { name: 'Ver canales' })).toHaveAttribute('href', '/comunidades/4/canales');
   expect(screen.getByRole('link', { name: 'Ver integrantes' })).toHaveAttribute('href', '/comunidades/4/integrantes');
   expect(screen.getByText('integrantes, 1 en línea')).toBeInTheDocument();
@@ -48,6 +48,6 @@ it('acota la vista previa de canales y apila los integrantes de más', () => {
 it('voz y video existentes se muestran como canal de voz, sin botones de llamada', () => {
   channels.items = [{ ...channel(8), tipo: 'VOZ' }, { ...channel(9), tipo: 'VIDEO' }];
   view();
-  expect(screen.getAllByText('Pública')).toHaveLength(2);
+  expect(screen.getByText('canales · 0 de texto y 2 de voz')).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /llamar|conectar/i })).not.toBeInTheDocument();
 });

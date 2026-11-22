@@ -1,3 +1,5 @@
+import {requireReply} from './messageInteractionsService.js';
+import {withSendReceipt,sendFingerprint} from '../utils/sendReceipt.js';
 import { trackEffect } from '../utils/backgroundEffects.js';
 import { notifyChannelMessage } from './notificationsService.js';
 import { getChannelPermissions, withChannelPermission } from './channelsService.js';
@@ -25,17 +27,19 @@ async function moderateIfWritable(idCanal, idUsuario, contenido) {
   if (permisos.includes('ESCRIBIR')) await moderateChannelMessage(idCanal, contenido, idUsuario);
 }
 
-export async function sendChannelMessage(idUsuario, { idCanal, contenido }, authorize) {
+export async function sendChannelMessage(idUsuario, { idCanal, contenido, idEnvio, idRespuesta, encuesta, idHilo }, authorize) {
+  if(idHilo)throw new AppError(410,'THREADS_DISABLED','Los hilos están temporalmente deshabilitados');
   await moderateIfWritable(idCanal, idUsuario, contenido);
   const saved = await withChannelPermission(idCanal, idUsuario, 'VER', async (tx, { canal, permisos }) => {
     if (authorize) await authorize(tx);
     requireText(canal); requireWrite(permisos);
-    return toChannelMessage(await tx.mensaje.create({
-      data: { idCanal, idAutor: idUsuario, contenido }, select: channelMessageSelect,
-    }));
-  }, (mensaje) => emitToChannel(idCanal, EVENTS.CHANNEL_MESSAGE_NEW, { mensaje }));
-  trackEffect(notifyChannelMessage(idCanal, idUsuario, saved.id, contenido));
-  return { mensaje: saved };
+    if(/(?:^|\s)@everyone\b/i.test(contenido)&&!permisos.includes('GESTIONAR_CANALES'))throw new AppError(403,'NO_MENTION_PERMISSION','No tenés permiso para mencionar a todos');
+    const rows=await withSendReceipt(tx,idUsuario,idEnvio,sendFingerprint('canal',idCanal,contenido,...(idRespuesta?[idRespuesta]:[]),...(encuesta?[encuesta]:[]),...(idHilo?[idHilo]:[])),channelMessageSelect,async()=>{await requireReply(tx,idRespuesta,'canal',idCanal);if(idHilo){const root=await tx.mensaje.findFirst({where:{id:idHilo,idCanal,idHilo:null,fechaEliminacion:null}});if(!root)throw new AppError(400,'INVALID_THREAD','El hilo no está disponible');}return [await tx.mensaje.create({data:{idCanal,idAutor:idUsuario,contenido,idRespuesta,...(encuesta?{encuesta:{create:encuesta}}:{}),idHilo,},select:channelMessageSelect})];});
+    return {mensaje:toChannelMessage(rows[0]),replayed:Boolean(rows.replayed)};
+  }, result => {if(!result.replayed)return emitToChannel(idCanal, EVENTS.CHANNEL_MESSAGE_NEW, { mensaje:result.mensaje });});
+  if(!saved.replayed&&idHilo){const root=await prisma.mensaje.findUnique({where:{id:idHilo},select:channelMessageSelect});if(root)await emitToChannel(idCanal,EVENTS.CHANNEL_MESSAGE_UPDATED,{mensaje:toChannelMessage(root)});}
+  if(!saved.replayed)trackEffect(notifyChannelMessage(idCanal, idUsuario, saved.mensaje.id, contenido));
+  return { mensaje: saved.mensaje };
 }
 
 async function modifyMessage(idMensaje, idUsuario, authorize, operation, publish) {
@@ -47,6 +51,7 @@ async function modifyMessage(idMensaje, idUsuario, authorize, operation, publish
       requireText(context.canal);
       const mensaje = await tx.mensaje.findUnique({ where: { id: idMensaje }, select: channelMessageSelect });
       if (!mensaje || mensaje.idCanal !== original.idCanal) throw messageNotFound();
+      if(mensaje.registroLlamada)throw new AppError(403,'CALL_RECORD_IMMUTABLE','Los registros de llamadas no se pueden modificar');
       return operation(tx, context, mensaje);
     }, publish);
   } catch (error) {
@@ -56,10 +61,13 @@ async function modifyMessage(idMensaje, idUsuario, authorize, operation, publish
 }
 
 export async function editChannelMessage(idUsuario, { idMensaje, contenido }, authorize) {
-  const actual = await prisma.mensaje.findUnique({ where: { id: idMensaje }, select: { idCanal: true, idAutor: true } });
+  const actual = await prisma.mensaje.findUnique({ where: { id: idMensaje }, select: { idCanal: true, idAutor: true,adjunto:{select:{id:true}} } });
+  if(actual?.adjunto&&actual.idAutor===idUsuario)throw new AppError(403,'ATTACHMENT_NOT_EDITABLE','Los recursos solo se pueden eliminar');
   if (actual?.idCanal && actual.idAutor === idUsuario) await moderateIfWritable(actual.idCanal, idUsuario, contenido);
   const mensaje = await modifyMessage(idMensaje, idUsuario, authorize, async (tx, { permisos }, original) => {
     if (original.idAutor !== idUsuario) throw new AppError(403, 'NOT_AUTHOR', 'Solo el autor puede editar el mensaje');
+    if(original.encuesta)throw new AppError(403,'POLL_IMMUTABLE','Las encuestas publicadas no se pueden editar');
+    if(original.adjunto)throw new AppError(403,'ATTACHMENT_NOT_EDITABLE','Los recursos solo se pueden eliminar');
     requireWrite(permisos);
     if (original.fechaEliminacion !== null) throw deleted();
     const { count } = await tx.mensaje.updateMany({
@@ -81,7 +89,7 @@ export async function deleteChannelMessage(idUsuario, { idMensaje }, authorize) 
         where: { idComunidad_idUsuario: { idComunidad: context.canal.idComunidad, idUsuario: original.idAutor } }, select: { rol: true },
       });
       // Un autor que abandonó no conserva autoridad dentro de la comunidad.
-      permitted = JERARQUIA[context.rol] > (JERARQUIA[author?.rol] ?? 0);
+      permitted = author?.rol !== 'PROPIETARIO' && (author?.rol !== 'ADMIN' || context.rol === 'PROPIETARIO');
     }
     if (!permitted) throw new AppError(403, 'CANNOT_DELETE_MESSAGE', 'No podés eliminar este mensaje');
     if (original.fechaEliminacion !== null) throw deleted();
@@ -109,7 +117,7 @@ export async function listChannelMessages(idCanal, idUsuario, { cursor, limit = 
       anteriores = olderMessagesWhere(referencia);
     }
     const mensajes = await tx.mensaje.findMany({
-      where: { idCanal, ...anteriores },
+      where: { idCanal, idHilo:null, ...anteriores },
       select: channelMessageSelect,
       orderBy: [{ fechaCreacion: 'desc' }, { id: 'desc' }],
       take: limit + 1,

@@ -1,3 +1,13 @@
+import {DefaultProfile,openProfile} from '../components/shell/ProfileExplorer.jsx';
+import {MessageInteractionContext,useMessageInteractions,PinnedMessages} from '../components/chat/MessageInteractions.jsx';
+import {groupAttachmentMessages} from '../utils/attachmentAlbums.js';
+import AttachmentAlbum from '../components/chat/AttachmentAlbum.jsx';
+import {MediaGalleryProvider} from '../components/chat/MediaGallery.jsx';
+import {useChatReading} from '../hooks/useChatReading.js';
+import LatestMessages from '../components/chat/LatestMessages.jsx';
+import {useDraftMap} from '../context/DraftsContext.jsx';
+import {useReadChat} from '../context/ChatStateContext.jsx';
+import PrivateCallScene from '../components/calls/PrivateCallScene.jsx';
 import MentionPicker from '../components/chat/MentionPicker.jsx';
 import { usePrivateCall } from '../context/PrivateCallContext.jsx';
 import SharedFiles from '../components/chat/SharedFiles.jsx';
@@ -35,6 +45,7 @@ function sendError(e) {
 
 function Chat({ id, draft, setDraft }) {
   const privateCall = usePrivateCall();
+  const fullCall=privateCall?.active&&privateCall.call?.idConversacion===id&&!privateCall.chatVisible&&!(privateCall.incoming&&privateCall.call.estado==='LLAMANDO');
   const { usuario, refresh } = useAuth();
   const typing = useTyping('conversacion', id);
   useEffect(() => { if (!draft.trim()) typing.typing(''); }, [draft]);
@@ -42,8 +53,10 @@ function Chat({ id, draft, setDraft }) {
   const navigate = useNavigate();
   const chat = items.find((c) => c.id === id);
   const history = useMessages(id);
+
   const [error, setError] = useState(null);
   const [sending, setSending] = useState(false);
+  const pendingSend=useRef(false),sendReceipt=useRef(null);
   const [deleting, setDeleting] = useState(null);
   const [deleteState, setDeleteState] = useState({ busy: false, error: '' });
   const [missing, setMissing] = useState(false);
@@ -53,6 +66,8 @@ function Chat({ id, draft, setDraft }) {
   const viewport = useRef(null);
   const anchor = useRef(null);
   const stick = useRef(true);
+  const reading=useChatReading(history.messages,viewport,stick,usuario.id);
+  useReadChat('conversacion',id,history.messages?.at(-1)?.id,!fullCall&&!reading.away&&!history.loading&&!buscar.trim());
 
   useEffect(() => {
     let active = true;
@@ -94,11 +109,12 @@ function Chat({ id, draft, setDraft }) {
   const actionRef = useRef(action);
   actionRef.current = action;
   const editar = useCallback((idMensaje, contenido) => actionRef.current(EVENTS.MESSAGE_EDIT, { idMensaje, contenido }), []);
-  const mensajes = useMemo(() => filterMessages(history.messages, buscar), [history.messages, buscar]);
+  const interactions=useMessageInteractions({id,event:EVENTS.MESSAGE_INTERACT,action,messages:history.messages,usuario,connected,canWrite:chat?.puedeEscribir,canPin:chat?.puedeEscribir,onDelete:setDeleting,canDelete:m=>m.idAutor===usuario.id&&!m.registroLlamada,inputId:'private-message',otherName:chat?.otroUsuario?.nombreVisible,loadOlder:history.older,hasOlder:Boolean(history.cursor),acceptMessages:history.acceptMessages,loadingOlder:history.loading,onLocate:()=>{stick.current=false;setBuscar('');}});
+  const mensajes = useMemo(() => history.messages, [history.messages, buscar]);
   const filas = useMemo(() => {
     let lastDay = '';
     let lastAuthor = null;
-    return mensajes.map((m) => {
+    return groupAttachmentMessages(mensajes).map((m) => {
       const day = formatDay(m.fechaCreacion);
       const divider = day !== lastDay;
       const first = divider || m.idAutor !== lastAuthor;
@@ -107,27 +123,28 @@ function Chat({ id, draft, setDraft }) {
       const own = m.idAutor === usuario.id;
       return (
         <Fragment key={m.id}>
-          {divider && <li className="day-sep">{day}</li>}
-          <ChatMessage mensaje={m} own={own} first={first} connected={connected}
-            onEdit={own ? editar : undefined} onDelete={own ? setDeleting : undefined} />
+          {divider && <li className="day-sep">{day}</li>}{(m.id===reading.firstUnread||m.album?.some(item=>item.id===reading.firstUnread))&&<li className="unread-separator">Mensajes nuevos</li>}
+          <>{m.album?<AttachmentAlbum messages={m.album} own={own} first={first}/>:<ChatMessage mensaje={m} own={own} first={first} connected={connected}
+            onEdit={own ? editar : undefined} onDelete={own ? setDeleting : undefined} />}</>
         </Fragment>
       );
     });
-  }, [mensajes, usuario.id, connected, editar]);
+  }, [mensajes, usuario.id, connected, editar,reading.firstUnread]);
 
   async function send() {
-    if (!draft.trim() || sending || !chat?.puedeEscribir || !connected) return;
-    const content = draft;
-    setSending(true);
+    if (!draft.trim() || pendingSend.current || sending || !chat?.puedeEscribir || !connected) return;
+    const content = draft,replyId=interactions.reply?.id;
+    pendingSend.current=true;setSending(true);
+    if(sendReceipt.current?.text!==JSON.stringify([content.trim(),replyId]))sendReceipt.current={text:JSON.stringify([content.trim(),replyId]),key:crypto.randomUUID()};
     setError(null);
     try {
-      await action(EVENTS.MESSAGE_SEND, { idConversacion: id, contenido: content });
+      await action(EVENTS.MESSAGE_SEND, { idConversacion: id, contenido: content, ...(replyId&&{idRespuesta:replyId}), idEnvio:sendReceipt.current.key });
       setDraft((current) => (current === content ? '' : current));
-      stick.current = true;
+      interactions.setReply(current=>current?.id===replyId?null:current);sendReceipt.current=null;reading.toLatest();
     } catch (e) {
       setError(sendError(e));
     } finally {
-      setSending(false);
+      pendingSend.current=false;setSending(false);
     }
   }
 
@@ -160,12 +177,12 @@ function Chat({ id, draft, setDraft }) {
   const nombre = otro.nombreVisible;
 
   return (
-    <section className="dm" aria-label={`Chat con ${nombre}`}>
+    <MessageInteractionContext.Provider value={interactions}><section className="dm" aria-label={`Chat con ${nombre}`}>
       <header className="dm-head">
         <Link to="/" className="lg pr dm-back" aria-label="Volver"><span><Icon name="chevron" size={18} stroke={2} /></span></Link>
         <Avatar nombre={nombre} foto={otro.fotoUrl} color={otro.colorAvatar} size={56} presence={otro.disponibilidad === 'EN_LINEA' && otro.enLinea === false ? 'DESCONECTADO' : otro.disponibilidad} className="dm-av" />
         <span className="dm-who">
-          <h1 className="dsp">{nombre}</h1>
+          <h1 className="dsp"><button className="profile-name" type="button" onClick={()=>openProfile(otro.id)}>{nombre}</button></h1>
           <span>{otro.disponibilidad === 'EN_LINEA' && otro.enLinea === false ? 'Desconectado' : presencia[otro.disponibilidad] ?? ''}</span>
         </span>
         <span className="dm-head-tools">
@@ -173,17 +190,13 @@ function Chat({ id, draft, setDraft }) {
             <button type="button" className="lg pr dm-call" disabled={privateCall.busy || privateCall.active} onClick={() => privateCall.start(id, false)} aria-label={`Llamar a ${nombre}`}><Icon name="telefono" size={18} stroke={2} /></button>
             <button type="button" className="lg pr dm-call" disabled={privateCall.busy || privateCall.active} onClick={() => privateCall.start(id, true)} aria-label={`Videollamar a ${nombre}`}><Icon name="camara" size={18} stroke={2} /></button>
           </>}
-          <ChatSearch value={buscar} onChange={setBuscar} /></span>
+          {!fullCall&&<ChatSearch value={buscar} onChange={setBuscar} />}</span>
       </header>
-
-      <SharedFiles tipo="conversacion" id={id} canWrite={chat.puedeEscribir} onSent={() => history.reload?.()} />
-      <div className="dm-body">
-        <div className="dm-scroll" ref={viewport} onScroll={(e) => {
-          const n = e.currentTarget;
-          stick.current = distanciaAlFinal(n) < 90;
-        }}>
-          <SearchResults search={search} author={(m) => m.idAutor === usuario.id ? usuario.nombreVisible : chat?.otroUsuario?.nombreVisible} />
-        <ol className="dm-list" aria-label="Historial de mensajes">
+      {!fullCall&&<PinnedMessages/>}<PrivateCallScene idConversacion={id}/>
+      <div className="dm-body" hidden={fullCall} style={{display:fullCall?'none':undefined}}>
+        <div className="dm-scroll" ref={viewport} onScroll={reading.onScroll}>
+          <SearchResults value={buscar} onChange={setBuscar} search={search} author={(m) => m.idAutor === usuario.id ? usuario.nombreVisible : chat?.otroUsuario?.nombreVisible} />
+        <MediaGalleryProvider messages={history.messages} onDelete={id=>setDeleting(id)} canDelete={m=>m.idAutor===usuario.id&&!m.registroLlamada} connected={connected}><ol className="dm-list" aria-label="Historial de mensajes">
             {history.cursor && (
               <li className="dm-older" ref={olderRef}>
                 <Button variant="secundario" size="sm" loading={history.loading} onClick={cargarAnteriores}>{history.loading ? 'Cargando…' : 'Cargar anteriores'}</Button>
@@ -196,7 +209,7 @@ function Chat({ id, draft, setDraft }) {
               </li>
             )}
             {filas}
-          </ol>
+          </ol></MediaGalleryProvider>
         </div>
         <span className="dm-fade-top" />
         <span className="dm-fade-bottom" />
@@ -208,29 +221,22 @@ function Chat({ id, draft, setDraft }) {
           {error && <Notice tone={error.tone} title={error.title} actionLabel={error.retry ? 'Reintentar' : undefined} onAction={send}>{error.text}</Notice>}
         </div>
 
-        <div className="chat-compose-area">
+        <LatestMessages reading={reading}/><div className="chat-compose-area">
         <MentionPicker inputId="private-message" value={draft} onChange={setDraft} members={chat.otroUsuario ? [{usuario:chat.otroUsuario}] : []} />
         {typing.names && <p className="chat-typing" role="status" aria-live="polite">{typing.names} está escribiendo…</p>}
-        <Composer id="private-message"
+        <Composer sending={sending} attachment={{tipo:"conversacion",id,onSent:history.acceptMessages}} id="private-message"
           label={`Mensaje para ${nombre}`}
           placeholder={chat.puedeEscribir ? `Escribile a ${nombre.split(' ')[0]}` : 'No podés escribir en este chat'}
           value={draft}
           onChange={(value) => { setDraft(value); typing.typing(value); }}
           onSend={send}
-          disabled={!chat.puedeEscribir}
+          disabled={!chat.puedeEscribir||fullCall}
           canSend={!sending && connected && chat.puedeEscribir && Boolean(draft.trim())}
         />
         </div>
       </div>
 
-      <RightPanel label={`Perfil de ${nombre}`}>
-        <div className="dm-profile">
-          <Avatar nombre={nombre} foto={otro.fotoUrl} color={otro.colorAvatar} size={96} presence={otro.disponibilidad === 'EN_LINEA' && otro.enLinea === false ? 'DESCONECTADO' : otro.disponibilidad} className="dm-profile-av" />
-          <span className="dsp dm-profile-name">{nombre}</span>
-          <span className="dm-profile-meta">@{otro.nombreUsuario} · {otro.disponibilidad === 'EN_LINEA' && otro.enLinea === false ? 'Desconectado' : presencia[otro.disponibilidad] ?? ''}</span>
-          {otro.informacionPersonal && <span className="dm-profile-bio">{otro.informacionPersonal}</span>}
-        </div>
-      </RightPanel>
+      <DefaultProfile user={otro}/>
 
       <ConfirmDialog
         open={deleting !== null}
@@ -243,7 +249,7 @@ function Chat({ id, draft, setDraft }) {
       >
         El contenido se ocultará para los dos. No se puede deshacer.
       </ConfirmDialog>
-    </section>
+    </section></MessageInteractionContext.Provider>
   );
 }
 
@@ -251,7 +257,7 @@ export default function ConversationsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const selected = id ? Number(id) : null;
-  const [drafts, setDrafts] = useState({});
+  const [drafts, setDrafts] = useDraftMap('conversacion');
   const valid = selected && Number.isInteger(selected) && selected > 0 && selected <= 2147483647;
 
   if (!valid) {

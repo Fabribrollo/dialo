@@ -1,37 +1,10 @@
-import { useState } from 'react';
+import {useEffect,useState} from 'react';
 import Icon from '../ui/Icon.jsx';
-import SearchInput from '../ui/SearchInput.jsx';
 import './chatSearch.css';
-
-export function filterMessages(messages, query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return messages;
-  return messages.filter((m) => !m.eliminado && m.contenido?.toLowerCase().includes(q));
-}
-
-export default function ChatSearch({ value, onChange }) {
-  const [open, setOpen] = useState(false);
-
-  function close() {
-    setOpen(false);
-    onChange('');
-  }
-
-  if (!open) {
-    return (
-      <button type="button" className="lg pr ib" aria-label="Buscar en la conversación" onClick={() => setOpen(true)}>
-        <Icon name="buscar" size={19} stroke={1.9} />
-      </button>
-    );
-  }
-
-  return (
-    <div className="chs">
-      <SearchInput label="Buscar en la conversación" placeholder="Buscar" autoFocus value={value}
-        onChange={(e) => onChange(e.target.value)} onKeyDown={(e) => { if (e.key === 'Escape') close(); }} />
-      <button type="button" className="lg pr ib" aria-label="Cerrar búsqueda" onClick={close}>
-        <Icon name="cerrar" size={17} stroke={2.2} />
-      </button>
-    </div>
-  );
+export function filterMessages(messages,query){const q=query.trim().toLowerCase();return q?messages.filter(m=>!m.eliminado&&m.contenido?.toLowerCase().includes(q)):messages;}
+export const setSearchOpen=open=>window.dispatchEvent(new CustomEvent('dialo:search-toggle',{detail:open}));
+export default function ChatSearch({onChange}){
+ const [open,setOpen]=useState(false);
+ useEffect(()=>{const sync=e=>{setOpen(e.detail);if(!e.detail)onChange('');};window.addEventListener('dialo:search-toggle',sync);return()=>window.removeEventListener('dialo:search-toggle',sync);},[onChange]);
+ return <button type="button" className="lg pr ib" aria-label="Buscar en la conversación" aria-expanded={open} onClick={()=>setSearchOpen(!open)}><Icon name="buscar" size={19}/></button>;
 }

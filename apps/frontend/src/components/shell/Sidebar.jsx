@@ -1,8 +1,13 @@
-import { api } from '../../services/api.js';
+import ChatRowMenu from './ChatRowMenu.jsx';
+import {useChatStates} from '../../context/ChatStateContext.jsx';
+import {usePrivateCall} from '../../context/PrivateCallContext.jsx';
+import {leaveCommunity} from '../../services/communitiesService.js';
+import CommunityActionDialog from '../communities/CommunityActionDialog.jsx';
+import {useCommunityActivity} from '../../hooks/useCommunityActivity.js';
 import { useSocket } from '../../hooks/useSocket.js';
 import { useEffect, useRef } from 'react';
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useFriends } from '../../hooks/useFriends.js';
 import { useConversations } from '../../context/ConversationsContext.jsx';
@@ -15,7 +20,7 @@ import Notice from '../ui/Notice.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
 import ConversationRow from './ConversationRow.jsx';
 import ActivityCenter from './ActivityCenter.jsx';
-import { avisar } from './systemToastsStore.js';
+import { avisar,cerrarAviso } from './systemToastsStore.js';
 import { Logo } from './BootScreen.jsx';
 import './sidebar.css';
 
@@ -27,30 +32,35 @@ const filtros = [
 
 function preview(c) {
   if (!c.ultimoMensaje) return '';
-  return c.ultimoMensaje.eliminado ? 'Este mensaje se eliminó' : c.ultimoMensaje.contenido;
+  return c.ultimoMensaje.eliminado?'Este mensaje se eliminó':c.ultimoMensaje.adjunto?.tipo?.startsWith('audio/')?'Audio':c.ultimoMensaje.adjunto?'Recurso compartido':c.ultimoMensaje.encuesta?'Encuesta':c.ultimoMensaje.contenido;
 }
 
 export default function Sidebar() {
   const { pathname } = useLocation();
+  const states=useChatStates(),privateCall=usePrivateCall(),navigate=useNavigate();
+  const [archivados,setArchivados]=useState(false),[deleting,setDeleting]=useState(null),[menuKey,setMenuKey]=useState(null);const menuTrigger=useRef(null);
   const { usuario } = useAuth();
   const conversations = useConversations();
   const communities = useCommunities();
   const socket = useSocket();
-  const [activity, setActivity] = useState({});
-  const activitySeq = useRef(0);
+
+  const [activitySlot, setActivitySlot] = useState(null);
+  const [activityOpen, setActivityOpen] = useState(false);
+
   const previas = useRef(null);
   const enCanal = useRef(pathname);
   enCanal.current = pathname;
   const silenciado = Boolean(usuario?.preferencias?.silenciarNotificaciones);
+  const currentSettings=useRef({states,silenciado});currentSettings.current={states,silenciado};
   // Cuando arranca una llamada en una comunidad tuya, invita a sumarse (salvo que ya estés ahí).
   function invitarALlamadas(calls) {
     const antes = previas.current;
     previas.current = { ...(antes ?? {}), ...calls };
-    if (!antes || silenciado) return;
+    if (!antes || currentSettings.current.silenciado || currentSettings.current.states.loading) return;
     for (const c of communities.items) {
       const ahora = calls[c.id];
       // Solo invita si la llamada empezó desde la consulta anterior, no si ya estaba cuando abriste la app.
-      if (!(c.id in antes) || !ahora || ahora.estoy || antes[c.id]) continue;
+      if (currentSettings.current.states.get('comunidad',c.id).archivado||currentSettings.current.states.get('comunidad',c.id).silenciado||!(c.id in antes) || !ahora || ahora.estoy || antes[c.id]) continue;
       const destino = `/comunidades/${c.id}/canales/${ahora.idCanal}`;
       if (enCanal.current === destino) continue;
       avisar({
@@ -60,39 +70,17 @@ export default function Sidebar() {
       });
     }
   }
-  useEffect(() => {
-    let alive = true;
-    const refresh = async () => {
-      const seq = ++activitySeq.current, result = {}, calls = {};
-      await Promise.all(communities.items.map(async (c) => {
-        try {
-          const a = await api.get(`/communities/${c.id}/activity`);
-          result[c.id] = a.participantes ? `${a.participantes} en llamada` : a.ultimoMensaje ? `${a.ultimoMensaje.canal}: ${a.ultimoMensaje.contenido}` : '';
-          calls[c.id] = a.llamada ?? null;
-        } catch { result[c.id] = ''; }
-      }));
-      if (!alive || seq !== activitySeq.current) return;
-      setActivity(result);
-      invitarALlamadas(calls);
-    };
-    refresh();
-    const timer = setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 30000);
-    const revoke = () => { activitySeq.current++; setActivity({}); refresh(); };
-    const events = ['community:left','community:member-updated','channel:access-lost','channel:updated','channel:deleted','connect'];
-    events.forEach((e)=>socket?.on(e,revoke));
-    // Volver a la pestaña refresca, pero como mucho una vez cada 15 segundos (es un pedido por comunidad).
-    let ultimoFoco = 0;
-    const alEnfocar = () => { if (Date.now() - ultimoFoco < 15000) return; ultimoFoco = Date.now(); refresh(); };
-    window.addEventListener('focus', alEnfocar);
-    return () => { alive=false; activitySeq.current++; clearInterval(timer); events.forEach((e)=>socket?.off(e,revoke)); window.removeEventListener('focus',alEnfocar); };
-  }, [communities.items,socket]);
+  const {activity,activeCalls}=useCommunityActivity(communities.items,socket,invitarALlamadas);
   const { recibidas } = useFriends();
   const [filtro, setFiltro] = useState('todo');
   const [busqueda, setBusqueda] = useState('');
   const coincide = (texto) => texto.toLowerCase().includes(busqueda.trim().toLowerCase());
 
+  const hasArchived=conversations.items.some(c=>{const state=states.get('conversacion',c.id);return state.archivado&&!state.oculto;})||communities.items.some(c=>states.get('comunidad',c.id).archivado);
+  useEffect(()=>{if(!hasArchived)setArchivados(false);},[hasArchived]);
+  useEffect(()=>setMenuKey(null),[pathname,filtro,busqueda,archivados,activityOpen]);
   const filas = [];
-  if (filtro === 'personas') {
+  if (filtro !== 'comunidades'&&!archivados) {
     filas.push({
       key: 'amigos', to: '/amigos', nombre: 'Amigos', fija: 'amigos',
       preview: recibidas.length ? `${recibidas.length} ${recibidas.length === 1 ? 'solicitud nueva' : 'solicitudes nuevas'}` : '',
@@ -101,10 +89,11 @@ export default function Sidebar() {
   }
   if (filtro !== 'comunidades') {
     for (const c of conversations.items) {
+      const state=states.get('conversacion',c.id);if(state.oculto||state.archivado!==archivados)continue;
       const u = c.otroUsuario;
       if (!coincide(`${u.nombreVisible} ${u.nombreUsuario}`)) continue;
       filas.push({
-        key: `c${c.id}`, to: `/conversaciones/${c.id}`, nombre: u.nombreVisible, foto: u.fotoUrl,
+        id:c.id,tipo:'conversacion',muted:state.silenciado,stamp:Date.parse(c.ultimoMensaje?.fechaCreacion??c.fechaCreacion??'')||0,archivado:state.archivado,badge:state.noLeidos,callActive:privateCall?.active&&privateCall.call?.idConversacion===c.id,key: `c${c.id}`, to: `/conversaciones/${c.id}`, nombre: u.nombreVisible, foto: u.fotoUrl,
         preview: preview(c), time: c.ultimoMensaje && formatListTime(c.ultimoMensaje.fechaCreacion),
       });
     }
@@ -114,10 +103,13 @@ export default function Sidebar() {
   }
   if (filtro !== 'personas') {
     for (const c of communities.items) {
+      const state=states.get('comunidad',c.id);if(state.archivado!==archivados)continue;
       if (!coincide(c.nombre)) continue;
-      filas.push({ key: `m${c.id}`, to: `/comunidades/${c.id}`, nombre: c.nombre, foto: c.imagenUrl, preview: activity[c.id], community: true });
+      filas.push({ id:c.id,tipo:'comunidad',muted:state.silenciado,stamp:Date.parse(c.ultimoMensaje?.fechaCreacion??c.fechaCreacion??'')||0,archivado:state.archivado,badge:state.noLeidos,callActive:Boolean(activeCalls[c.id]),owner:c.miRol==='PROPIETARIO', key: `m${c.id}`, to: `/comunidades/${c.id}`, nombre: c.nombre, foto: c.imagenUrl, preview: activity[c.id], community: true });
     }
   }
+  filas.sort((a,b)=>Number(Boolean(b.fija))-Number(Boolean(a.fija))||(b.stamp??0)-(a.stamp??0));
+  async function archive(f){try{await states.change(f.tipo,f.id,{archivado:!f.archivado});if(f.community)cerrarAviso(`llamada-${f.id}`);avisar({texto:f.archivado?'Conversación desarchivada.':'Conversación archivada y silenciada.'});}catch(e){avisar({tipo:'error',texto:e.message});}}
   const activa = filas.findIndex((f) => pathname === f.to || (!f.exact && pathname.startsWith(`${f.to}/`)));
 
   return (
@@ -128,13 +120,13 @@ export default function Sidebar() {
           <span className="dsp">dialo</span>
         </Link>
         <span className="side-actions">
-          <ActivityCenter />
-          <Link to="/amigos" className="lg dk pr side-new" aria-label="Nueva conversación">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-          </Link>
+          <ActivityCenter panelTarget={activitySlot} onOpenChange={setActivityOpen} />
+
         </span>
       </div>
 
+      <div className="side-activity" ref={setActivitySlot} />
+      <div className="side-browser" hidden={activityOpen}>
       <label className="lg side-search">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(19,19,22,.6)" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
         <input type="text" placeholder="Buscar" aria-label="Buscar" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
@@ -154,8 +146,9 @@ export default function Sidebar() {
       {busqueda.trim() && !filas.some((f) => !f.fija) && (
         <EmptyState icon="mensajes" title="No encontramos esa conversación">Probá con otro nombre.</EmptyState>
       )}
+
       <nav className="side-list" aria-label="Lista de conversaciones">
-        {activa >= 0 && <span className="lens lg side-lens" style={{ transform: `translateY(${activa * 60}px)` }} />}
+
         {filas.map((f) => f.fija ? (
           <Link key={f.key} to={f.to} className="row">
             <span className="av side-friends"><Icon name={f.fija} size={19} stroke={2} /></span>
@@ -166,10 +159,14 @@ export default function Sidebar() {
             {f.badge > 0 && <span className="side-badge">{f.badge}</span>}
           </Link>
         ) : (
-          <ConversationRow key={f.key} {...Object.fromEntries(Object.entries(f).filter(([key]) => key !== 'key'))} />
+          <div className="side-item" key={f.key}><ConversationRow {...Object.fromEntries(Object.entries(f).filter(([key])=>key!=='key'))}/>
+          <ChatRowMenu muted={f.muted} name={f.nombre} community={f.community} open={menuKey===f.key} onToggle={()=>setMenuKey(old=>old===f.key?null:f.key)} onClose={()=>setMenuKey(null)} archived={f.archivado} owner={f.owner} onMute={async value=>{try{await states.change(f.tipo,f.id,{silencio:value});avisar({texto:value==='0'?'Avisos reactivados.':'Chat silenciado.'});}catch(e){avisar({tipo:'error',texto:e.message});}}} onArchive={()=>archive(f)} onDelete={el=>{menuTrigger.current=el;setDeleting(f);}}/></div>
         ))}
       </nav>
+      {hasArchived&&<button type="button" className="side-archive-toggle lg pr" aria-pressed={archivados} onClick={()=>setArchivados(v=>!v)}><Icon name="mensajes" size={17}/><span>{archivados?'Volver':'Chats archivados'}</span>{!archivados&&<span className="side-archive-count">{conversations.items.filter(c=>{const st=states.get('conversacion',c.id);return st.archivado&&!st.oculto;}).length+communities.items.filter(c=>states.get('comunidad',c.id).archivado).length}</span>}</button>}
+      </div>
 
+      {deleting&&<CommunityActionDialog title={deleting.community?'¿Salir de esta comunidad?':'¿Eliminar esta conversación de tu lista?'} description={deleting.community?'Perderás la membresía y tus permisos en esta comunidad.':'La amistad y los mensajes se conservan. Podés volver a abrirla desde Amigos.'} confirmLabel={deleting.community?'Salir':'Eliminar'} returnFocusRef={menuTrigger} onClose={()=>setDeleting(null)} onConfirm={async()=>{if(deleting.community){await leaveCommunity(deleting.id);communities.forget?.(deleting.id);}else await states.change('conversacion',deleting.id,{oculto:true});states.reload();conversations.reload();if(pathname.startsWith(deleting.to))navigate('/');avisar({texto:deleting.community?'Saliste de la comunidad.':'Conversación retirada de tu lista.'});}}/>}
       <Link to="/perfil" className="side-me">
         <Avatar nombre={usuario?.nombreVisible || usuario?.nombreUsuario} foto={usuario?.fotoUrl} color={usuario?.colorAvatar} size={38} dark presence={usuario?.disponibilidad === 'EN_LINEA' && usuario?.enLinea === false ? 'DESCONECTADO' : usuario?.disponibilidad} />
         <span className="side-me-text">

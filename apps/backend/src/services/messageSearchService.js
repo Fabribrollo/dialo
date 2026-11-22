@@ -5,9 +5,10 @@ import { mensajeSelect, olderMessagesWhere, toMensaje } from '../utils/messages.
 import { channelMessageSelect, toChannelMessage } from '../utils/channelMessages.js';
 import { AppError } from '../utils/AppError.js';
 
-export async function searchMessages(kind, id, actor, { q, cursor, limit }) {
+export async function searchMessages(kind, id, actor, { q='', cursor, limit=20,autor,tipo='todos',desde,hasta,desfase=0 }) {
   const key = kind === 'channel' ? 'idCanal' : 'idConversacion';
   const search = async (db) => {
+    const author=autor?await db.usuario.findFirst({where:{nombreUsuario:{equals:autor,mode:'insensitive'}},select:{id:true}}):null;
     let older = {};
     if (cursor) {
       const reference = await db.mensaje.findFirst({ where: { id: cursor, [key]: id }, select: { id: true, fechaCreacion: true } });
@@ -15,7 +16,7 @@ export async function searchMessages(kind, id, actor, { q, cursor, limit }) {
       older = olderMessagesWhere(reference);
     }
     const rows = await db.mensaje.findMany({
-      where: { [key]: id, fechaEliminacion: null, contenido: { contains: q, mode: 'insensitive' }, ...older },
+      where: { [key]: id, idHilo:null,fechaEliminacion: null,...(q?{contenido:{contains:q,mode:'insensitive'}}:{}),...(autor?{idAutor:author?.id??-1}:{}),...(desde||hasta?{fechaCreacion:{...(desde?{gte:new Date(new Date(desde+'T00:00:00Z').getTime()+desfase*60000)}:{}),...(hasta?{lt:new Date(new Date(hasta+'T00:00:00Z').getTime()+86400000+desfase*60000)}:{})}}:{}),...(tipo==='texto'?{adjunto:{is:null},encuesta:{is:null}}:tipo==='encuesta'?{encuesta:{isNot:null}}:tipo!=='todos'?{adjunto:{is:{tipo:tipo==='documento'?'application/pdf':{startsWith:{imagen:'image/',video:'video/',audio:'audio/'}[tipo]}}}}:{}),...(Object.keys(older).length?{AND:[older]}:{}) },
       select: kind === 'channel' ? channelMessageSelect : mensajeSelect,
       orderBy: [{ fechaCreacion: 'desc' }, { id: 'desc' }], take: limit + 1,
     });

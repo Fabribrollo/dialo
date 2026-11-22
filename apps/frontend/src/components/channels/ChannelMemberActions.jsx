@@ -1,0 +1,28 @@
+import {useSocket} from '../../hooks/useSocket.js';
+import {permissionLabels} from '../../utils/permissionCatalog.js';
+import {useEffect,useRef,useState} from 'react';
+import {api} from '../../services/api.js';
+import CommunityActionDialog from '../communities/CommunityActionDialog.jsx';
+import Button from '../ui/Button.jsx';
+import Avatar from '../ui/Avatar.jsx';
+import Icon from '../ui/Icon.jsx';
+import Field from '../ui/Field.jsx';
+import Notice from '../ui/Notice.jsx';
+import {avisar} from '../shell/systemToastsStore.js';
+export default function ChannelMemberActions({canal,embedded=false}){
+ const [open,setOpen]=useState(embedded),[members,setMembers]=useState([]),[silenced,setSilenced]=useState([]),[target,setTarget]=useState(''),[action,setAction]=useState(null),[error,setError]=useState(''),[loading,setLoading]=useState(false),[revision,setRevision]=useState(0);const trigger=useRef(null);
+ const socket=useSocket();
+ useEffect(()=>{if(!open)return;const changed=p=>{if((p?.idComunidad??p?.canal?.idComunidad)===canal.idComunidad){setAction(null);setRevision(v=>v+1);}};const events=['community:member-updated','community:member-left','community:role-updated','channel:updated'];events.forEach(e=>socket?.on(e,changed));return()=>events.forEach(e=>socket?.off(e,changed));},[socket,open,canal.idComunidad]);
+ const selected=members.find(m=>m.usuario.id===Number(target));
+ const caps=canal.misPermisos;const permitted=['EXPULSAR','SILENCIAR'].filter(p=>caps.includes(p)&&(p!=='SILENCIAR'||canal.tipo==='VOZ'));
+ useEffect(()=>{if(!open||!permitted.length)return;let active=true;setLoading(true);setError('');setTarget('');setMembers([]);api.get(`/channels/${canal.id}/members/management`).then(r=>{if(active){setMembers(r.items);setSilenced(r.items.filter(m=>m.silenciado).map(m=>m.usuario.id));}}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[open,canal.id,canal.idComunidad,canal.tipo,revision,permitted.length]);
+ if(!permitted.length)return null;
+ return <section className="channel-member-actions">{!embedded&&<Button variant="secundario" size="sm" onClick={()=>setOpen(v=>!v)} aria-expanded={open}>Gestionar integrantes del canal</Button>}
+ {open&&<div className="lg cpa-col channel-members-card"><header><span className="channel-members-icon"><Icon name="amigos" size={22}/></span><div><h2>Integrantes del canal</h2><p>Administrá el acceso{canal.tipo==='VOZ'?' y el micrófono':''} de una persona. Sus roles se gestionan en la comunidad.</p></div></header><Field as="select" label="Integrante del canal" disabled={loading||Boolean(error)} value={target} onChange={e=>setTarget(e.target.value)}><option value="">{loading?'Cargando integrantes…':'Elegir integrante'}</option>{members.map(m=><option value={m.usuario.id} key={m.usuario.id}>{m.usuario.nombreVisible}</option>)}</Field>
+ {selected&&<div className="channel-member-selected"><Avatar nombre={selected.usuario.nombreVisible} foto={selected.usuario.fotoUrl} size={40}/><div><strong>{selected.usuario.nombreVisible}</strong><span>{selected.expulsado?'Sin acceso al canal':silenced.includes(Number(target))?'Micrófono silenciado':'Acceso habilitado'}</span></div></div>}
+ {selected?.permisosEfectivos&&<div className="effective-permissions"><h3>Permisos actuales</h3><p>{selected.expulsado?'La persona no tiene acceso al canal.':'Se combinan los permisos del canal, su habilitación personal y sus roles.'}</p><ul>{selected.permisosEfectivos.filter(p=>permissionLabels[p]).map(p=><li key={p}>{permissionLabels[p]}</li>)}</ul>{selected.origenPermisos?.roles?.map(role=><p key={role.nombre}><strong>{role.nombre}:</strong> {role.permisos.filter(p=>permissionLabels[p]&&selected.permisosEfectivos.includes(p)).map(p=>permissionLabels[p]).join(' · ')||'Sin capacidades adicionales'}</p>)}</div>}
+ <div className="channel-members-actions"><span className="cpa-pills">{permitted.filter(p=>p!=='SILENCIAR'||members.find(m=>m.usuario.id===Number(target))?.rol!=='ADMIN').map(p=><Button key={p} size="sm" variant="secundario" disabled={!target} onClick={e=>{trigger.current=e.currentTarget;setAction(p);}}>{p==='BANEAR'?'Banear':p==='EXPULSAR'?(members.find(m=>m.usuario.id===Number(target))?.expulsado?'Restaurar acceso':'Expulsar del canal'):silenced.includes(Number(target))?'Levantar silencio':'Silenciar'}</Button>)}</span>{!target&&!loading&&!error&&<p>Elegí un integrante para ver sus acciones disponibles.</p>}</div>
+ {error&&<Notice title={error} actionLabel="Reintentar" onAction={()=>setRevision(v=>v+1)}/>}</div>}
+ {action&&<CommunityActionDialog title={action==='BANEAR'?'¿Banear a este integrante?':action==='EXPULSAR'?'¿Cambiar el acceso de este integrante al canal?':silenced.includes(Number(target))?'¿Levantar el silencio?':'¿Silenciar en este canal?'} description={action==='SILENCIAR'?'El silencio bloquea el micrófono, incluso si vuelve a conectarse.':'Solo cambia el acceso a este canal. La persona sigue en la comunidad.'} confirmLabel="Confirmar" returnFocusRef={trigger} onClose={()=>setAction(null)} onConfirm={async()=>{const id=Number(target);const path=action==='BANEAR'?'ban':action==='EXPULSAR'?(members.find(m=>m.usuario.id===id)?.expulsado?'restore':'kick'):'silence';const value=!silenced.includes(id);await api.post(`/channels/${canal.id}/members/${id}/${path}`,action==='SILENCIAR'?{silenciado:value}:{});if(action==='SILENCIAR')setSilenced(old=>value?[...old,id]:old.filter(x=>x!==id));else if(!canal.privado)setMembers(old=>old.map(m=>m.usuario.id===id?{...m,expulsado:!m.expulsado}:m));else setMembers(old=>old.filter(m=>m.usuario.id!==id));setAction(null);setRevision(v=>v+1);avisar({texto:'Acción aplicada.'});}}/>}
+ </section>;
+}

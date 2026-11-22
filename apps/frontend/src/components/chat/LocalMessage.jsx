@@ -26,6 +26,7 @@ export default function LocalMessage({ mensaje, onResend, onDiscard }) {
     <li className="msg msg-right lm">
       <time className="msg-time">{hora}</time>
       <span className={`msg-bub msg-own msg-first lm-bub ${bloqueado ? 'lm-blk' : 'ac lm-rev'}`}>{mensaje.contenido}</span>
+      {!bloqueado&&<span className="lm-send-status" role="status">Enviando…</span>}
       {bloqueado && (
         <div className="lm-row" role="alert">
           <span className="lm-shield"><Icon name="moderacion" size={13} stroke={2.2} /></span>

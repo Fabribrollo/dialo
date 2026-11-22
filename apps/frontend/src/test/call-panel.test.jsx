@@ -1,3 +1,4 @@
+import {CallOriginProvider,useCallScene} from '../context/CallOriginContext.jsx';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
@@ -219,34 +220,17 @@ it('la barra de llamada aparece fuera del canal con salida visible', () => {
   setCall({ estado: 'CONECTADO', canal, misPermisos: ['VER', 'HABLAR'] });
   showBar('/amigos');
   const barra = screen.getByRole('complementary', { name: 'Llamada activa' });
-  expect(within(barra).getByRole('status')).toHaveTextContent('En la llamada · charla');
+  expect(within(barra).getByText('charla')).toBeInTheDocument();
   expect(within(barra).getByRole('link', { name: 'Volver al canal' })).toHaveAttribute('href', '/comunidades/4/canales/2');
   fireEvent.click(within(barra).getByRole('button', { name: 'Activar micrófono' }));
-  fireEvent.click(within(barra).getByRole('button', { name: 'Salir de la llamada' }));
+  fireEvent.click(within(barra).getByRole('button', { name: 'Finalizar llamada' }));
   expect(call.alternarMicrofono).toHaveBeenCalled();
   expect(call.salir).toHaveBeenCalled();
 });
 
-it('la barra se despliega con los participantes y sus estados', () => {
-  setCall({ estado: 'CONECTADO', canal, misPermisos: ['VER'], participantes: [
-    { idUsuario: 1, nombre: 'Fabri', local: true, microfono: false },
-    { idUsuario: 2, nombre: 'Ana', microfono: true, video: {} },
-    { idUsuario: 3, nombre: 'Beto', microfono: true, pantalla: true },
-    { idUsuario: 4, nombre: 'Caro', microfono: true },
-    { idUsuario: 5, nombre: 'Dani', microfono: true },
-  ] });
-  showBar('/amigos');
-  const boton = screen.getByRole('button', { name: /2 más/ });
-  expect(boton).toHaveAttribute('aria-expanded', 'false');
-  fireEvent.click(boton);
-  const lista = within(screen.getByRole('list', { name: 'En la llamada' }));
-  expect(lista.getAllByRole('listitem')).toHaveLength(5);
-  expect(lista.getByText('Fabri (vos)')).toBeInTheDocument();
-  expect(lista.getByText('Silenciado')).toBeInTheDocument();
-  expect(lista.getByText('Con cámara')).toBeInTheDocument();
-  expect(lista.getByText('Comparte pantalla')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /Ver menos/ }));
-  expect(screen.queryByRole('list', { name: 'En la llamada' })).not.toBeInTheDocument();
+it('la barra muestra como máximo tres avatares sin desplegable',()=>{
+ setCall({estado:'CONECTADO',canal,misPermisos:['VER'],participantes:Array.from({length:5},(_,i)=>({idUsuario:i+1,nombre:`Persona ${i}`}))});showBar('/amigos');
+ const bar=screen.getByRole('complementary',{name:'Llamada activa'});expect(bar.querySelectorAll('.av')).toHaveLength(3);expect(bar.querySelector('[aria-expanded]')).toBeNull();expect(screen.queryByRole('list',{name:'En la llamada'})).not.toBeInTheDocument();
 });
 
 it('la barra no se muestra sin llamada ni dentro del propio canal', () => {
@@ -257,12 +241,8 @@ it('la barra no se muestra sin llamada ni dentro del propio canal', () => {
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
 });
 
-it('la barra muestra una llamada interrumpida y permite cerrarla', () => {
-  setCall({ estado: 'ERROR', canal, error: { code: 'CALL_ENDED', message: 'La llamada terminó.' } });
-  showBar('/');
-  expect(screen.getByText('La llamada terminó.')).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Cerrar' }));
-  expect(call.salir).toHaveBeenCalled();
+it('una llamada interrumpida usa el popup común y no reserva una barra',()=>{
+ setCall({estado:'ERROR',canal,error:{message:'La llamada terminó.'}});showBar('/');expect(screen.getByText('La llamada terminó.')).toBeInTheDocument();expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
 });
 
 const transmite = { ...canal, misPermisos: ['VER', 'HABLAR', 'TRANSMITIR'] };
@@ -277,7 +257,7 @@ it('con TRANSMITIR ofrece encender la cámara; sin él no', async () => {
   rerender(<CallPanel canal={transmite} />);
   expect(screen.getByRole('button', { name: 'Apagar cámara' })).toBeInTheDocument();
   rerender(<CallPanel canal={canal} />);
-  expect(screen.queryByRole('button', { name: /cámara/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^(Encender|Apagar) cámara/ })).not.toBeInTheDocument();
   await settle();
 });
 
@@ -293,7 +273,7 @@ it('muestra el video de los demás y un avatar para quien no tiene cámara', asy
   expect(video.muted).toBe(true);
   expect(nombres()).toEqual(['Fabri (vos)', 'Ana']);
   expect(tiles()[0].querySelector('video')).toBeNull();
-  expect(screen.queryByRole('button', { name: /cámara/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /^(Encender|Apagar) cámara/ })).not.toBeInTheDocument();
   await settle();
   unmount();
   expect(deAna.detach).toHaveBeenCalledWith(video);
@@ -415,4 +395,22 @@ it('el panel derecho del canal de texto muestra la llamada de voz y deja unirse'
   fireEvent.click(panel.getByRole('button', { name: 'Unirme a la llamada' }));
   expect(call.entrar).toHaveBeenCalledWith(canal);
   slot.remove();
+});
+
+function SceneMarker(){useCallScene('/comunidades/4/canales/2',true);return null;}
+it('abrir ajustes recupera la barra aunque la URL del canal no cambie',()=>{
+ setCall({estado:'CONECTADO',canal,misPermisos:['VER']});
+ const {rerender}=render(<MemoryRouter initialEntries={['/comunidades/4/canales/2']}><CallOriginProvider><ActiveCallBar/><SceneMarker/></CallOriginProvider></MemoryRouter>);
+ expect(screen.queryByRole('complementary',{name:'Llamada activa'})).not.toBeInTheDocument();
+ rerender(<MemoryRouter initialEntries={['/comunidades/4/canales/2']}><CallOriginProvider><ActiveCallBar/></CallOriginProvider></MemoryRouter>);
+ expect(screen.getByRole('complementary',{name:'Llamada activa'})).toBeInTheDocument();
+});
+
+it('una respuesta inicial anterior a un ingreso no borra al participante anunciado',async()=>{
+ let resolve;getCallParticipants.mockReturnValueOnce(new Promise(r=>{resolve=r;}));show();await settle();
+ emit('call:participant-joined',{idCanal:2,participante:{usuario:usuario(7,'Ana')}});
+ await act(async()=>resolve({items:[]}));expect(screen.getByText('Hay 1 persona conectada.')).toBeInTheDocument();
+});
+it('el listado de quienes están en llamada se recupera periódicamente aunque falte un evento',async()=>{
+ vi.useFakeTimers();try{show();await settle();getCallParticipants.mockResolvedValue({items:[{usuario:usuario(7,'Ana')}]});await act(async()=>vi.advanceTimersByTime(5000));expect(screen.getByText('Hay 1 persona conectada.')).toBeInTheDocument();}finally{vi.useRealTimers();}
 });

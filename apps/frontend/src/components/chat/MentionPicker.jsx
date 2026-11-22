@@ -1,8 +1,8 @@
-export default function MentionPicker({ value, onChange, members = [], inputId }) {
+export default function MentionPicker({ value, onChange, members = [], inputId,everyone=false }) {
   const match=/(?:^|\s)@([\p{L}\p{N}_.]*)$/u.exec(value);
   if (!match) return null;
   const query=match[1].toLocaleLowerCase();
-  const candidates=members.filter(({usuario})=>usuario && (usuario.nombreUsuario.toLocaleLowerCase().startsWith(query) || usuario.nombreVisible?.toLocaleLowerCase().startsWith(query))).slice(0,6);
+  const candidates=[...(everyone? [{usuario:{id:'everyone',nombreUsuario:'everyone',nombreVisible:'Todos los integrantes con acceso'}}]:[]),...members].filter(({usuario})=>usuario && (usuario.nombreUsuario.toLocaleLowerCase().startsWith(query) || usuario.nombreVisible?.toLocaleLowerCase().startsWith(query))).slice(0,6);
   return candidates.length?<div className="mention-picker" role="group" aria-label="Sugerencias de menciones">
     {candidates.map(({usuario})=><button type="button" key={usuario.id} onClick={()=>{
       const start=value.length-match[1].length-1;

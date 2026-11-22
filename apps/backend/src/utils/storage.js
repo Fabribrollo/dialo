@@ -4,7 +4,7 @@ import { AppError } from './AppError.js';
 
 if (env.cloudinaryUrl) cloudinary.config({ secure: true });
 
-export function uploadImage(buffer, { folder, publicId, gravity = 'center' }) {
+export function uploadImage(buffer, { folder, publicId, gravity = 'center',width=256,height=256 }) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -14,7 +14,7 @@ export function uploadImage(buffer, { folder, publicId, gravity = 'center' }) {
         invalidate: true,
         resource_type: 'image',
         format: 'webp',
-        transformation: [{ width: 256, height: 256, crop: 'fill', gravity }],
+        transformation: [{ width, height, crop: 'fill', gravity }],
       },
       (error, result) => {
         if (!error) return resolve(result.secure_url);

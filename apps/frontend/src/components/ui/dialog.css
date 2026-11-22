@@ -19,3 +19,5 @@
 .dlg-form { display: flex; flex-direction: column; gap: 14px; }
 .dlg-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .dlg-fieldset p { margin: 0; font-size: 14px; color: rgba(19, 19, 22, .64); line-height: 1.45; }
+
+.dlg:has(.role-permissions){width:620px;max-height:calc(100dvh - 40px);overflow:auto;background:rgba(250,249,255,.97)}.dlg:has(.role-permissions) .dlg-actions{position:sticky;bottom:-22px;margin-bottom:-4px;padding:12px 0;background:rgba(250,249,255,.97)}

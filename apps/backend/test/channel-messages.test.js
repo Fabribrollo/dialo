@@ -80,14 +80,14 @@ test('valida IDs, cursor, límite y campos ajenos a la consulta', async () => {
 });
 test('canal vacío devuelve items vacíos y cursor null, también con VER sin ESCRIBIR', async () => {
   const c = await community(), ch = await channel(c, { privado: true });
-  await access(ch, [{ rol: 'INTEGRANTE', permisos: ['VER'] }]);
+  await access(ch, [{ idUsuario: dani.id, permisos: ['VER'] }]);
   assert.deepEqual((await history(ch, '', dani)).body, { items: [], nextCursor: null });
 });
 test('propietario y administrador acceden a canales privados; moderador necesita VER explícito', async () => {
   const c = await community(), ch = await channel(c, { privado: true }); await message(ch);
   for (const user of [ana, beto]) assert.equal((await history(ch, '', user)).status, 200);
   for (const user of [cata, dani, eli]) { const r = await history(ch, '', user); assert.equal(r.status, 404); assert.equal(r.body.error.code, 'CHANNEL_NOT_FOUND'); }
-  await access(ch, [{ rol: 'MODERADOR', permisos: ['VER'] }]); assert.equal((await history(ch, '', cata)).status, 200);
+  await access(ch, [{ idUsuario: cata.id, permisos: ['VER'] }]); assert.equal((await history(ch, '', cata)).status, 200);
 });
 test('rechaza voz/video solo después de autorizar y no revela el tipo a terceros', async () => {
   const c = await community();
@@ -158,7 +158,7 @@ test('DTO seguro de autores, edición y borrados propios o moderados sin conteni
   assert.equal(byId.get(edited.id).contenido, 'editado'); assert.equal(byId.get(edited.id).fechaEdicion, edited.fechaEdicion.toISOString());
   assert.equal(byId.get(edited.id).autor.disponibilidad, 'AUSENTE'); assert.equal(byId.get(edited.id).autor.informacionPersonal, 'Perfil público');
   for (const m of r.body.items) {
-    assert.deepEqual(Object.keys(m).sort(), ['autor', 'contenido', 'eliminado', 'eliminadoPorModerador', 'fechaCreacion', 'fechaEdicion', 'id', 'idCanal']);
+    assert.deepEqual(Object.keys(m).sort(), ['autor', 'contenido', 'eliminado', 'eliminadoPorModerador', 'fechaCreacion', 'fechaEdicion', 'fechaFijado', 'id', 'idCanal', 'reacciones']);
     assert.deepEqual(Object.keys(m.autor).sort(), ['colorAvatar', 'disponibilidad', 'enLinea', 'fotoUrl', 'id', 'informacionPersonal', 'nombreUsuario', 'nombreVisible']);
     assert.equal(m.idCanal, ch.id); assert(!JSON.stringify(m).includes('original'));
   }
@@ -190,7 +190,7 @@ test('insertar un mensaje más nuevo entre páginas no repite ni omite los mensa
 });
 test('revocar VER bloquea la siguiente página aunque se conozca un cursor válido', async () => {
   const c = await community(), ch = await channel(c, { privado: true });
-  await access(ch, [{ rol: 'INTEGRANTE', permisos: ['VER'] }]); const m = await message(ch);
+  await access(ch, [{ idUsuario: dani.id, permisos: ['VER'] }]); const m = await message(ch);
   assert.equal((await history(ch, '', dani)).status, 200);
   await access(ch, []);
   const denied = await history(ch, `cursor=${m.id}`, dani); assert.equal(denied.status, 404); assert.equal(denied.body.error.code, 'CHANNEL_NOT_FOUND');

@@ -62,7 +62,7 @@ try {
   assert.equal((await request(accessPath)).status, 401);
   assert.equal((await request(accessPath, { as: c })).status, 404);
   assert.equal((await join(clients[1])).error.code, 'CHANNEL_NOT_FOUND');
-  const configured = await set([{ rol: 'INTEGRANTE', permisos: ['VER'] }]);
+  const configured = await set([{ idUsuario: b.id, permisos: ['VER'] }]);
   assert.equal(configured.status, 200);
   assert.deepEqual((await request(accessPath, { as: a })).data.acceso, configured.data.acceso);
   assert.equal((await request(accessPath, { as: b })).status, 403);
@@ -74,12 +74,12 @@ try {
     const joined = await join(client);
     assert.equal(joined.ok, true); assert.deepEqual(joined.data.canal.misPermisos, ['VER']);
   }
-  const upgraded = await set([{ rol: 'INTEGRANTE', permisos: ['VER'] }, { idUsuario: b.id, permisos: ['ESCRIBIR'] }]);
+  const upgraded = await set([{ idUsuario: b.id, permisos: ['VER','ESCRIBIR'] }]);
   assert.equal(upgraded.status, 200);
   const personal = upgraded.data.acceso.habilitaciones.find((g) => g.usuario);
   assert.deepEqual(personal.permisos, ['VER', 'ESCRIBIR']); assert.equal(personal.usuario.id, b.id); assert.equal(personal.usuario.correo, undefined);
   assert.deepEqual((await request(path, { as: b })).data.canal.misPermisos, ['VER', 'ESCRIBIR']);
-  assert.equal((await set([{ rol: 'INTEGRANTE', permisos: ['VER'] }])).status, 200);
+  assert.equal((await set([{ idUsuario: b.id, permisos: ['VER'] }])).status, 200);
   assert.deepEqual((await join(clients[1])).data.canal.misPermisos, ['VER']);
   recorded.forEach((events) => events.splice(0));
   assert.equal((await set([])).status, 200);
@@ -89,7 +89,7 @@ try {
     assert.equal((await join(clients[n])).error.code, 'CHANNEL_NOT_FOUND');
   }
   assert.equal((await request(path, { as: b })).status, 404);
-  assert(!(await request(`/communities/${communityId}/channels`, { as: b })).data.items.some((i) => i.id === ch.id));
+  assert.equal((await request(`/communities/${communityId}/channels`, { as: b })).data.items.find(i=>i.id===ch.id).bloqueado,true);
   recorded.forEach((events) => events.splice(0));
   await set([{ idUsuario: b.id, permisos: ['VER'] }]);
   await Promise.all(clients.map(ready));
@@ -100,7 +100,7 @@ try {
   assert.deepEqual(recorded[3], []);
   assert.equal((await ack(clients[1], 'channel:unsubscribe', { idCanal: ch.id })).ok, true);
   // Competencia real de solicitudes: el resultado persistido debe ser un reemplazo completo.
-  const configs = [[{ rol: 'INTEGRANTE', permisos: ['VER'] }], [{ idUsuario: b.id, permisos: ['ESCRIBIR'] }]];
+  const configs = [[{ idUsuario: b.id, permisos: ['VER'] }], [{ idUsuario: b.id, permisos: ['ESCRIBIR'] }]];
   assert((await Promise.all(configs.map((grants) => set(grants)))).every((r) => r.status === 200));
   const final = (await request(accessPath, { as: a })).data.acceso.habilitaciones;
   assert.equal(final.length, 1, 'Se mezclaron dos reemplazos concurrentes');
@@ -112,7 +112,7 @@ try {
   const voice = await request(`/communities/${communityId}/channels`, { method: 'POST', as: a, body: { nombre: 'voz-acceso', tipo: 'VOZ', privado: true } });
   assert.equal(voice.status, 201);
   assert.equal((await request(`/channels/${voice.data.canal.id}/access`, { method: 'PUT', as: a, body: { privado: true, habilitaciones: [{ idUsuario: b.id, permisos: ['TRANSMITIR'] }] } })).status, 200);
-  assert.deepEqual((await request(`/channels/${voice.data.canal.id}`, { as: b })).data.canal.misPermisos, ['VER', 'TRANSMITIR']);
+  assert.deepEqual((await request(`/channels/${voice.data.canal.id}`, { as: b })).data.canal.misPermisos, ['VER','CAMARA','PANTALLA','TRANSMITIR']);
   await set([{ idUsuario: b.id, permisos: ['VER'] }]);
   assert.equal((await request(`/communities/${communityId}/leave`, { method: 'POST', as: b })).status, 204);
   assert.equal((await join(clients[2])).error.code, 'CHANNEL_NOT_FOUND');
@@ -120,7 +120,7 @@ try {
   assert.equal((await request('/auth/logout', { method: 'POST', as: c })).status, 204);
   for (let n = 0; n < 40 && clients[3].connected; n++) await new Promise((r) => setTimeout(r, 50));
   assert.equal(clients[3].connected, false);
-  console.log('T-23 OK: configuración, validación, solo lectura, unión rol/usuario, permisos de voz, revocación y recuperación en varias pestañas, concurrencia, abandono y sesión.');
+  console.log('T-23 OK: configuración, validación, solo lectura, habilitaciones individuales, permisos de voz, revocación y recuperación en varias pestañas, concurrencia, abandono y sesión.');
 } catch (error) { console.error(`T-23 FALLÓ: ${error.message}`); process.exitCode = 1; }
 finally {
   for (const socket of sockets) socket.disconnect();

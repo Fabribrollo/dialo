@@ -75,11 +75,14 @@ export function useMessages(id) {
         ),
       );
     };
+    const receipts=({idConversacion,idUsuario,estado,fecha})=>{if(idConversacion!==id)return;for(const [key,m] of changes.current){if(m.idAutor!==idUsuario)changes.current.set(key,{...m,fechaEntrega:m.fechaEntrega??fecha,...(estado==='leido'?{fechaLectura:fecha}:{})});}setMessages(old=>old.map(m=>m.idAutor!==idUsuario?{...m,fechaEntrega:m.fechaEntrega??fecha,...(estado==='leido'?{fechaLectura:fecha}:{})}:m));};
+    socket.on('message:receipts',receipts);
     socket.on(EVENTS.MESSAGE_NEW, update);
     socket.on(EVENTS.MESSAGE_UPDATED, update);
     socket.on(EVENTS.MESSAGE_DELETED, remove);
     socket.on("connect", reload);
     return () => {
+      socket.off('message:receipts',receipts);
       socket.off(EVENTS.MESSAGE_NEW, update);
       socket.off(EVENTS.MESSAGE_UPDATED, update);
       socket.off(EVENTS.MESSAGE_DELETED, remove);
@@ -138,5 +141,13 @@ export function useMessages(id) {
       throw e;
     }
   }
-  return { messages, loading, cursor, error, reload, older, action };
+  const acceptMessages = (items) => {
+    for(const message of items){
+      if(message.idConversacion!==id)continue;
+      const previous=changes.current.get(message.id);
+      changes.current.set(message.id,previous?.eliminado?previous:message);
+    }
+    setMessages(old=>reconcile(old));
+  };
+  return { messages, loading, cursor, error, reload, older, action, acceptMessages };
 }

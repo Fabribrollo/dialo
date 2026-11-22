@@ -4,6 +4,7 @@ import { beforeEach, expect, it, vi } from 'vitest';
 import CommunityModerationPage from '../pages/CommunityModerationPage.jsx';
 import { getCommunityModeration, replaceCommunityModeration } from '../services/communityModerationService.js';
 
+vi.mock('../services/api.js',()=>({api:{get:async()=>({items:[]})}}));
 const detail = vi.hoisted(() => ({ current: null }));
 vi.mock('../hooks/useCommunity.js', () => ({ useCommunity: () => detail.current }));
 vi.mock('../pages/CommunityPage.jsx', () => ({ CommunityState: () => null, useLostCommunity: () => {} }));
@@ -53,6 +54,6 @@ it('no permite reglas repetidas y permite quitarlas', async () => {
 
 it('un integrante no ve el formulario ni consulta la configuración', () => {
   renderPage('INTEGRANTE');
-  expect(screen.getByText(/Solo propietarios y administradores/)).toBeInTheDocument();
+  expect(screen.getByText(/Necesitás el permiso Configurar moderación/)).toBeInTheDocument();
   expect(getCommunityModeration).not.toHaveBeenCalled();
 });

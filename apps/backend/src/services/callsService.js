@@ -7,7 +7,7 @@ import { findAuthUserBySessionId } from './authService.js';
 import { getChannelPermissions, onChannelAccessChange, requireChannelPermission, withChannelPermission } from './channelsService.js';
 import { cerrarSalas, cortarLlamadas } from './callCleanup.js';
 import { idCanalDeSala, media, onMediaEvent, TOKEN_TTL_SEGUNDOS } from './mediaService.js';
-import { emitToChannel, onSessionEnded } from '../sockets/emitter.js';
+import { emitToChannel, emitToCommunity, onSessionEnded } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
 
 const TIPOS_LLAMADA = ['VOZ'];
@@ -17,13 +17,14 @@ const noDisponible = () => new AppError(503, 'MEDIA_UNAVAILABLE', 'Las llamadas 
 export function fuentesPermitidas(permisos) {
   return [
     ...(permisos.includes('HABLAR') ? ['microfono'] : []),
-    ...(permisos.includes('TRANSMITIR') ? ['camara', 'pantalla'] : []),
+    ...(permisos.includes('CAMARA') || permisos.includes('TRANSMITIR') ? ['camara'] : []),
+    ...(permisos.includes('PANTALLA') || permisos.includes('TRANSMITIR') ? ['pantalla'] : []),
   ];
 }
 
 const participanteSelect = { idUsuario: true, fechaConexion: true, usuario: { select: usuarioPublicoSelect } };
 const toParticipante = (p) => ({ usuario: toUsuarioPublico(p.usuario), desde: p.fechaConexion });
-const avisar = (idCanal, evento, payload) => emitToChannel(idCanal, evento, payload).catch((error) => console.error(error));
+const avisar = (idCanal, evento, payload) => emitToChannel(idCanal, evento, payload).then(async()=>{const c=await prisma.canal.findUnique({where:{id:idCanal},select:{idComunidad:true}});if(c)emitToCommunity(c.idComunidad,'community:activity-changed',{idComunidad:c.idComunidad});}).catch((error) => console.error(error));
 
 export async function joinCall(idCanal, usuario, idSesion) {
   if (!media.configurado) throw noDisponible();
@@ -59,12 +60,27 @@ export async function leaveCall(idCanal, idUsuario) {
   avisar(idCanal, EVENTS.CALL_PARTICIPANT_LEFT, { idCanal, idUsuario });
 }
 
+const presenceSyncs=new Map();
+async function recoverPendingPresence(idCanal){
+ if(!media.configurado)return;
+ if(presenceSyncs.has(idCanal))return presenceSyncs.get(idCanal);
+ const task=(async()=>{
+  const pending=await prisma.participanteLlamada.findMany({where:{idCanal,conectado:false,fechaAutorizacion:{gte:new Date(Date.now()-TOKEN_TTL_SEGUNDOS*1000)}}});
+  if(!pending.length)return;
+  let present;try{present=await media.listarParticipantes(idCanal);}catch{return;}
+  for(const p of present)if(pending.some(r=>r.idUsuario===p.idUsuario&&r.ingreso===p.ingreso))await alEntrar(idCanal,p);
+ })();presenceSyncs.set(idCanal,task);try{await task;}finally{presenceSyncs.delete(idCanal);}
+}
+
 export async function listCallParticipants(idCanal, idUsuario) {
   await requireChannelPermission(idCanal, idUsuario, 'VER');
+  await recoverPendingPresence(idCanal);
+  await requireChannelPermission(idCanal,idUsuario,'VER');
   const lista = await prisma.participanteLlamada.findMany({
     where: { idCanal, conectado: true }, orderBy: [{ fechaConexion: 'asc' }, { idUsuario: 'asc' }], select: participanteSelect,
   });
-  return lista.map(toParticipante);
+  const silencios=await prisma.canalSilencio.findMany({where:{idCanal},select:{idUsuario:true}});
+  return lista.map(p=>({...toParticipante(p),silenciado:silencios.some(s=>s.idUsuario===p.idUsuario)}));
 }
 
 // Permisos actuales del participante, o null si su sesion ya no sirve o perdio VER.
@@ -90,7 +106,7 @@ async function alEntrar(idCanal, { idUsuario, ingreso }) {
   });
   if (!count) return;
   const actual = await prisma.participanteLlamada.findUnique({ where: { idUsuario }, select: participanteSelect });
-  avisar(idCanal, EVENTS.CALL_PARTICIPANT_JOINED, { idCanal, participante: toParticipante(actual) });
+  if(actual)avisar(idCanal, EVENTS.CALL_PARTICIPANT_JOINED, { idCanal, participante: toParticipante(actual) });
 }
 
 async function alSalir(idCanal, { idUsuario, ingreso }) {
@@ -162,7 +178,7 @@ export async function reconciliarLlamadas() {
     const autorizados = new Set(delCanal.map(clave));
     for (const r of delCanal) {
       if (r.conectado && !presentes.has(clave(r))) { await alSalir(idCanal, r); continue; }
-      if (!r.conectado) continue;
+      if (!r.conectado) {if(presentes.has(clave(r)))await alEntrar(idCanal,r);continue;}
       const permisos = await permisosVigentes(r);
       if (!permisos) await cortarLlamadas({ idUsuario: r.idUsuario, idCanal });
       else await media.actualizarPermisos(idCanal, r.idUsuario, fuentesPermitidas(permisos)).catch(() => {});

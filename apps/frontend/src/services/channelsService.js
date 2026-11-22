@@ -10,3 +10,6 @@ export const replaceChannelAccess = (id, acceso) => api.put(`/channels/${id}/acc
 export const getChannel = (id) => api.get(`/channels/${id}`);
 export const getChannelMessages = (id, cursor) => api.get(`/channels/${id}/messages${cursor ? `?cursor=${cursor}` : ''}`);
 export const suggestChannel = (idComunidad, datos) => api.post(`/communities/${idComunidad}/channels/suggestion`, datos);
+export const requestChannelAccess = (id) => api.post(`/channels/${id}/requests`, {});
+export const getChannelRequests = (id) => api.get(`/channels/${id}/requests`);
+export const resolveChannelRequest = (id, solicitud, body) => api.post(`/channels/${id}/requests/${solicitud}`, body);

@@ -1,3 +1,6 @@
+import {usePrivateCall} from '../../context/PrivateCallContext.jsx';
+import Notice from '../ui/Notice.jsx';
+import { enabled, supported } from '../../utils/browserNotifications.js';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { notificationsStore } from './notificationsStore.js';
@@ -5,7 +8,6 @@ import { useLocation, useNavigate } from 'react-router';
 import { api } from '../../services/api.js';
 import { useSocket } from '../../hooks/useSocket.js';
 import { formatListTime } from '../../utils/chat.js';
-import Dialog from '../ui/Dialog.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import Icon, { Spinner } from '../ui/Icon.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
@@ -14,34 +16,33 @@ import { acceptRequest, rejectRequest } from '../../services/friendsService.js';
 import './activityCenter.css';
 
 const VACIO = { items: [], noLeidas: 0, nextCursor: null };
-const AVISOS_KEY = 'dialo:avisos-navegador';
-const REVOCAN = ['channel:access-lost', 'community:left', 'community:member-updated', 'channel:updated'];
+const REVOCAN = ['channel:access-lost', 'community:left', 'community:member-updated', 'channel:updated', 'channel:deleted', 'community:deleted'];
+export const esSeguridad = (tipo) => ['roles', 'acceso', 'baneo', 'rehabilitado', 'solicitud_canal', 'acceso_aceptado', 'acceso_rechazado'].includes(tipo);
 
-function leerPreferencia() {
-  try { return localStorage.getItem(AVISOS_KEY) === '1'; } catch { return false; }
-}
-function guardarPreferencia(valor) {
-  try { localStorage.setItem(AVISOS_KEY, valor ? '1' : '0'); } catch { /* sin almacenamiento */ }
-}
-const soportaAvisos = () => typeof window !== 'undefined' && 'Notification' in window;
+const soportaAvisos = supported;
 
 // Varios mensajes del mismo chat o canal se muestran como un solo aviso.
 export function agrupar(items) {
   const grupos = new Map();
   for (const n of items) {
-    const key = `${n.tipo}:${n.referencia}`;
+    const key = `${n.tipo}:${n.referencia}${n.distincion?':'+n.distincion:''}`;
     const g = grupos.get(key);
     if (g) {
       g.total++;
       if (!n.leida) g.nuevas++;
     } else {
-      grupos.set(key, { key, tipo: n.tipo, referencia: n.referencia, contexto: n.contexto, vista: n.vista, fecha: n.fechaCreacion, total: 1, nuevas: n.leida ? 0 : 1 });
+      grupos.set(key, { key,...(n.distincion?{distincion:n.distincion}:{}), tipo: n.tipo, referencia: n.referencia, contexto: n.contexto, vista: n.vista, fecha: n.fechaCreacion, total: 1, nuevas: n.leida ? 0 : 1 });
     }
   }
   return [...grupos.values()];
 }
 
 export function describir(g) {
+  if(g.distincion)return {titulo:g.distincion==='mencion'?'Te mencionaron':'Respondieron tu mensaje',detalle:`${g.contexto?.nombre??'Canal'} · ${g.vista?.texto??''}`,accion:'Ver mensaje'};
+  if (esSeguridad(g.tipo)) {
+    const aviso = contenidoDelAviso(g);
+    return { titulo: aviso.titulo, detalle: aviso.texto, accion: aviso.principal };
+  }
   const nombre = g.contexto?.nombre;
   const cantidad = g.nuevas || g.total;
   const mensajes = `${cantidad} ${cantidad === 1 ? 'mensaje' : 'mensajes'}${g.nuevas ? (cantidad === 1 ? ' nuevo' : ' nuevos') : ''}`;
@@ -57,33 +58,52 @@ export function describir(g) {
   return { titulo: nombre ?? 'Mensaje privado', detalle: vista || mensajes, accion: 'Abrir chat' };
 }
 
-function mostrarAvisoDelSistema(grupo, abrir) {
+async function mostrarAvisoDelSistema(grupo, abrir) {
   if (!soportaAvisos() || Notification.permission !== 'granted') return;
   const { titulo, texto } = contenidoDelAviso(grupo);
   try {
+    if(navigator.serviceWorker){const registration=await navigator.serviceWorker.getRegistration();if(registration?.showNotification){const c=grupo.contexto??{};const url=c.idComunidad?(grupo.tipo==='canal'?`/comunidades/${c.idComunidad}/canales/${grupo.referencia}`:`/comunidades/${c.idComunidad}`):grupo.tipo==='conversacion'?`/conversaciones/${grupo.referencia}`:'/';await registration.showNotification(titulo,{body:texto||describir(grupo).detalle,tag:grupo.key,data:{url}});return {close:()=>registration.getNotifications({tag:grupo.key}).then(items=>items.forEach(n=>n.close()))};}}
     const aviso = new Notification(titulo, { body: texto || describir(grupo).detalle, tag: grupo.key });
     aviso.onclick = () => { window.focus(); abrir(grupo); aviso.close(); };
+    return aviso;
   } catch { /* algunos navegadores solo permiten avisos desde un service worker */ }
 }
 
-export default function ActivityCenter() {
+export default function ActivityCenter({ panelTarget, onOpenChange }) {
+  const privateCall=usePrivateCall();
   const [data, setData] = useState(VACIO);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
   const [masCargando, setMasCargando] = useState(false);
-  const [avisos, setAvisos] = useState(() => leerPreferencia() && soportaAvisos() && Notification.permission === 'granted');
-  const [permiso, setPermiso] = useState(() => (soportaAvisos() ? Notification.permission : 'unsupported'));
+  const [avisos, setAvisos] = useState(enabled);
+  useEffect(()=>{const update=()=>setAvisos(enabled());window.addEventListener('storage',update);window.addEventListener('dialo:notification-preference',update);window.addEventListener('focus',update);return()=>{window.removeEventListener('storage',update);window.removeEventListener('dialo:notification-preference',update);window.removeEventListener('focus',update);};},[]);
   const [flotantes, setFlotantes] = useState([]);
   const socket = useSocket();
   const trigger = useRef(null);
   const origen = useRef(null);
   const generation = useRef(0);
+  const accessEpoch = useRef(0);
   const vistos = useRef(null);
+  const sistema = useRef(new Set());
   const abrirRef = useRef(null);
   const avisosRef = useRef(avisos);
   avisosRef.current = avisos;
   const titulo = useId();
+  useEffect(() => {
+    onOpenChange?.(open);
+    notificationsStore.set({ expanded: open });
+    if (open) {
+      closeButton.current?.focus();
+    } else if (origen.current?.isConnected) origen.current.focus();
+  }, [open, onOpenChange]);
+  const closeButton = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const escape = (event) => { if (event.key === 'Escape' && !event.defaultPrevented) { event.preventDefault(); setOpen(false); } };
+    document.addEventListener('keydown', escape);
+    return () => document.removeEventListener('keydown', escape);
+  }, [open]);
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
@@ -101,7 +121,11 @@ export default function ActivityCenter() {
           // El más nuevo arriba; si ya había uno del mismo chat o canal, se reemplaza.
           if (llegaron.length) setFlotantes((f) => [...llegaron, ...f.filter((x) => !llegaron.some((n) => n.key === x.key))]);
         } else if (avisosRef.current) {
-          for (const g of llegaron) mostrarAvisoDelSistema(g, (x) => abrirRef.current?.(x));
+          for (const g of llegaron) {
+            const aviso = await mostrarAvisoDelSistema(g, (x) => abrirRef.current?.(x));
+            if(seq!==generation.current){aviso?.close();return;}
+            if (aviso) { sistema.current.add(aviso); aviso.onclose = () => sistema.current.delete(aviso); }
+          }
         }
       }
       // Lo que ya se leyó en otro lado deja de mostrarse flotando.
@@ -116,11 +140,20 @@ export default function ActivityCenter() {
     load();
     socket?.on('notifications:changed', load);
     socket?.on('connect', load);
-    const revoke = () => { generation.current++; setData(VACIO); load(); };
+    const revoke = () => {
+      accessEpoch.current++;
+      generation.current++;
+      setData(VACIO); setFlotantes([]); vistos.current = null;
+      for (const aviso of sistema.current) aviso.close();
+      sistema.current.clear();
+      load();
+    };
     REVOCAN.forEach((e) => socket?.on(e, revoke));
     window.addEventListener('focus', load);
     return () => {
       generation.current++;
+      for (const aviso of sistema.current) aviso.close();
+      sistema.current.clear();
       socket?.off('notifications:changed', load);
       socket?.off('connect', load);
       REVOCAN.forEach((e) => socket?.off(e, revoke));
@@ -132,7 +165,8 @@ export default function ActivityCenter() {
   useEffect(() => {
     const dm = /^\/conversaciones\/(\d+)$/.exec(pathname);
     const ch = /\/canales\/(\d+)$/.exec(pathname);
-    const scope = ch ? { tipo: 'canal', referencia: Number(ch[1]) } : dm ? { tipo: 'conversacion', referencia: Number(dm[1]) } : null;
+    const hiddenByCall=dm&&privateCall?.active&&privateCall.call?.idConversacion===Number(dm[1])&&!privateCall.chatVisible&&!(privateCall.incoming&&privateCall.call.estado==='LLAMANDO');
+    const scope = hiddenByCall?null:ch ? { tipo: 'canal', referencia: Number(ch[1]) } : dm ? { tipo: 'conversacion', referencia: Number(dm[1]) } : null;
     const update = () => socket?.emit('activity:watch', document.visibilityState === 'visible' && document.hasFocus() ? scope : null);
     window.addEventListener('focus', update);
     window.addEventListener('blur', update);
@@ -146,7 +180,7 @@ export default function ActivityCenter() {
       document.removeEventListener('visibilitychange', update);
       socket?.off('connect', update);
     };
-  }, [pathname, socket]);
+  }, [pathname, socket,privateCall?.active,privateCall?.call?.idConversacion,privateCall?.chatVisible,privateCall?.incoming,privateCall?.call?.estado]);
 
   const grupos = useMemo(() => agrupar(data.items), [data.items]);
 
@@ -158,21 +192,35 @@ export default function ActivityCenter() {
   }
 
   async function abrir(g) {
+    const epoch = accessEpoch.current;
     setError('');
     try {
       let destino = '/amigos';
-      if (g.tipo === 'canal') {
-        const idComunidad = g.contexto?.idComunidad ?? (await api.get(`/channels/${g.referencia}`)).canal.idComunidad;
+      if (esSeguridad(g.tipo) && !g.contexto?.idComunidad) {
+        await marcar({ tipo: g.tipo, referencia: g.referencia });
+        return;
+      }
+      if (g.tipo === 'solicitud_canal') {
+        await api.get(`/channels/${g.contexto.idCanal}/requests`);
+        destino=`/comunidades/${g.contexto.idComunidad}/canales/${g.contexto.idCanal}?solicitudes=1`;
+      } else if (g.tipo === 'canal' || g.tipo === 'acceso' || g.tipo === 'acceso_aceptado') {
+        const idComunidad = (await api.get(`/channels/${g.referencia}`)).canal.idComunidad;
         destino = `/comunidades/${idComunidad}/canales/${g.referencia}`;
+      } else if (g.tipo === 'roles') {
+        await api.get(`/communities/${g.referencia}`);
+        destino = `/comunidades/${g.referencia}/integrantes`;
       } else if (g.tipo === 'conversacion') {
+        await api.get(`/conversations/${g.referencia}`);
         destino = `/conversaciones/${g.referencia}`;
       }
+      if (epoch !== accessEpoch.current) return;
       setOpen(false);
       navigate(destino);
       marcar({ tipo: g.tipo, referencia: g.referencia });
     } catch {
-      setError('Ese chat o canal ya no está disponible.');
-      load();
+      await load();
+      setError('Este destino ya no está disponible o tu acceso cambió.');
+      setOpen(true);
     }
   }
   abrirRef.current = abrir;
@@ -207,16 +255,6 @@ export default function ActivityCenter() {
     }
   }
 
-  async function alternarAvisos() {
-    if (avisos) { setAvisos(false); guardarPreferencia(false); return; }
-    let resultado = Notification.permission;
-    if (resultado === 'default') resultado = await Notification.requestPermission();
-    setPermiso(resultado);
-    const activo = resultado === 'granted';
-    setAvisos(activo);
-    guardarPreferencia(activo);
-  }
-
   async function abrirPanel() {
     origen.current = document.activeElement instanceof HTMLElement ? document.activeElement : trigger.current;
     setOpen(true);
@@ -228,14 +266,14 @@ export default function ActivityCenter() {
   const abrirRefPanel = useRef(abrirPanel);
   abrirRefPanel.current = abrirPanel;
   useEffect(() => { notificationsStore.set({ noLeidas: data.noLeidas, abrir: () => abrirRefPanel.current() }); }, [data.noLeidas]);
-  useEffect(() => () => notificationsStore.set({ noLeidas: 0, abrir: null }), []);
+  useEffect(() => () => notificationsStore.set({ noLeidas: 0, abrir: null, expanded: false }), []);
 
   const contador = data.noLeidas > 99 ? '99+' : data.noLeidas;
   const etiqueta = `Notificaciones: ${error && !data.items.length ? 'sin conexión' : `${data.noLeidas} sin leer`}`;
 
   return (
     <>
-      <button type="button" ref={trigger} className="lg pr act-bell" onClick={abrirPanel} aria-label={etiqueta} aria-haspopup="dialog">
+      <button type="button" ref={trigger} className="lg pr act-bell" onClick={abrirPanel} aria-label={etiqueta} aria-haspopup="dialog" aria-expanded={open}>
         <Icon name="campana" size={19} stroke={2} />
         {data.noLeidas > 0 && <span className="act-count" aria-hidden="true">{contador}</span>}
       </button>
@@ -243,28 +281,22 @@ export default function ActivityCenter() {
         <NotificationToasts avisos={flotantes} onPrincipal={principalFlotante} onSecundaria={secundariaFlotante}
           onCerrar={quitarFlotante} onVerTodas={() => { setFlotantes([]); abrirPanel(); }} />
       )}
-      {createPortal(
-      <Dialog open={open} onClose={() => setOpen(false)} label="Notificaciones" className="act-panel" returnFocusRef={origen}>
+      {open && createPortal(
+      <section role="dialog" aria-modal="false" aria-label="Notificaciones" className="act-panel">
         <header className="act-head">
           <h2 id={titulo} className="act-title">Notificaciones</h2>
           {data.noLeidas > 0 && <span className="act-pill">{data.noLeidas} sin leer</span>}
-          <button type="button" className="act-close pr" onClick={() => setOpen(false)} aria-label="Cerrar notificaciones">
+          <button type="button" ref={closeButton} className="act-close pr" onClick={() => setOpen(false)} aria-label="Cerrar notificaciones">
             <Icon name="cerrar" size={18} stroke={2.2} />
           </button>
         </header>
 
-        {error && (
-          <div className="act-error" role="alert">
-            <Icon name="error" size={17} stroke={2} />
-            <span>{error}</span>
-            <button type="button" className="lnk" onClick={load}>Reintentar</button>
-          </div>
-        )}
+        {error&&<Notice title={error} actionLabel="Reintentar" onAction={load}/>}
 
         {cargando && !data.items.length && <span className="act-state" role="status"><Spinner size={15} />Cargando notificaciones…</span>}
 
         {!cargando && !grupos.length && !error && (
-          <EmptyState icon="campana" title="No tenés notificaciones">Te avisamos acá cuando te escriban o te manden una solicitud.</EmptyState>
+          <EmptyState icon="campana" title="No tenés notificaciones">Te avisamos acá sobre mensajes, solicitudes y cambios en tus accesos.</EmptyState>
         )}
 
         {grupos.length > 0 && (
@@ -274,8 +306,8 @@ export default function ActivityCenter() {
               return (
                 <li key={g.key}>
                   <button type="button" className={`act-item ${g.nuevas ? 'is-new' : ''}`} onClick={() => abrir(g)}>
-                    {g.tipo === 'canal'
-                      ? <span className="act-icon" aria-hidden="true"><Icon name="canalTexto" size={18} stroke={2.1} /></span>
+                    {(g.tipo === 'canal' || esSeguridad(g.tipo))
+                      ? <span className="act-icon" aria-hidden="true"><Icon name={esSeguridad(g.tipo) ? 'ajustes' : 'canalTexto'} size={18} stroke={2.1} /></span>
                       : <Avatar nombre={g.contexto?.nombre ?? '?'} foto={g.contexto?.fotoUrl} size={40} />}
                     <span className="act-text">
                       <span className="act-name">{t}</span>
@@ -301,17 +333,9 @@ export default function ActivityCenter() {
 
         <footer className="act-foot">
           {data.noLeidas > 0 && <button type="button" className="lnk" onClick={() => marcar()}>Marcar todo como leído</button>}
-          {permiso !== 'unsupported' && (
-            <button type="button" className="act-switch" role="switch" aria-checked={avisos} onClick={alternarAvisos} disabled={permiso === 'denied'}>
-              <span className={`act-toggle ${avisos ? 'on' : ''}`} aria-hidden="true" />
-              Avisos del navegador
-            </button>
-          )}
         </footer>
-        {permiso === 'denied' && <p className="act-hint">El navegador bloqueó los avisos de Dialo. Podés habilitarlos desde el candado de la barra de direcciones.</p>}
-        {avisos && <p className="act-hint">Te avisamos con una notificación del sistema cuando Dialo está en segundo plano.</p>}
-      </Dialog>,
-      document.body)}
+      </section>,
+      panelTarget ?? document.body)}
     </>
   );
 }

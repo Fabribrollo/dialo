@@ -46,8 +46,8 @@ function toConversacion(conversacion, idUsuario, puedeEscribir) {
 }
 
 // También se puede reutilizar desde T-11 antes de operar sobre una conversación.
-export async function requireConversationParticipant(idConversacion, idUsuario) {
-  const conversacion = await prisma.conversacionPrivada.findUnique({
+export async function requireConversationParticipant(idConversacion, idUsuario, db=prisma) {
+  const conversacion = await db.conversacionPrivada.findUnique({
     where: { id: idConversacion },
     select: conversacionSelect,
   });
@@ -107,6 +107,8 @@ export async function getOrCreateConversation(idUsuario, idDestinatario) {
       emitToUser(id, EVENTS.CONVERSATION_NEW, { conversacion: toConversacion(conversacion, id, true) });
     }
   }
+  await prisma.estadoChat.updateMany({where:{idUsuario,tipo:'conversacion',destino:conversacion.id,oculto:true},data:{oculto:false}});
+  emitToUser(idUsuario,'chat-state:changed',{});
   return { conversacion: toConversacion(conversacion, idUsuario, true), created };
 }
 

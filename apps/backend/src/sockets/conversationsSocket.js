@@ -1,3 +1,4 @@
+import {interactionSchema,interactMessage} from '../services/messageInteractionsService.js';
 import { requireSocketUser } from './authenticate.js';
 import { EVENTS } from './events.js';
 import * as messagesService from '../services/messagesService.js';
@@ -11,6 +12,7 @@ export function registerConversationHandlers(socket, ready) {
   for (const [event, schema, service] of [
     [EVENTS.MESSAGE_SEND, sendMessageSchema, messagesService.sendMessage],
     [EVENTS.MESSAGE_EDIT, editMessageSchema, messagesService.editMessage],
+    [EVENTS.MESSAGE_INTERACT, interactionSchema, (actor,data,authorize)=>interactMessage(actor,data,'conversacion',authorize)],
     [EVENTS.MESSAGE_DELETE, deleteMessageSchema, messagesService.deleteMessage],
   ]) {
     socket.on(event, async (payload, ack) => {
@@ -27,7 +29,7 @@ export function registerConversationHandlers(socket, ready) {
           })));
         }
         if (!event.endsWith(':delete')) requireMessageQuota(user.id);
-        const data = await service(user.id, parsed.data);
+        const data = await service(user.id, parsed.data, (tx)=>requireSocketUser(socket,tx));
         reply({ ok: true, data });
       } catch (error) {
         if (!(error instanceof AppError)) console.error(error);

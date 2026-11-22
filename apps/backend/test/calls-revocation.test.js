@@ -124,14 +124,14 @@ test('perder TRANSMITIR corta solo camara y pantalla en vivo; perder VER saca de
   assert.equal(await registro(), null);
 });
 
-test('quitar el rol personalizado que daba acceso saca al participante', async () => {
+test('quitar la habilitación individual privada saca al participante', async () => {
   const c = await comunidad(), ch = await canal(c, { privado: true });
   const rol = await prisma.rolPersonalizado.create({ data: { idComunidad: c.id, nombre: 'Voces' } });
-  await acceso(ch, [{ idRol: rol.id, permisos: ['VER', 'HABLAR'] }]);
+  await acceso(ch, [{ idUsuario: dani.id, permisos: ['VER', 'HABLAR'] }]);
   await prisma.membresiaRol.create({ data: { idComunidad: c.id, idUsuario: dani.id, idRol: rol.id } });
   await conectar(ch);
   const { withCommunityAccessChange } = await import('../src/services/channelsService.js');
-  await withCommunityAccessChange(c.id, (tx) => tx.membresiaRol.deleteMany({ where: { idRol: rol.id } }));
+  await acceso(ch, []);
   await pausa(50);
   assert.deepEqual(de('sacar'), [[ch.id, dani.id]]);
   assert.equal(await registro(), null);

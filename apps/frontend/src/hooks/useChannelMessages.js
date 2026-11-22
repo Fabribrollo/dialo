@@ -31,7 +31,7 @@ export function useChannelMessages(id, idComunidad) {
   const reconcile = useCallback((page) => mergeMessages(page, [...changes.current.values()]
     .filter((m) => m.fechaCreacion || page.some((p) => p.id === m.id))), []);
   const apply = useCallback((message) => {
-    if (!alive.current || !accepted.current || message.idCanal !== id) return;
+    if (!alive.current || !accepted.current || message.idCanal !== id || message.idHilo) return;
     const old = changes.current.get(message.id);
     const next = mergeMessages(old ? [old] : [], [message])[0];
     changes.current.set(message.id, next);
@@ -125,7 +125,7 @@ export function useChannelMessages(id, idComunidad) {
     }
   }
   async function action(event, payload) {
-    if (![EVENTS.CHANNEL_MESSAGE_SEND, EVENTS.CHANNEL_MESSAGE_EDIT, EVENTS.CHANNEL_MESSAGE_DELETE].includes(event)) throw new Error('Acción inválida');
+    if (![EVENTS.CHANNEL_MESSAGE_SEND, EVENTS.CHANNEL_MESSAGE_EDIT, EVENTS.CHANNEL_MESSAGE_DELETE, EVENTS.CHANNEL_MESSAGE_INTERACT].includes(event)) throw new Error('Acción inválida');
     if (!ready.current) throw new Error('Esperá a que se actualicen el canal y sus permisos.');
     const version = generation.current;
     try {
@@ -143,5 +143,5 @@ export function useChannelMessages(id, idComunidad) {
       throw e;
     }
   }
-  return { ...state, connected: Boolean(socket?.connected) && state.ready, reload, older, action };
+  return { ...state, connected: Boolean(socket?.connected) && state.ready, reload, older, action, acceptMessages:messages=>messages.forEach(apply) };
 }

@@ -1,3 +1,4 @@
+import { suggestRole,roleSuggestionInput } from '../services/roleSuggestionService.js';
 import { Router } from 'express';
 import * as controller from '../controllers/rolesController.js';
 import { validate } from '../middlewares/validate.js';
@@ -8,6 +9,7 @@ import { communityRoleParamsSchema, roleBodySchema } from '../validations/rolesV
 const router = Router({ mergeParams: true });
 router.get('/', validate({ params: communityIdParamsSchema }), controller.listRoles);
 router.post('/', validate({ params: communityIdParamsSchema, body: roleBodySchema }), controller.createRole);
+router.post('/suggestion',validate({params:communityIdParamsSchema,body:roleSuggestionInput}),async(req,res)=>res.json({propuesta:await suggestRole(req.validated.params.id,req.user.id,req.validated.body)}));
 router.get('/:idRol', validate({ params: communityRoleParamsSchema }), controller.getRole);
 router.patch('/:idRol', validate({ params: communityRoleParamsSchema, body: roleBodySchema }), controller.updateRole);
 router.delete('/:idRol', validate({ params: communityRoleParamsSchema }), controller.deleteRole);
