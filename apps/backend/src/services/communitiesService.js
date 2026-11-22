@@ -1,3 +1,4 @@
+import { communityPermissions, requireCommunityPermission } from './communityPermissionsService.js';
 import { prisma } from '../prisma/client.js';
 import { closeCommunity, emitToCommunity, emitToUser, joinCommunity, leaveCommunity } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
@@ -122,7 +123,7 @@ export async function getCommunity(idComunidad, idUsuario, db = prisma) {
   const { rol } = await requireRole(idComunidad, idUsuario, 'INTEGRANTE', db);
   const comunidad = await db.comunidad.findUnique({ where: { id: idComunidad }, select: comunidadSelect });
   if (!comunidad) throw new AppError(404, 'COMMUNITY_NOT_FOUND', 'La comunidad no existe');
-  return toComunidad(comunidad, rol);
+  return {...toComunidad(comunidad, rol),misPermisos:(await communityPermissions(idComunidad,idUsuario,db)).permisos};
 }
 
 async function saveChanges(idComunidad, rol, data) {
@@ -132,12 +133,12 @@ async function saveChanges(idComunidad, rol, data) {
 }
 
 export async function updateCommunity(idComunidad, idUsuario, cambios) {
-  const { rol } = await requireRole(idComunidad, idUsuario, 'ADMIN');
+  const { rol } = await requireCommunityPermission(idComunidad,idUsuario,'EDITAR_COMUNIDAD');
   return saveChanges(idComunidad, rol, cambios);
 }
 
 export async function updateCommunityImage(idComunidad, idUsuario, buffer, mimetype) {
-  const { rol } = await requireRole(idComunidad, idUsuario, 'ADMIN');
+  const { rol } = await requireCommunityPermission(idComunidad,idUsuario,'EDITAR_COMUNIDAD');
   await moderateImage(buffer, mimetype);
   const imagenUrl = await uploadImage(buffer, {
     folder: 'dialo/communities',

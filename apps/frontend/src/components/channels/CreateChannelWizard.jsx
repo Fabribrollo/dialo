@@ -1,27 +1,13 @@
+import {useUnsavedChanges} from '../../context/UnsavedChangesContext.jsx';
 import { useEffect, useRef, useState } from 'react';
-import { createChannel, replaceChannelAccess, suggestChannel } from '../../services/channelsService.js';
-import { getCommunityRoles } from '../../services/communityRolesService.js';
+import { createChannel, suggestChannel } from '../../services/channelsService.js';
+import PermissionPills from './PermissionPills.jsx';
 import Button from '../ui/Button.jsx';
 import Icon, { Spinner } from '../ui/Icon.jsx';
 import Notice from '../ui/Notice.jsx';
 import './createChannelWizard.css';
 
 const PASOS = ['Texto o voz', 'Cómo lo armás', 'Detalles', 'Permisos'];
-const BASE = [['PROPIETARIO', 'Propietarios', true], ['ADMIN', 'Admins', true], ['MODERADOR', 'Moderadores'], ['INTEGRANTE', 'Integrantes']];
-
-function Pills({ title, options, value, onToggle }) {
-  return (
-    <div className="ccw-group">
-      <span className="ccw-group-title">{title}</span>
-      <div className="ccw-pills">
-        {options.map(([key, label, fijo]) => (
-          <button key={key} type="button" className={`ccw-pill pr ${fijo || value.includes(key) ? 'ccw-pill-on' : ''}`} aria-pressed={fijo || value.includes(key)} disabled={fijo} onClick={() => onToggle(key)}>{label}</button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function CreateChannelWizard({ idComunidad, onCreated, onCancel, onOpen }) {
   const [paso, setPaso] = useState(0);
   const [tipo, setTipo] = useState('TEXTO');
@@ -29,28 +15,23 @@ export default function CreateChannelWizard({ idComunidad, onCreated, onCancel, 
   const [descripcion, setDescripcion] = useState('');
   const [nombre, setNombre] = useState('');
   const [privado, setPrivado] = useState(false);
-  const [ver, setVer] = useState(['MODERADOR', 'INTEGRANTE']);
-  const [usar, setUsar] = useState(['MODERADOR', 'INTEGRANTE']);
-  const [roles, setRoles] = useState([]);
+  const [global,setGlobal] = useState(['ESCRIBIR']);
   const [propuesta, setPropuesta] = useState(null);
   const [pensando, setPensando] = useState(false);
   const [sinIA, setSinIA] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [creado, setCreado] = useState(null);
-  const [permisosFallaron, setPermisosFallaron] = useState(false);
   const alive = useRef(true);
   const enviando = useRef(false);
   const voz = tipo === 'VOZ';
+  const {markSaved}=useUnsavedChanges(!creado&&Boolean(nombre||descripcion),'Nuevo canal',JSON.stringify([nombre,descripcion,tipo,privado,global]));
 
   useEffect(() => {
     alive.current = true;
-    getCommunityRoles(idComunidad).then(({ items }) => { if (alive.current) setRoles(items); }).catch(() => {});
+
     return () => { alive.current = false; };
   }, [idComunidad]);
-
-  const opciones = [...BASE, ...roles.map((r) => [`custom:${r.id}`, r.nombre])];
-  const toggle = (set) => (key) => set((old) => old.includes(key) ? old.filter((k) => k !== key) : [...old, key]);
 
   async function proponer() {
     setPensando(true); setSinIA(false); setError('');
@@ -60,22 +41,13 @@ export default function CreateChannelWizard({ idComunidad, onCreated, onCancel, 
       setPropuesta(p);
       setNombre(p.nombre ?? '');
       setPrivado(Boolean(p.privado));
-      if (p.ver) setVer(p.ver);
-      if (p.usar) setUsar(p.usar);
+      if (p.permisosGlobales) setGlobal(p.permisosGlobales);
       setPaso(2);
     } catch {
       if (alive.current) setSinIA(true);
     } finally {
       if (alive.current) setPensando(false);
     }
-  }
-
-  function habilitaciones() {
-    const permiso = voz ? ['HABLAR', 'TRANSMITIR'] : ['ESCRIBIR'];
-    return [...new Set([...ver, ...usar])].filter((k) => !['PROPIETARIO', 'ADMIN'].includes(k)).map((k) => ({
-      ...(k.startsWith('custom:') ? { idRol: Number(k.slice(7)) } : { rol: k }),
-      permisos: usar.includes(k) ? ['VER', ...permiso] : ['VER'],
-    }));
   }
 
   async function crear() {
@@ -85,15 +57,9 @@ export default function CreateChannelWizard({ idComunidad, onCreated, onCancel, 
     enviando.current = true;
     setBusy(true); setError('');
     try {
-      const { canal } = creado ? { canal: creado } : await createChannel(idComunidad, { nombre: limpio, tipo, privado });
+      const { canal } = await createChannel(idComunidad, { nombre: limpio, tipo, privado, permisosGlobales:privado?[]:global });
       if (!alive.current) return;
-      setCreado(canal);
-      try {
-        await replaceChannelAccess(canal.id, { privado, habilitaciones: habilitaciones() });
-        if (alive.current) { setPermisosFallaron(false); setPaso(4); onCreated(canal); }
-      } catch {
-        if (alive.current) setPermisosFallaron(true);
-      }
+      markSaved();setCreado(canal);setPaso(4);onCreated(canal);
     } catch (e) {
       if (alive.current) setError(e.message);
     } finally {
@@ -132,7 +98,7 @@ export default function CreateChannelWizard({ idComunidad, onCreated, onCancel, 
           <h2 className="dsp ccw-h">¿Qué tipo de canal?</h2>
           <div className="ccw-tiles" role="radiogroup" aria-label="Tipo de canal">
             {[['TEXTO', 'Texto', 'canalTexto'], ['VOZ', 'Voz', 'canalVoz']].map(([valor, texto, icono]) => (
-              <button key={valor} type="button" role="radio" aria-checked={tipo === valor} className={`ccw-tile pr ${tipo === valor ? 'ccw-tile-on' : ''}`} onClick={() => setTipo(valor)}>
+              <button key={valor} type="button" role="radio" aria-checked={tipo === valor} className={`ccw-tile pr ${tipo === valor ? 'ccw-tile-on' : ''}`} onClick={() => {setTipo(valor);setGlobal(valor==='TEXTO'?['ESCRIBIR']:['HABLAR']);}}>
                 <span className="ccw-tile-ic"><Icon name={icono} size={24} stroke={2} /></span>
                 <span className="ccw-tile-t">{texto}</span>
               </button>
@@ -196,16 +162,15 @@ export default function CreateChannelWizard({ idComunidad, onCreated, onCancel, 
         {paso === 3 && <div className="ccw-step-body ccw-rise">
           <h2 className="dsp ccw-h">¿Quién puede hacer qué?</h2>
           {propuesta?.resumen && <div className="ccw-ab"><span className="ccw-aiav"><Icon name="ia" size={16} stroke={2} /></span><div className="ccw-bb"><b>En pocas palabras:</b> {propuesta.resumen}</div></div>}
-          <Pills title="Pueden ver el canal" options={opciones} value={ver} onToggle={toggle(setVer)} />
-          <Pills title={voz ? 'Pueden hablar y transmitir' : 'Pueden escribir'} options={opciones} value={usar} onToggle={toggle(setUsar)} />
-          {error && <Notice tone="error" title={error} />}
-          {permisosFallaron && <Notice tone="error" title="El canal se creó, pero no se pudieron guardar los permisos" actionLabel="Reintentar" onAction={crear}>Podés reintentar o ajustarlos después desde Permisos.</Notice>}
+          {privado ? <section className="ccw-access-summary"><span className="ccw-card-ic"><Icon name="privado" size={28}/></span><h3>Acceso por solicitud</h3><p>Solo el propietario y los administradores tienen acceso inicial.</p><p>Después de crearlo, admití integrantes desde Ajustes → Integrantes o aceptá sus pedidos en Solicitudes. Cada persona admitida hereda sus roles y los permisos que le asignes.</p></section>
+            : <><p className="li-sub">Elegí los permisos globales iniciales. Los roles personalizados suman sus capacidades; propietario y administradores conservan acceso completo.</p><PermissionPills tipo={tipo} value={global} onChange={setGlobal}/></>}
+          {error && <Notice tone="error" title={error}/>}
         </div>}
 
         {paso === 4 && creado && <div className="ccw-step-body ccw-done ccw-rise">
           <span className="ccw-orb ccw-orb-lg"><Icon name="check" size={40} stroke={2.6} /></span>
           <h2 className="dsp ccw-done-t">Listo, #{creado.nombre} ya existe</h2>
-          <span className="li-sub ccw-done-s">Ya lo ven las personas que elegiste.</span>
+          <span className="li-sub ccw-done-s">Podés administrar el acceso desde la configuración del canal.</span>
           <Button onClick={() => onOpen(creado)}>Ir al canal</Button>
         </div>}
 

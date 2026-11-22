@@ -16,18 +16,15 @@ export async function applyMigrations(admin, schema, { desde, hasta } = {}) {
       readFile(new URL(`${carpeta}/migration.sql`, MIGRATIONS), "utf8"),
     ),
   );
-  await admin.$transaction(
+  // Cada archivo confirma por separado, como migrate deploy. PostgreSQL exige
+  // confirmar nuevos valores de enum antes de usarlos en otra migración.
+  for (const migration of sql) await admin.$transaction(
     async (tx) => {
       await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
-      for (const statement of sql
-        .join(";")
-        .split(";")
-        .map((s) => s.trim())
-        .filter(Boolean)) {
+      for (const statement of migration.split(";").map(s=>s.trim()).filter(Boolean)) {
         await tx.$executeRawUnsafe(statement);
       }
     },
-    // Contra una base remota (Neon) aplicar todas las migraciones sentencia por sentencia puede tardar más de 30 s.
-    { timeout: Number(process.env.TEST_MIGRATIONS_TIMEOUT) || 180000, maxWait: 20000 },
+    {timeout:Number(process.env.TEST_MIGRATIONS_TIMEOUT)||180000,maxWait:20000},
   );
 }

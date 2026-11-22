@@ -1,3 +1,5 @@
+import {lockRelationship} from '../utils/relationshipLock.js';
+import {requireNoBlock,blocked} from './socialFeaturesService.js';
 import { trackEffect } from '../utils/backgroundEffects.js';
 import { notify } from './notificationsService.js';
 import { prisma } from "../prisma/client.js";
@@ -49,13 +51,13 @@ function toAmigo(amistad, idUsuario) {
 
 //Si dos usuarios son amigos
 // la usan las conversaciones privadas, antes de crear una conversacion o enviar un mensaje
-export async function areFriends(idUsuarioA, idUsuarioB) {
+export async function areFriends(idUsuarioA, idUsuarioB, db=prisma) {
   if (idUsuarioA === idUsuarioB) return false;
-  const amistad = await prisma.amistad.findUnique({
+  const amistad = await db.amistad.findUnique({
     where: { idUsuarioA_idUsuarioB: parOrdenado(idUsuarioA, idUsuarioB) },
     select: { idUsuarioA: true },
   });
-  return Boolean(amistad);
+  return Boolean(amistad)&&!await blocked(idUsuarioA,idUsuarioB,db);
 }
 
 //Retorna los id de los amigos del usuario.
@@ -65,17 +67,21 @@ export async function getFriendIds(idUsuario) {
     where: { OR: [{ idUsuarioA: idUsuario }, { idUsuarioB: idUsuario }] },
   });
   // De cada par se queda con el otro usuario.
+  const bloqueos = await prisma.bloqueoUsuario.findMany({where:{OR:[{idActor:idUsuario},{idObjetivo:idUsuario}]},select:{idActor:true,idObjetivo:true}});
+  const excluidos=new Set(bloqueos.map(b=>b.idActor===idUsuario?b.idObjetivo:b.idActor));
   return amistades.map((a) =>
     a.idUsuarioA === idUsuario ? a.idUsuarioB : a.idUsuarioA,
-  );
+  ).filter(id=>!excluidos.has(id));
 }
 
 //Get /api/users/search
 //busca usuarios por nombre de usuario o nombre visible e indica al relac.
 export async function searchUsers(idUsuario, q, limit) {
+  const bloqueos=await prisma.bloqueoUsuario.findMany({where:{OR:[{idActor:idUsuario},{idObjetivo:idUsuario}]},select:{idActor:true,idObjetivo:true}});
+  const excluidos=[idUsuario,...bloqueos.map(b=>b.idActor===idUsuario?b.idObjetivo:b.idActor)];
   const usuarios = await prisma.usuario.findMany({
     where: {
-      id: { not: idUsuario },
+      id: { notIn: excluidos },
       OR: [
         { nombreUsuario: { contains: q, mode: "insensitive" } },
         { nombreVisible: { contains: q, mode: "insensitive" } },
@@ -137,6 +143,9 @@ export async function searchUsers(idUsuario, q, limit) {
 // POST /api/friends/requests
 // Crea una solicitud de amistad pendiente. El emisor sale de la sesión, nunca del body.
 export async function sendRequest(idEmisor, idReceptor) {
+  const solicitud=await prisma.$transaction(async db=>{
+  await lockRelationship(db,idEmisor,idReceptor);
+  await requireNoBlock(idEmisor,idReceptor,db);
   // No se puede enviar una solicitud a uno mismo.
   if (idEmisor === idReceptor) {
     throw new AppError(
@@ -147,7 +156,7 @@ export async function sendRequest(idEmisor, idReceptor) {
   }
 
   // El receptor tiene que existir.
-  const receptor = await prisma.usuario.findUnique({
+  const receptor = await db.usuario.findUnique({
     where: { id: idReceptor },
     select: { id: true },
   });
@@ -155,12 +164,12 @@ export async function sendRequest(idEmisor, idReceptor) {
     throw new AppError(404, "USER_NOT_FOUND", "El usuario no existe");
 
   // No pueden ser amigos ya.
-  if (await areFriends(idEmisor, idReceptor))
+  if (await areFriends(idEmisor, idReceptor,db))
     throw new AppError(409, "ALREADY_FRIENDS", "Ya son amigos");
 
   // No puede haber otra pendiente entre los dos, en ninguna direccion.
   // Las rechazadas no cuentan, asi que despues de un rechazo se puede volver a solicitar.
-  const pendiente = await prisma.solicitudAmistad.findFirst({
+  const pendiente = await db.solicitudAmistad.findFirst({
     where: {
       estado: "PENDIENTE",
       OR: [
@@ -180,12 +189,14 @@ export async function sendRequest(idEmisor, idReceptor) {
   // Si llegan dos solicitudes al mismo tiempo, las dos pueden pasar el chequeo anterior.
   // En ese caso el índice unico solicitud_pendiente_unica rechaza la segunda,
   // y el errorHandler la convierte en 409 REQUEST_EXISTS.
-  const solicitud = toSolicitud(
-    await prisma.solicitudAmistad.create({
+  return toSolicitud(
+    await db.solicitudAmistad.create({
       data: { idEmisor, idReceptor },
       select: solicitudSelect,
     }),
   );
+
+  });
 
   // Aviso en tiempo real a los dos, para que aparezca en "enviadas" y en "recibidas".
   for (const id of [idEmisor, idReceptor])
@@ -256,8 +267,11 @@ async function marcarRespondida(tx, idSolicitud, estado) {
 // Si algo falla, no queda ninguna de las dos cosas a medias.
 export async function acceptRequest(idSolicitud, idUsuario) {
   const solicitud = await findRequestToRespond(idSolicitud, idUsuario);
+  await requireNoBlock(solicitud.idEmisor, solicitud.idReceptor);
 
   const amistad = await prisma.$transaction(async (tx) => {
+    await lockRelationship(tx,solicitud.idEmisor,solicitud.idReceptor);
+    await requireNoBlock(solicitud.idEmisor,solicitud.idReceptor,tx);
     await marcarRespondida(tx, idSolicitud, "ACEPTADA");
     return tx.amistad.create({
       data: parOrdenado(solicitud.idEmisor, solicitud.idReceptor),

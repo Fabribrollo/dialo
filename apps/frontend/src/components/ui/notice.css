@@ -1,4 +1,4 @@
-.tl { border-radius: 20px; padding: 14px; display: flex; align-items: flex-start; gap: 12px; font-size: 14px; line-height: 1.4; }
+.tl { border-radius: 20px; padding: 14px; display: flex; align-items: center; gap: 12px; font-size: 14px; line-height: 1.4; }
 .tli { width: 32px; height: 32px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; }
 .tl-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .tl-title { font-weight: 600; }

@@ -1,3 +1,4 @@
+import {openProfile} from '../../utils/profiles.js';
 import './avatar.css';
 
 const presenceLabels = { DESCONECTADO: 'Desconectado', EN_LINEA: 'En línea', AUSENTE: 'Ausente', NO_MOLESTAR: 'No molestar', INVISIBLE: 'Invisible' };
@@ -16,9 +17,9 @@ export function initials(nombre = '') {
   return nombre.trim().split(/\s+/).slice(0, 2).map((p) => p[0]).join('').toUpperCase() || '?';
 }
 
-export default function Avatar({ nombre, foto, size = 40, presence, color, dark = false, className = '' }) {
+export default function Avatar({ nombre, foto, size = 40, presence, color, dark = false, className = '',idUsuario }) {
   return (
-    <span className={`av ${dark ? 'av-dk' : ''} ${className}`} style={{ '--av': `${size}px`, ...(color && { background: color, color: textoSobre(color) }) }}>
+    <span {...(idUsuario?{role:'button',tabIndex:0,'aria-label':`Ver perfil de ${nombre}`,onClick:()=>openProfile(idUsuario),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openProfile(idUsuario);}}}:{})} className={`av ${dark ? 'av-dk' : ''} ${className}`} style={{ '--av': `${size}px`, ...(color && { background: color, color: textoSobre(color) }) }}>
       {foto ? <img src={foto} alt="" /> : initials(nombre).slice(0, 1)}
       {presence && <span className={`pres pres-${presence}`} role="img" aria-label={presenceLabels[presence]} />}
     </span>

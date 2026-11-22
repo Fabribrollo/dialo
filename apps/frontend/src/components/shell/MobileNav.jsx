@@ -23,7 +23,7 @@ export function activeTab(pathname) {
 export default function MobileNav() {
   const { pathname } = useLocation();
   const actual = activeTab(pathname);
-  const { noLeidas, abrir } = useNotificationsSummary();
+  const { noLeidas, abrir, expanded } = useNotificationsSummary();
   const previa = useRef(actual);
   const haciaDerecha = actual > previa.current;
   useEffect(() => { previa.current = actual; }, [actual]);
@@ -34,7 +34,7 @@ export default function MobileNav() {
   };
   return (
     <>
-    {pathname !== '/' && abrir && (
+    {pathname !== '/' && !expanded && abrir && (
       <button type="button" className="lg pr m-bell" onClick={abrir} aria-label={`Notificaciones: ${noLeidas} sin leer`}>
         <Icon name="campana" size={20} stroke={2} />
         {noLeidas > 0 && <span className="m-bell-count" aria-hidden="true">{noLeidas > 99 ? '99+' : noLeidas}</span>}

@@ -1,3 +1,4 @@
+import { requireCommunityPermission } from './communityPermissionsService.js';
 import { randomBytes } from 'node:crypto';
 import { prisma } from '../prisma/client.js';
 import { requireNotBanned } from '../utils/communityBans.js';
@@ -92,7 +93,7 @@ export async function acceptInvitation(codigo, idUsuario) {
 }
 
 export async function createInvitation(idComunidad, idUsuario, { duracionHoras = null, usosMaximos = null }) {
-  await requireRole(idComunidad, idUsuario, 'MODERADOR');
+  await requireCommunityPermission(idComunidad, idUsuario, 'GESTIONAR_INVITACIONES');
   const invitacion = await prisma.invitacion.create({
     data: {
       idComunidad,
@@ -107,7 +108,7 @@ export async function createInvitation(idComunidad, idUsuario, { duracionHoras =
 }
 
 export async function listInvitations(idComunidad, idUsuario) {
-  await requireRole(idComunidad, idUsuario, 'MODERADOR');
+  await requireCommunityPermission(idComunidad, idUsuario, 'GESTIONAR_INVITACIONES');
   const invitaciones = await prisma.invitacion.findMany({
     where: { idComunidad },
     orderBy: [{ fechaCreacion: 'desc' }, { id: 'desc' }],
@@ -117,7 +118,7 @@ export async function listInvitations(idComunidad, idUsuario) {
 }
 
 export async function revokeInvitation(idComunidad, idUsuario, idInvitacion) {
-  await requireRole(idComunidad, idUsuario, 'MODERADOR');
+  await requireCommunityPermission(idComunidad, idUsuario, 'GESTIONAR_INVITACIONES');
   const { count } = await prisma.invitacion.updateMany({
     where: { id: idInvitacion, idComunidad, fechaRevocacion: null },
     data: { fechaRevocacion: new Date() },

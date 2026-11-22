@@ -1,3 +1,4 @@
+import {api} from '../services/api.js';
 import {
   createContext,
   useCallback,
@@ -109,7 +110,7 @@ export function ConversationsProvider({ children }) {
         if (error.data?.code === "UNAUTHORIZED") refresh();
       },
       [EVENTS.CONVERSATION_NEW]: ({ conversacion }) => remember(conversacion),
-      [EVENTS.MESSAGE_NEW]: changeMessage,
+      [EVENTS.MESSAGE_NEW]: data=>{changeMessage(data);if(data.mensaje.idAutor!==usuario.id)(api.post?.(`/features/receipts/${data.mensaje.idConversacion}`,{estado:'entregado'})??Promise.resolve()).catch(()=>{});},
       [EVENTS.MESSAGE_UPDATED]: changeMessage,
       [EVENTS.MESSAGE_DELETED]: ({ idConversacion, idMensaje }) => {
         revision.current++;

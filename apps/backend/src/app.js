@@ -1,3 +1,5 @@
+import socialFeaturesRoutes from './routes/socialFeaturesRoutes.js';
+import chatStateRoutes from './routes/chatStateRoutes.js';
 import privateCallsRoutes from './routes/privateCallsRoutes.js';
 import filesRoutes from './routes/filesRoutes.js';
 import notificationsRoutes from './routes/notificationsRoutes.js';
@@ -28,6 +30,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.use('/api/features',socialFeaturesRoutes);
+app.use('/api/chat-state',chatStateRoutes);
 app.use('/api/private-calls', privateCallsRoutes);
 app.use('/api/files', filesRoutes);
 app.use('/api/notifications', notificationsRoutes);

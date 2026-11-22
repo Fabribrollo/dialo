@@ -90,7 +90,7 @@ export function useFriends() {
       },
       [EVENTS.FRIEND_REJECTED]: ({ idSolicitud }) =>
         quitarSolicitud(idSolicitud),
-      [EVENTS.FRIEND_REMOVED]: ({ idUsuario }) => quitarAmigo(idUsuario),
+      [EVENTS.FRIEND_REMOVED]: ({ idUsuario }) => {quitarAmigo(idUsuario);setRecibidas(l=>l.filter(s=>s.emisor.id!==idUsuario));setEnviadas(l=>l.filter(s=>s.receptor.id!==idUsuario));},
       [EVENTS.USER_UPDATED]: ({ usuario }) => actualizarUsuario(usuario),
       // Despues de una reconexion se vuelve a pedir todo, por si se perdio algun evento.
       connect: cargar,

@@ -1,7 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import LandingPage from '../pages/LandingPage.jsx';
+
+// jsdom verifica contenido y navegación; el render de canvas se prueba en navegador.
+vi.mock('../components/landing/glassStage.js',async importOriginal=>({...await importOriginal(),createGlassStage:vi.fn(()=>({stop:vi.fn(),word:vi.fn(),update:vi.fn()}))}));
 
 function show() {
   return render(<MemoryRouter initialEntries={['/inicio']}><Routes>

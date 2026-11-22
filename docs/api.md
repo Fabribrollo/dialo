@@ -601,3 +601,59 @@ CRUD bajo `/api/communities/:id/roles`, con detalle, PATCH y DELETE en `/:idRol`
 ## Contratos adicionales
 
 La integración del tablero de interfaz incorpora búsqueda completa, adjuntos, actividad, perfil y llamadas privadas. Ver [contratos, migraciones, alcance y verificación](kanban-integracion.md).
+
+### Notificaciones — T-42
+
+`GET /api/notifications?cursor=<id>` devuelve hasta 30 avisos propios en orden descendente, `noLeidas` y `nextCursor`. Los tipos son `amistad`, `conversacion`, `canal`, `roles`, `acceso`, `baneo` y `rehabilitado`. Para roles/baneos la referencia identifica la comunidad; para acceso identifica el canal. `contexto` se resuelve con permisos vigentes: es `{}` si no corresponde mostrar un destino. Baneos y rehabilitaciones nunca incluyen contexto privado ni vistas previas. Los mensajes inaccesibles se excluyen también del contador.
+
+`POST /api/notifications/read` acepta `{id}`, `{tipo, referencia}` o `{}` para lectura individual, por destino o total; devuelve 204. Solo opera sobre avisos del usuario autenticado. Lecturas repetidas son idempotentes.
+
+Los avisos de seguridad se guardan dentro de la transacción del cambio y `notifications:changed` se emite después del commit. Un cambio fallido no deja avisos. La lectura de permisos, contexto, mensajes y contador usa una misma instantánea. Los enlaces de invitación sin destinatario explícito no generan avisos masivos.
+
+### Política pública/privada de canales y solicitudes
+
+- Crear canal: `POST /api/communities/:id/channels`, con `nombre`, `tipo`, `privado` y `permisosGlobales` iniciales si es público. Se guarda atómicamente.
+- Configurar público: `PUT /api/channels/:id/access`, `{privado:false, permisosGlobales:[]}`.
+- Configurar privado: misma ruta, `{privado:true, habilitaciones:[{idUsuario:7,permisos:["VER"]}]}`. Las admisiones son individuales; los roles heredan su configuración de comunidad. Ver [Roles y permisos](roles-permisos.md).
+- Solicitar privado: `POST /api/channels/:id/requests`, `{}`. Requiere membresía y no tener acceso. Idempotente mientras esté pendiente.
+- Consultar pedidos: `GET /api/channels/:id/requests`, solo propietario/admin, cola de hasta 50 pendientes.
+- Resolver: `POST /api/channels/:id/requests/:solicitud`, `{aceptar:true, permisos:["VER"]}` o `{aceptar:false}`. Aprobación y habilitación individual en la misma transacción.
+
+El catálogo de la comunidad incluye canales bloqueados con sus nombres y tipo; esta visibilidad está limitada a integrantes y no habilita contenido. Mensajes, adjuntos, búsqueda, suscripciones y llamadas siguen exigiendo permisos efectivos. Los públicos aplican globales más roles heredados; los privados requieren admisión individual. No se recortan roles por canal. VER se agrega internamente; expulsar es la operación que retira acceso. Propietario/admin conservan acceso total.
+
+La migración `20261120230000_solicitudes_canales` preserva las personas actualmente habilitadas en privados y unifica públicos conservadoramente por intersección. Aplicar migraciones y regenerar Prisma antes de iniciar el backend.
+
+Notificaciones nuevas: `solicitud_canal` referencia el ID de solicitud y solo aparece al equipo que puede resolverla; `acceso_aceptado` y `acceso_rechazado` referencian el canal. El contexto se revalida; una solicitud resuelta deja de aparecer como pendiente y una pérdida de acceso retira sus detalles privados.
+
+La privacidad y el tipo de un canal son inmutables desde su creación. `PATCH /api/channels/:id` solo admite `nombre`. En `PUT .../access`, `privado` discrimina el cuerpo permitido y debe coincidir con el valor persistido; una conversión responde `409 CHANNEL_PRIVACY_IMMUTABLE` y no altera permisos ni pedidos pendientes.
+
+## Roles y permisos granulares
+
+Ver [contrato y rutas de roles, expulsión y silencio](roles-permisos.md). El detalle de comunidad incluye `misPermisos`; el DTO de rol incluye `permisos`. Moderador ya no es asignable. Las acciones se autorizan por capacidad y conservan las protecciones de propietario/administrador.
+
+
+## Estado de chat, archivos y baneos temporales
+
+Ver [contratos de armonía](armonia-interfaz.md) para GET/PATCH `/api/chat-state`, rangos y descarga de archivos. Videos MP4/WebM hasta 2 MiB; imágenes/PDF hasta 5 MiB, con tipos comprobados por bytes. Eliminar un privado solo oculta su fila y no elimina amistad ni historial.
+
+PUT `/api/communities/:id/bans/:user` acepta duración 30_MIN, 5_HORAS o PERMANENTE, únicamente para ADMIN/PROPIETARIO. El vencimiento no restaura membresía. Los permisos configurables son las ocho capacidades documentadas en [roles-permisos.md](roles-permisos.md); BANEAR y VER no forman parte del editor.
+
+### Adjuntos múltiples y registros de llamadas
+
+`POST /api/files/batch` acepta multipart con `tipo`, `id`, `texto` opcional (hasta 2000 caracteres) y hasta seis campos `archivo`. Mantiene los MIME y límites por recurso de `/files`, con máximo total 20 MiB. Valida todos los recursos y autoriza el destino antes de guardar la tanda en una transacción. La respuesta 201 es `{mensajes:[...]}`; el texto acompaña al primer recurso. El texto de canales pasa por la moderación existente. La ruta de archivo único continúa disponible.
+
+El DTO de un registro de llamada añade `registroLlamada:true`. Ese valor solo lo asigna el servidor; edición y eliminación devuelven `CALL_RECORD_IMMUTABLE`. Requiere la migración `20261122010000_registro_llamada`.
+
+### Recuperación de envíos confirmados
+
+Los eventos `message:send` y `channel-message:send` admiten `idEnvio` opcional (UUID). `POST /api/files` y `/api/files/batch` lo aceptan como campo multipart. Por autor y clave, un reintento idéntico devuelve las mismas filas vigentes sin crear eventos/avisos duplicados. Cambiar destino/contenido con la misma clave responde 409 `SEND_KEY_CONFLICT`; si las filas ya no existen responde 409 `SEND_UNAVAILABLE`. Los permisos se revalidan también al recuperar un envío. Requiere `20261122020000_envios_confirmados`.
+
+La gestión autorizada de integrantes de canal añade `permisosEfectivos` y `origenPermisos` (globales, personales, roles). Son datos informativos; la autoridad de cada acción se sigue validando en servidor.
+
+### Agrupación de adjuntos
+
+Los mensajes de un envío de cuatro a seis recursos incluyen `grupoAdjuntos: { id, total }`. La clave identifica el envío confirmado y se conserva en sus reintentos. El frontend solo agrupa recursos del mismo autor y destino. Editar un mensaje con adjunto devuelve `403 ATTACHMENT_NOT_EDITABLE`; eliminar conserva las reglas existentes. Ver [migración y comportamiento de álbumes](albumes-adjuntos.md).
+
+### Interacciones de mensajes
+
+Los envíos de texto y archivos admiten `idRespuesta` del mismo destino. El DTO incluye estado de fijado, reacciones agrupadas y cita vigente cuando corresponde. Ver [contrato y autorizaciones](menu-mensajes.md); los campos sensibles del autor y el texto eliminado no forman parte de la cita.

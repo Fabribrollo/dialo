@@ -1,4 +1,7 @@
 const shapes = {
+  notificacionesSilenciadas: <><path d="M3 3l18 18M6 7a6 6 0 0 0 0 4v5l-2 2h14M10 21h4M10 5a6 6 0 0 1 8 6v3"/></>,
+  pin: <><path d="M9 3h6l-1 6 4 4v2H6v-2l4-4-1-6zM12 15v6"/></>,
+  menu: <><path d="M5 6h14M5 12h14M5 18h14"/></>,
   comunidades: <><rect x="3.5" y="3.5" width="7" height="7" rx="2.2" /><rect x="13.5" y="3.5" width="7" height="7" rx="2.2" /><rect x="3.5" y="13.5" width="7" height="7" rx="2.2" /><circle cx="17" cy="17" r="3.6" /></>,
   mensajes: <path d="M5 5h14a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 19 17H10l-4.5 3.5V17H5a1.5 1.5 0 0 1-1.5-1.5v-9A1.5 1.5 0 0 1 5 5z" />,
   amigos: <><circle cx="9" cy="8.5" r="3.2" /><path d="M3 19.5c0-3.3 2.7-5.6 6-5.6s6 2.3 6 5.6" /><circle cx="17" cy="9.5" r="2.5" /><path d="M16.5 14.2c2.6.1 4.5 2 4.5 4.6" /></>,

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
 import Sidebar from '../components/shell/Sidebar.jsx';
@@ -14,7 +14,7 @@ it('filtra entre personas y comunidades, y muestra la fila de Amigos en Personas
   render(<MemoryRouter initialEntries={['/conversaciones/7']}><Sidebar /></MemoryRouter>);
   expect(screen.getByRole('link', { name: /Cande Ríos/ })).toHaveAttribute('href', '/conversaciones/7');
   expect(screen.getByRole('link', { name: /Taller de Redes/ })).toBeInTheDocument();
-  expect(screen.queryByText('Amigos')).not.toBeInTheDocument();
+  expect(screen.getByText('Amigos')).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('tab', { name: 'Personas' }));
   expect(screen.getByText('2 solicitudes nuevas')).toBeInTheDocument();
@@ -24,9 +24,9 @@ it('filtra entre personas y comunidades, y muestra la fila de Amigos en Personas
   expect(screen.queryByText('Cande Ríos')).not.toBeInTheDocument();
 });
 
-it('en Todo no se muestran las filas fijas aunque estés en Amigos o Comunidades', () => {
+it('en Todo conserva Amigos sin duplicar un botón de agregar', () => {
   render(<MemoryRouter initialEntries={['/amigos']}><Sidebar /></MemoryRouter>);
-  expect(screen.queryByText('Amigos')).not.toBeInTheDocument();
+  expect(screen.getByText('Amigos')).toBeInTheDocument();
   expect(screen.queryByText('Mis comunidades')).not.toBeInTheDocument();
 });
 
@@ -37,4 +37,20 @@ it('el filtro Comunidades filtra el lateral y suma la fila Mis comunidades', () 
   expect(screen.getByRole('link', { name: /Mis comunidades/ })).toHaveAttribute('href', '/comunidades');
   expect(screen.getByRole('link', { name: /Taller de Redes/ })).toBeInTheDocument();
   expect(screen.queryByText('Cande Ríos')).not.toBeInTheDocument();
+});
+
+it('notificaciones reemplaza el contenido lateral y Escape devuelve la lista y el foco', async () => {
+  render(<MemoryRouter initialEntries={['/conversaciones/7']}><Sidebar /></MemoryRouter>);
+  const bell = screen.getByRole('button', {name:/Notificaciones:/});
+  bell.focus(); fireEvent.click(bell);
+  const sidebar = screen.getByRole('complementary');
+  const panel = within(sidebar).getByRole('dialog', {name:'Notificaciones'});
+  expect(panel).toHaveAttribute('aria-modal','false');
+  expect(screen.queryByRole('textbox',{name:'Buscar'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('link',{name:/Cande Ríos/})).not.toBeInTheDocument();
+  expect(screen.getByRole('button',{name:'Cerrar notificaciones'})).toHaveFocus();
+  fireEvent.keyDown(document,{key:'Escape'});
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(screen.getByRole('textbox',{name:'Buscar'})).toBeInTheDocument();
+  expect(bell).toHaveFocus();
 });

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import Button from '../ui/Button.jsx';
-import Icon from '../ui/Icon.jsx';
+import Notice from '../ui/Notice.jsx';
 
 export function BotonAccion({ accion, children, variant = 'secundario', ...props }) {
   const [pendiente, setPendiente] = useState(false);
@@ -23,7 +23,7 @@ export function BotonAccion({ accion, children, variant = 'secundario', ...props
       <Button size="sm" variant={variant} loading={pendiente} onClick={ejecutar} {...props}>
         {pendiente ? 'Procesando…' : children}
       </Button>
-      {error && <span className="li-error" role="alert"><Icon name="error" size={15} stroke={2} />{error}</span>}
+      {error && <Notice title={error}/>}
     </>
   );
 }

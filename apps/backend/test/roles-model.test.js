@@ -46,14 +46,8 @@ before(async () => {
   for (const [user, role] of [[ana, 'PROPIETARIO'], [beto, 'MODERADOR'], [cata, 'INTEGRANTE']]) {
     await admin.$executeRawUnsafe(`INSERT INTO "${schema}"."membresia" (id_comunidad, id_usuario, rol) VALUES ($1, $2, $3::"${schema}"."rol_comunidad")`, comunidad.id, user.id, role);
   }
-  canal = await prisma.canal.create({
-    data: {
-      idComunidad: comunidad.id,
-      nombre: "avisos",
-      privado: true,
-      habilitacionesRol: { create: [{ rol: "INTEGRANTE", permisos: ["VER"] }] },
-    },
-  });
+  [canal] = await admin.$queryRawUnsafe(`INSERT INTO "${schema}".canal(id_comunidad,nombre,privado) VALUES ($1,'avisos',true) RETURNING id_canal AS id`,comunidad.id);
+  await admin.$executeRawUnsafe(`INSERT INTO "${schema}".canal_rol(id_canal,rol,permisos) VALUES ($1,'INTEGRANTE',ARRAY['VER']::"${schema}".permiso_canal[])`,canal.id);
   await prisma.canalUsuario.create({
     data: {
       idCanal: canal.id,
@@ -62,9 +56,7 @@ before(async () => {
       permisos: ["VER", "ESCRIBIR"],
     },
   });
-  mensaje = await prisma.mensaje.create({
-    data: { idCanal: canal.id, idAutor: ana.id, contenido: "Anterior" },
-  });
+  [mensaje] = await admin.$queryRawUnsafe(`INSERT INTO "${schema}"."mensaje" (id_canal,id_autor,contenido) VALUES ($1,$2,'Anterior') RETURNING id_mensaje AS id, contenido`,canal.id,ana.id);
   await applyMigrations(admin, schema, { desde: ANTERIOR });
 });
 
@@ -88,7 +80,7 @@ test("la migracion conserva comunidades, mensajes y habilitaciones anteriores", 
       where: { idCanal: canal.id },
       select: { rol: true, permisos: true },
     }),
-    [{ rol: "INTEGRANTE", permisos: ["VER"] }],
+    [],
   );
   const grant = await prisma.canalUsuario.findUnique({
     where: { idCanal_idUsuario: { idCanal: canal.id, idUsuario: cata.id } },
@@ -170,36 +162,10 @@ test("el nombre es unico por comunidad, sin distinguir mayusculas, y no repite r
     await assert.rejects(rol(comunidad.id, nombre));
 });
 
-test("una habilitacion de rol personalizado necesita permisos", async () => {
-  const sinPermisos = await rol(comunidad.id, "Sin permisos");
-  await assert.rejects(
-    prisma.canalRolPersonalizado.create({
-      data: {
-        idCanal: canal.id,
-        idComunidad: comunidad.id,
-        idRol: sinPermisos.id,
-        permisos: [],
-      },
-    }),
-  );
-  await prisma.canalRolPersonalizado.create({
-    data: {
-      idCanal: canal.id,
-      idComunidad: comunidad.id,
-      idRol: sinPermisos.id,
-      permisos: ["VER"],
-    },
-  });
-  await assert.rejects(
-    prisma.canalRolPersonalizado.create({
-      data: {
-        idCanal: canal.id,
-        idComunidad: comunidad.id,
-        idRol: sinPermisos.id,
-        permisos: ["VER"],
-      },
-    }),
-  );
+test('una excepción de rol vacía representa una denegación explícita',async()=>{
+ const role=await rol(comunidad.id,'Sin permisos');
+ const grant=await prisma.canalRolPersonalizado.create({data:{idCanal:canal.id,idComunidad:comunidad.id,idRol:role.id,permisos:[]}});
+ assert.deepEqual(grant.permisos,[]);
 });
 
 test("eliminar un rol limpia asignaciones y habilitaciones sin tocar integrantes, canales ni mensajes", async () => {

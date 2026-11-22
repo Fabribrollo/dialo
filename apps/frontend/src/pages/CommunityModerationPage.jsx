@@ -1,3 +1,6 @@
+import AdministrationLog from '../components/communities/AdministrationLog.jsx';
+import {useUnsavedChanges} from '../context/UnsavedChangesContext.jsx';
+import { hasCommunityPermission } from '../utils/permissionCatalog.js';
 import BlockedMessages from '../components/communities/BlockedMessages.jsx';
 import { useState } from 'react';
 import { useParams } from 'react-router';
@@ -21,6 +24,7 @@ function ModerationForm({ moderacion, onSave }) {
   const [nueva, setNueva] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [ok, setOk] = useState(false), [saveError, setSaveError] = useState('');
   const dirty = activa !== guardada.activa || reglas.join('\n') !== guardada.reglas.join('\n');
+  const {markSaved}=useUnsavedChanges(dirty,'Moderación',JSON.stringify([activa,reglas]));
   const bajas = reglas.map((r) => r.toLowerCase());
   const sugeridas = SUGERIDAS.filter((g) => !bajas.includes(g)).slice(0, 6);
 
@@ -42,7 +46,7 @@ function ModerationForm({ moderacion, onSave }) {
     try {
       const saved = await onSave({ activa, reglas });
       setActiva(saved.activa); setReglas(saved.reglas); setGuardada(saved);
-      setOk(true);
+      markSaved();setOk(true);
     } catch (e) {
       setSaveError(e.message);
     } finally { setBusy(false); }
@@ -89,12 +93,12 @@ function ModerationForm({ moderacion, onSave }) {
       <button type="button" className="btn pr md-discard" disabled={busy} onClick={() => { setActiva(guardada.activa); setReglas(guardada.reglas); setError(''); }}>Descartar</button>
       <Button className="md-save" loading={busy} onClick={save}>{busy ? 'Guardando…' : 'Guardar cambios'}</Button>
     </div>}
-    {!dirty && ok && <div className="md-ok" role="status"><span className="md-ok-ic"><Icon name="check" size={15} stroke={2.6} /></span>Moderación guardada</div>}
+    {!dirty && ok && <Notice tone="exito" title="Moderación guardada"/>}
   </div>;
 }
 function ModerationSettings({ detail }) {
   const { id, miRol } = detail.comunidad;
-  const allowed = ['ADMIN', 'PROPIETARIO'].includes(miRol);
+  const allowed = hasCommunityPermission(detail.comunidad,'GESTIONAR_MODERACION');
   const config = useCommunityModeration(id, allowed);
   async function save(datos) {
     try {
@@ -104,7 +108,7 @@ function ModerationSettings({ detail }) {
       throw error;
     }
   }
-  return !allowed ? <Notice tone="conflicto" title="Solo propietarios y administradores pueden configurar la moderación." />
+  return !allowed ? <Notice tone="conflicto" title="Necesitás el permiso Configurar moderación." />
     : config.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando moderación…</span>
       : config.error ? <Notice tone="error" title={config.error.message} actionLabel="Reintentar" onAction={config.reload} />
         : <ModerationForm moderacion={config.moderacion} onSave={save} />;
@@ -116,7 +120,8 @@ export default function CommunityModerationPage() {
   useLostCommunity(detail.lost);
   if (!detail.comunidad) return <div className="page"><div className="page-body"><CommunityState {...detail} /></div></div>;
   return <CommunityShell comunidad={detail.comunidad}>
+      {['ADMIN','PROPIETARIO'].includes(detail.comunidad.miRol)&&<AdministrationLog id={id}/>}
       <ModerationSettings key={`settings-${id}`} detail={detail} />
-      {['MODERADOR', 'ADMIN', 'PROPIETARIO'].includes(detail.comunidad.miRol) && <BlockedMessages key={`blocked-${id}`} id={id} />}
+      {hasCommunityPermission(detail.comunidad,'GESTIONAR_MODERACION') && <BlockedMessages key={`blocked-${id}`} id={id} />}
   </CommunityShell>;
 }

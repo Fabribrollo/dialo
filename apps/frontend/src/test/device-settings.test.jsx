@@ -8,12 +8,33 @@ vi.mock('../context/PrivateCallContext.jsx',()=>({usePrivateCall:()=>null}));
 vi.mock('../services/api.js',()=>({api:{patch:mock.patch}}));
 beforeEach(()=>{vi.clearAllMocks();mock.select.mockResolvedValue();mock.patch.mockResolvedValue({usuario:{id:1,preferencias:{audioInput:''}}});Object.defineProperty(navigator,'mediaDevices',{configurable:true,value:{enumerateDevices:mock.discover,getUserMedia:mock.capture}});mock.discover.mockResolvedValue([{deviceId:'uno',kind:'audioinput',label:'Micrófono USB'}]);});
 const show=()=>render(<CallContext.Provider value={{elegirDispositivo:mock.select}}><DeviceSettings/></CallContext.Provider>);
-test('consultar dispositivos no solicita capturar audio o cámara',async()=>{
-  show();fireEvent.click(screen.getByText('Consultar dispositivos'));await screen.findByText('Micrófono USB');expect(mock.capture).not.toHaveBeenCalled();
+test('solo muestra las dos opciones de notificaciones sin consultar dispositivos',()=>{
+ show();expect(screen.getAllByRole('switch')).toHaveLength(2);expect(screen.queryByText('Dispositivos')).not.toBeInTheDocument();expect(screen.queryByText('Consultar dispositivos')).not.toBeInTheDocument();expect(mock.discover).not.toHaveBeenCalled();expect(mock.capture).not.toHaveBeenCalled();
 });
-test('volver al predeterminado actualiza también la llamada activa',async()=>{
-  show();fireEvent.change(screen.getByLabelText('Micrófono'),{target:{value:''}});fireEvent.click(screen.getByText('Guardar preferencias'));await screen.findByText('Preferencias guardadas.');expect(mock.select).toHaveBeenCalledWith('audioinput','default');expect(mock.patch).toHaveBeenCalledWith('/users/me/preferences',expect.objectContaining({audioInput:''}));
+test('silenciar se guarda al cambiar el control y conserva las preferencias previas',async()=>{
+ show();fireEvent.click(screen.getByRole('switch',{name:/Desactivar notificaciones/}));await waitFor(()=>expect(mock.setUsuario).toHaveBeenCalled());expect(mock.patch).toHaveBeenCalledWith('/users/me/preferences',expect.objectContaining({silenciarNotificaciones:true,audioInput:'anterior'}));expect(screen.getByRole('switch',{name:/Desactivar notificaciones/})).toHaveAttribute('aria-checked','true');
 });
-test('un dispositivo no disponible no oculta que las preferencias ya fueron guardadas',async()=>{
-  mock.select.mockRejectedValue(new Error('No disponible'));show();fireEvent.click(screen.getByText('Guardar preferencias'));await waitFor(()=>expect(mock.setUsuario).toHaveBeenCalled());expect(await screen.findByRole('status')).toHaveTextContent('Preferencias guardadas. No se pudo cambiar');
+test('si falla el guardado conserva el valor anterior y permite reintentar',async()=>{
+ mock.patch.mockRejectedValueOnce(new Error('Sin conexión'));show();const toggle=screen.getByRole('switch',{name:/Desactivar notificaciones/});fireEvent.click(toggle);await screen.findByText('Sin conexión');expect(toggle).toHaveAttribute('aria-checked','false');expect(toggle).toBeEnabled();fireEvent.click(toggle);await waitFor(()=>expect(toggle).toHaveAttribute('aria-checked','true'));
+});
+
+test('avisos del navegador se configuran en ajustes y requieren autorización explícita',async()=>{
+ const stored=new Map();
+ const storage={
+   getItem:vi.fn(key=>stored.get(key)??null),
+   setItem:vi.fn((key,value)=>stored.set(key,String(value))),
+ };
+ const request=vi.fn(async()=>{Object.defineProperty(window.Notification,'permission',{configurable:true,value:'granted'});return 'granted';});
+ // El almacenamiento de esta prueba no depende del localStorage nativo de Node.
+ vi.stubGlobal('localStorage',storage);
+ vi.stubGlobal('Notification',Object.assign(function(){},{permission:'default',requestPermission:request}));
+ try {
+   show();const toggle=screen.getByRole('switch',{name:/Avisos del navegador o sistema/});expect(request).not.toHaveBeenCalled();
+   fireEvent.click(toggle);await waitFor(()=>expect(toggle).toHaveAttribute('aria-checked','true'));expect(request).toHaveBeenCalledOnce();
+   expect(storage.setItem).toHaveBeenLastCalledWith('dialo:avisos-navegador','1');
+   fireEvent.click(toggle);expect(toggle).toHaveAttribute('aria-checked','false');expect(mock.patch).not.toHaveBeenCalled();
+   expect(storage.setItem).toHaveBeenLastCalledWith('dialo:avisos-navegador','0');
+ } finally {
+   vi.unstubAllGlobals();
+ }
 });

@@ -11,15 +11,17 @@
 .md-sw-on span { transform: translateX(24px); }
 .md-sw:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; }
 .md-off { opacity: .6; }
-.md-rules-head { display: flex; align-items: center; justify-content: space-between; }
+.md-rules-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .md-count { font-variant-numeric: tabular-nums; }
 .md-list { display: flex; gap: 8px; flex-wrap: wrap; }
 .md-rule { height: 38px; border-radius: 19px; padding: 0 6px 0 14px; display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; background: #fff; box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .08), 0 2px 6px -4px rgba(19, 19, 22, .25); }
 .md-rule button { width: 26px; height: 26px; border-radius: 50%; border: 0; padding: 0; background: none; display: flex; align-items: center; justify-content: center; color: rgba(19, 19, 22, .64); cursor: pointer; }
 .md-rule button:hover { background: rgba(19, 19, 22, .07); color: #131316; }
 .md-new { display: flex; flex-direction: column; gap: 8px; }
-.md-new-row { display: flex; gap: 10px; }
-.md-inp { flex: 1; }
+.md-new-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.md-inp { flex: 1 1 180px; min-width: 0; }
+.md-inp input { min-width: 0; width: 100%; }
+.md-len { flex: none; }
 .md-len { font-size: 13px; color: rgba(19, 19, 22, .64); font-variant-numeric: tabular-nums; }
 .md-sug-wrap { display: flex; flex-direction: column; gap: 10px; }
 .md-sug { height: 34px; border-radius: 17px; padding: 0 13px 0 9px; display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; font: inherit; font-size: 13.5px; font-weight: 600; color: rgba(19, 19, 22, .7); box-shadow: inset 0 0 0 1.2px rgba(19, 19, 22, .16); cursor: pointer; }
@@ -31,3 +33,15 @@
 .md-bar .md-save { height: 42px; }
 .md-ok { position: sticky; bottom: 0; border-radius: 24px; padding: 14px 20px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14.5px; background: #fff; box-shadow: 0 10px 30px -14px rgba(19, 19, 22, .35); }
 .md-ok-ic { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #1FAE5B; color: #fff; }
+
+@media (max-width: 600px) {
+ .md-card { padding: 18px; }
+ .md-switch-row { gap: 10px; }
+ .md-ico { width: 38px; height: 38px; border-radius: 13px; }
+ .md-new-row > .btn { flex: 1; justify-content: center; }
+ .md-bar { flex-wrap: wrap; padding: 12px; gap: 10px; }
+ .md-bar-text { flex-basis: calc(100% - 36px); }
+ .md-bar > .btn { flex: 1; justify-content: center; }
+ .md-rule { height: auto; min-height: 38px; max-width: 100%; overflow-wrap: anywhere; }
+ .md-rule button { flex: none; }
+}

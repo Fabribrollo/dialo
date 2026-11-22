@@ -14,31 +14,32 @@ function View() { const [draft,setDraft]=useState('');return <ChannelChat canal=
 const view=()=>render(<View />);
 const own=()=>screen.getByText('Texto 1').closest('.msg');
 const other=()=>screen.getByText('Texto 2').closest('.msg');
+const menuAction=(row,name)=>{const toggle=within(row).getByRole('button',{name:'Opciones del mensaje'});if(toggle.getAttribute('aria-expanded')!=='true')fireEvent.click(toggle);return within(screen.getByRole('menu',{name:'Acciones del mensaje'})).queryByRole('menuitem',{name});};
 beforeEach(()=>{
  state={canal,ready:true,connected:true,loading:false,messages:[message(1,person(1,'Valen')),message(2,person(2,'Feli'))],members:[{usuario:person(1,'Valen'),rol:'PROPIETARIO'},{usuario:person(2,'Felipe'),rol:'INTEGRANTE'}],membersReady:true,cursor:null,error:'',memberError:'',reload:vi.fn(),older:vi.fn(),action:vi.fn().mockResolvedValue({})};
  useChannelMessages.mockImplementation(()=>state);
 });
 it('identifica varios autores con el perfil vigente, muestra fechas y edita solo lo propio',()=>{
  view();expect(screen.getByText('Felipe')).toBeInTheDocument();expect(screen.getByText('20 de octubre de 2026')).toBeInTheDocument();
- expect(within(own()).getByRole('button',{name:/Editar mensaje/})).toBeInTheDocument();
- expect(within(other()).queryByRole('button',{name:/Editar mensaje/})).not.toBeInTheDocument();
+ expect(menuAction(own(),/Editar mensaje/)).toBeInTheDocument();
+ expect(menuAction(other(),/Editar mensaje/)).not.toBeInTheDocument();
 });
-it.each([['PROPIETARIO','ADMIN',true],['ADMIN','PROPIETARIO',false],['ADMIN','ADMIN',false],['MODERADOR','INTEGRANTE',true],['MODERADOR','MODERADOR',false],['INTEGRANTE','INTEGRANTE',false]])('jerarquía %s frente a %s ofrece eliminación: %s',(self,target,allowed)=>{
- state.members[0].rol=self;state.members[1].rol=target;view();expect(Boolean(within(other()).queryByRole('button',{name:/Eliminar mensaje/}))).toBe(allowed);
+it.each([['PROPIETARIO','ADMIN',true],['ADMIN','PROPIETARIO',false],['ADMIN','ADMIN',false],['INTEGRANTE','INTEGRANTE',true],['INTEGRANTE','ADMIN',false],['INTEGRANTE','INTEGRANTE',false]])('jerarquía %s frente a %s ofrece eliminación: %s',(self,target,allowed)=>{
+ state.members[0].rol=self;state.members[1].rol=target;if(allowed&&self==='INTEGRANTE')state.canal={...state.canal,misPermisos:['VER','ELIMINAR_MENSAJES']};view();expect(Boolean(menuAction(other(),/Eliminar mensaje/))).toBe(allowed);
 });
 it('autor que abandonó puede ser moderado, pero una lista de integrantes fallida no concede ese permiso',()=>{
- state.members.pop();const mounted=view();expect(within(other()).getByRole('button',{name:/Eliminar mensaje/})).toBeInTheDocument();
- state={...state,membersReady:false};mounted.rerender(<View/>);expect(within(other()).queryByRole('button',{name:/Eliminar mensaje/})).not.toBeInTheDocument();
+ state.members.pop();const mounted=view();expect(menuAction(other(),/Eliminar mensaje/)).toBeInTheDocument();
+ state={...state,membersReady:false};mounted.rerender(<View/>);expect(menuAction(other(),/Eliminar mensaje/)).not.toBeInTheDocument();
 });
 it('solo lectura no ofrece acciones propias y permite moderación válida sin ESCRIBIR',()=>{
- state.canal={...canal,misPermisos:['VER']};view();expect(within(own()).queryByRole('button')).not.toBeInTheDocument();
- expect(within(other()).getByRole('button',{name:/Eliminar mensaje/})).toBeInTheDocument();expect(screen.getByLabelText('Mensaje en general')).toBeDisabled();expect(screen.getByRole('button',{name:'Enviar mensaje al canal'})).toBeDisabled();
+ state.canal={...canal,misPermisos:['VER']};view();expect(menuAction(own(),/Editar mensaje|Eliminar mensaje/)).not.toBeInTheDocument();
+ expect(menuAction(other(),/Eliminar mensaje/)).toBeInTheDocument();expect(screen.getByLabelText('Mensaje en general')).toBeDisabled();expect(screen.getByRole('button',{name:'Enviar mensaje al canal'})).toBeDisabled();
 });
 it('eliminación moderada exige confirmar y cancelar devuelve el foco',async()=>{
- view();const button=within(other()).getByRole('button',{name:/Eliminar mensaje/});fireEvent.click(button);
+ view();const button=within(other()).getByRole('button',{name:'Opciones del mensaje'});fireEvent.click(menuAction(other(),/Eliminar mensaje/));
  expect(screen.getByRole('dialog')).toHaveTextContent('todos los integrantes');expect(state.action).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole('button',{name:'Cancelar'}));expect(button).toHaveFocus();
- fireEvent.click(button);fireEvent.click(screen.getByRole('button',{name:'Eliminar mensaje',exact:true}));
+ fireEvent.click(menuAction(other(),/Eliminar mensaje/));fireEvent.click(screen.getByRole('button',{name:'Eliminar mensaje',exact:true}));
  await waitFor(()=>expect(state.action).toHaveBeenCalledExactlyOnceWith('channel-message:delete',{idMensaje:2}));
 });
 it('un fallo de envío conserva el borrador y evita envíos repetidos',async()=>{
@@ -59,11 +60,11 @@ it('pérdida de acceso retira el historial y el formulario',()=>{
  const mounted=view();state={...state,lost:true,error:'Sin acceso',messages:[]};mounted.rerender(<View/>);
  expect(screen.getByRole('alert')).toHaveTextContent('Sin acceso');expect(screen.queryByText('Texto 1')).not.toBeInTheDocument();expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
 });
-it('los integrantes son consultables bajo demanda',()=>{
- view();expect(screen.queryByText('Integrantes de la comunidad')).not.toBeInTheDocument();fireEvent.click(screen.getByRole('button',{name:'Integrantes'}));expect(screen.getByText('Integrantes de la comunidad')).toBeInTheDocument();fireEvent.keyDown(screen.getByRole('region',{name:'Chat de general'}),{key:'Escape'});expect(screen.queryByText('Integrantes de la comunidad')).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'Integrantes'})).toHaveFocus();
+it('el chat no duplica el listado de integrantes de comunidad',()=>{
+ view();expect(screen.queryByRole('button',{name:'Integrantes'})).not.toBeInTheDocument();expect(screen.queryByText('Integrantes de la comunidad')).not.toBeInTheDocument();expect(screen.getByRole('textbox')).toBeInTheDocument();
 });
 it('reconectar no vuelve a abrir una confirmación invalidada por la desconexión',()=>{
- const mounted=view();fireEvent.click(within(other()).getByRole('button',{name:/Eliminar mensaje/}));expect(screen.getByRole('dialog')).toBeInTheDocument();
+ const mounted=view();fireEvent.click(menuAction(other(),/Eliminar mensaje/));expect(screen.getByRole('dialog')).toBeInTheDocument();
  state={...state,ready:false,connected:false,messages:[]};mounted.rerender(<View/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
  state={...state,ready:true,connected:true,messages:[message(2,person(2,'Feli'))]};mounted.rerender(<View/>);expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
@@ -87,4 +88,7 @@ it('el selector del canal se muestra junto al compositor e inserta el usuario el
  expect(picker.closest('.chat-compose-area')).toBe(input.closest('.chat-compose-area'));
  fireEvent.click(screen.getByRole('button',{name:'@felipe · Felipe'}));
  expect(input).toHaveValue('Aviso @felipe ');expect(input).toHaveFocus();
+});
+it('una falla del directorio muestra un aviso y conserva el chat sin habilitar moderación',()=>{
+ state.memberError='No se pudieron actualizar los integrantes';state.membersReady=false;view();expect(screen.getByText('Texto 2')).toBeInTheDocument();expect(screen.getByText('No se pudieron actualizar los integrantes')).toBeInTheDocument();expect(menuAction(other(),/Eliminar mensaje/)).not.toBeInTheDocument();
 });

@@ -10,7 +10,7 @@ test('nombre de rol: límites, espacios, nombres protegidos y cuerpo estricto', 
     assert.equal(roleBodySchema.safeParse({ nombre }).success, false, JSON.stringify(nombre));
   }
   for (const nombre of ['a', 'a'.repeat(32), 'Equipo de diseño']) assert.equal(roleBodySchema.safeParse({ nombre }).success, true);
-  for (const body of [{}, null, { nombre: 3 }, { nombre: 'Equipo', idComunidad: 2 }, { nombre: 'Equipo', permisos: ['VER'] }, { nombre: 'Equipo', rol: 'ADMIN' }]) {
+  for (const body of [{}, null, { nombre: 3 }, { nombre: 'Equipo', idComunidad: 2 }, { nombre: 'Equipo', permisos: ['BORRAR_COMUNIDAD'] }, { nombre: 'Equipo', rol: 'ADMIN' }]) {
     assert.equal(roleBodySchema.safeParse(body).success, false);
   }
 });

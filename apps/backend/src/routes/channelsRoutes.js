@@ -1,3 +1,10 @@
+import {auditCommunity} from '../middlewares/auditCommunity.js';
+import { z } from 'zod';
+import { kickMember,kickChannelMember,silenceMember,managedMembers } from '../services/memberActionsService.js';
+import { banMember } from '../services/communityBansService.js';
+import { requireChannelPermission } from '../services/channelsService.js';
+import {requestAccess,listRequests,resolveRequest} from '../controllers/channelRequestsController.js';
+import {resolveChannelRequestSchema,requestIdParamsSchema,emptyChannelRequestSchema} from '../validations/channelsValidation.js';
 import { messageSearchQuery, searchController } from '../controllers/messageSearchController.js';
 import { Router } from 'express';
 import { authenticate } from '../middlewares/authenticate.js';
@@ -9,7 +16,19 @@ import { joinCall, leaveCall, listCallParticipants } from '../controllers/callsC
 import { messagesQuerySchema } from '../validations/conversationsValidation.js';
 
 const router = Router();
-router.use(authenticate);
+router.use(authenticate);router.use(auditCommunity('canal'));
+router.get('/:id/members/management',validate({params:channelIdParamsSchema}),async(req,res)=>res.json({items:await managedMembers(req.validated.params.id,req.user.id)}));
+const memberParams=z.object({id:z.coerce.number().int().positive().max(2147483647),user:z.coerce.number().int().positive().max(2147483647)});
+router.post('/:id/members/:user/silence',validate({params:memberParams,body:z.strictObject({silenciado:z.boolean()})}),async(req,res)=>{await silenceMember(req.validated.params.id,req.user.id,req.validated.params.user,req.validated.body.silenciado);res.status(204).end();});
+for(const action of ['kick','restore','ban'])router.post(`/:id/members/:user/${action}`,validate({params:memberParams,body:z.strictObject({})}),async(req,res)=>{
+ const {id,user}=req.validated.params;const context=await requireChannelPermission(id,req.user.id,action==='ban'?'BANEAR':'EXPULSAR');
+ if(action!=='ban')await kickChannelMember(id,req.user.id,user,action==='restore');
+ else await banMember(context.canal.idComunidad,req.user.id,user,{motivo:null},id);
+ res.status(204).end();
+});
+router.post('/:id/requests',validate({params:channelIdParamsSchema,body:emptyChannelRequestSchema}),requestAccess);
+router.get('/:id/requests',validate({params:channelIdParamsSchema}),listRequests);
+router.post('/:id/requests/:solicitud',validate({params:requestIdParamsSchema,body:resolveChannelRequestSchema}),resolveRequest);
 router.get('/:id/messages/search', validate({ params: channelIdParamsSchema, query: messageSearchQuery }), searchController('channel'));
 router.get('/:id/messages', validate({ params: channelIdParamsSchema, query: messagesQuerySchema.strict() }), listMessages);
 router.post('/:id/call/join', validate({ params: channelIdParamsSchema }), joinCall);

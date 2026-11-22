@@ -8,7 +8,7 @@ router.use(authenticate);
 router.get('/', validate({ query: z.strictObject({ cursor: z.coerce.number().int().positive().optional() }) }), async (req, res) => res.json(await listNotifications(req.user.id, req.validated.query.cursor)));
 const readBody = z.union([
   z.strictObject({ id: z.number().int().positive() }),
-  z.strictObject({ tipo: z.enum(['canal', 'conversacion', 'amistad']), referencia: z.number().int().positive() }),
+  z.strictObject({ tipo: z.enum(['canal', 'conversacion', 'amistad', 'roles', 'acceso', 'baneo', 'rehabilitado', 'solicitud_canal', 'acceso_aceptado', 'acceso_rechazado']), referencia: z.number().int().positive() }),
   z.strictObject({}),
 ]);
 router.post('/read', validate({ body: readBody }), async (req, res) => { await readNotifications(req.user.id, req.validated.body); res.status(204).end(); });

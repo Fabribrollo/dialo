@@ -1,3 +1,4 @@
+import '../styles/landing-fonts.css';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import Icon from '../components/ui/Icon.jsx';

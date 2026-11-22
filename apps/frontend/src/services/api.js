@@ -45,3 +45,19 @@ export const api = {
   put: (path, body) => request('PUT', path, body),
   delete: (path) => request('DELETE', path),
 };
+
+// XHR expone progreso real de subida y cancelación; mantiene el contrato ApiError.
+api.upload=(path,body,{signal,onProgress}={})=>new Promise((resolve,reject)=>{
+ const xhr=new XMLHttpRequest();
+ const done=()=>signal?.removeEventListener('abort',abort);
+ const abort=()=>xhr.abort();
+ xhr.open('POST',`${API_URL}${path}`);xhr.withCredentials=true;xhr.timeout=120000;
+ if(DEV_USER_ID)xhr.setRequestHeader('x-dev-user-id',DEV_USER_ID);
+ xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress?.(Math.round(e.loaded/e.total*100));};
+ xhr.onload=()=>{done();let data;try{data=JSON.parse(xhr.responseText);}catch{}if(xhr.status>=200&&xhr.status<300)resolve(data);else reject(new ApiError(xhr.status,data?.error));};
+ xhr.onerror=()=>{done();reject(new ApiError(0,{code:'NETWORK_ERROR',message:'Se perdió la conexión. Podés reintentar este mismo envío.'}));};
+ xhr.ontimeout=()=>{done();reject(new ApiError(0,{code:'UPLOAD_TIMEOUT',message:'El envío tardó demasiado. Podés reintentarlo.'}));};
+ xhr.onabort=()=>{done();reject(new DOMException('Envío cancelado','AbortError'));};
+ if(signal?.aborted){reject(new DOMException('Envío cancelado','AbortError'));return;}
+ signal?.addEventListener('abort',abort,{once:true});xhr.send(body);
+});

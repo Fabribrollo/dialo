@@ -1,3 +1,4 @@
+import {useSocket} from '../../hooks/useSocket.js';
 import { useEffect, useRef, useState } from 'react';
 import { searchUsers } from '../../services/friendsService.js';
 import Card, { ListRow } from '../ui/Card.jsx';
@@ -25,6 +26,8 @@ function AccionRelacion({ usuario, friends }) {
 }
 
 export function BuscadorUsuarios({ friends }) {
+  const socket=useSocket();
+  useEffect(()=>{const update=({bloqueado})=>{if(bloqueado!==undefined)setIntento(n=>n+1);};socket?.on('friend:removed',update);return()=>socket?.off('friend:removed',update);},[socket]);
   const [q, setQ] = useState('');
   const [resultados, setResultados] = useState([]);
   const [estado, setEstado] = useState('inicial');

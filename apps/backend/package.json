@@ -5,8 +5,12 @@
   "type": "module",
   "main": "src/index.js",
   "scripts": {
+    "test:harmony": "node --test test/harmony.test.js",
+    "test:roles-granular": "node --test test/channel-permissions.test.js test/roles-validation.test.js test/granular-roles.test.js",
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
+    "test:channel-policy": "node --test test/channel-policy.test.js",
+    "test:notifications": "node --test test/notifications.test.js",
     "test:kanban": "node --test test/kanban-unit.test.js test/kanban.integration.test.js",
     "test:conversations": "node --test test/conversations.test.js",
     "test:media": "node --test test/media.test.js",

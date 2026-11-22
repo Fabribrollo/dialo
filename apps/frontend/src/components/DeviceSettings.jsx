@@ -1,46 +1,28 @@
-import { usePrivateCall } from '../context/PrivateCallContext.jsx';
+import { enabled, supported, setEnabled } from '../utils/browserNotifications.js';
 import { avisar } from './shell/systemToastsStore.js';
-import { useContext, useState } from 'react';
-import { CallContext } from '../context/CallContext.jsx';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth.js';
 import { api } from '../services/api.js';
-import Button from './ui/Button.jsx';
-import Field from './ui/Field.jsx';
+import Notice from './ui/Notice.jsx';
 
 export default function DeviceSettings() {
-  const { usuario, setUsuario } = useAuth(), call = useContext(CallContext), privateCall = usePrivateCall();
-  const [prefs, setPrefs] = useState(usuario.preferencias || {}), [devices, setDevices] = useState([]), [busy,setBusy] = useState(false), [message,setMessage] = useState('');
-  async function discover() {
-    setMessage('');
-    try {
-      // Solo se enumeran dispositivos: no encendemos micrófono o cámara.
-      setDevices(await navigator.mediaDevices.enumerateDevices());
-    } catch { setMessage('No se pudieron consultar los dispositivos. Revisá los permisos del navegador.'); }
+  const { usuario, setUsuario } = useAuth();
+  const [prefs, setPrefs] = useState(usuario.preferencias || {}), [busy,setBusy] = useState(false), [message,setMessage] = useState('');
+  const [browser,setBrowser]=useState(enabled),[permission,setPermission]=useState(()=>supported()?Notification.permission:'unsupported');
+  useEffect(()=>{const sync=()=>{setBrowser(enabled());setPermission(supported()?Notification.permission:'unsupported');};window.addEventListener('storage',sync);window.addEventListener('focus',sync);return()=>{window.removeEventListener('storage',sync);window.removeEventListener('focus',sync);};},[]);
+  async function toggleBrowser(){
+    if(browser){setEnabled(false);setBrowser(false);return;}
+    try{const result=await Notification.requestPermission();
+    if(result==='granted'&&'serviceWorker' in navigator)await navigator.serviceWorker.register('/notifications-sw.js').catch(()=>{});setPermission(result);setEnabled(result==='granted');setBrowser(result==='granted');}
+    catch{setMessage('No se pudieron habilitar los avisos del navegador.');}
   }
-  async function save() {
-    if(busy)return; setBusy(true);setMessage('');
-    try {
-      const { usuario: user } = await api.patch('/users/me/preferences', { silenciarNotificaciones:!!prefs.silenciarNotificaciones, audioInput:prefs.audioInput||'', audioOutput:prefs.audioOutput||'', videoInput:prefs.videoInput||'' });
-      setUsuario(user);
-      let failed=false;
-      for(const [kind,key] of [['audioinput','audioInput'],['audiooutput','audioOutput'],['videoinput','videoInput']]) {
-        for(const active of [call,privateCall]) {
-          try { await active?.elegirDispositivo?.(kind,prefs[key]||'default'); } catch { failed=true; }
-        }
-      }
-      setMessage(failed?'Preferencias guardadas. No se pudo cambiar uno de los dispositivos de la llamada actual.':'Preferencias guardadas.');
-      avisar({ id: 'preferencias', texto: 'Cambios guardados', anunciar: false });
-    } catch(e) {setMessage(e.message);} finally {setBusy(false);}
+  async function toggleSilence(){
+    if(busy)return;setBusy(true);const next={...prefs,silenciarNotificaciones:!prefs.silenciarNotificaciones};
+    try{const {usuario:user}=await api.patch('/users/me/preferences',{silenciarNotificaciones:!!next.silenciarNotificaciones,audioInput:next.audioInput||'',audioOutput:next.audioOutput||'',videoInput:next.videoInput||''});setUsuario(user);setPrefs(next);avisar({texto:next.silenciarNotificaciones?'Notificaciones desactivadas.':'Notificaciones activadas.'});}catch(e){avisar({tipo:'error',texto:e.message});}finally{setBusy(false);}
   }
-  return <section className="device-settings"><h2>Notificaciones y dispositivos</h2>
-    <label><input type="checkbox" checked={!!prefs.silenciarNotificaciones} onChange={(e)=>setPrefs({...prefs,silenciarNotificaciones:e.target.checked})} /> Silenciar nuevas notificaciones</label>
-    <Button variant="secundario" onClick={discover}>Consultar dispositivos</Button>
-    <p>El navegador puede ocultar nombres hasta que autorices el dispositivo en una llamada. La selección de salida depende de tu navegador.</p>
-    {[['audioinput','audioInput','Micrófono'],['audiooutput','audioOutput','Salida de audio'],['videoinput','videoInput','Cámara']].map(([kind,key,label])=>
-      <Field key={key} as="select" label={label} value={prefs[key]||''} onChange={(e)=>setPrefs({...prefs,[key]:e.target.value})}>
-        <option value="">Predeterminado del sistema</option>{devices.filter((d)=>d.kind===kind&&d.deviceId).map((d,i)=><option key={d.deviceId} value={d.deviceId}>{d.label||`${label} ${i+1}`}</option>)}
-      </Field>)}
-    {message&&<p role="status">{message}</p>}
-    <Button loading={busy} onClick={save}>Guardar preferencias</Button>
-  </section>;
+  return <div className="settings-sections"><section className="device-settings notification-settings" aria-label="Notificaciones"><h2>Notificaciones</h2>
+    <button type="button" className="setting-toggle" role="switch" aria-checked={browser} disabled={permission==='denied'||permission==='unsupported'} onClick={toggleBrowser}><span><strong>Avisos del navegador o sistema</strong><small>{permission==='unsupported'?'No disponibles en este navegador. En móvil puede requerir instalar Dialo.':permission==='denied'?'Habilitalos desde los permisos del sitio.':'Avisos cuando Dialo está en segundo plano.'}</small></span><span className={`act-toggle ${browser?'on':''}`} aria-hidden="true"/></button>
+    <button type="button" className="setting-toggle" role="switch" aria-checked={!!prefs.silenciarNotificaciones} disabled={busy} onClick={toggleSilence}><span><strong>Desactivar notificaciones</strong><small>Silencia avisos y tonos de llamadas.</small></span><span className={`act-toggle ${prefs.silenciarNotificaciones?'on':''}`} aria-hidden="true"/></button>
+    {message&&<Notice title={message}/>}
+  </section></div>;
 }

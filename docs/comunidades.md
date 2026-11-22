@@ -1,6 +1,6 @@
-# Contrato de comunidades y canales - Dialo (Entrega 50%)
+# Contrato de comunidades y canales - Dialo
 
-Contrato de comunidades y canales, actualizado con roles y accesos de T-28 a T-31. Las propuestas originales de T-13 que todavía no tienen código están separadas en el apartado de pendientes.
+Contrato de comunidades y canales. El modelo vigente de autoridad, herencia, excepciones y acciones se detalla en [Roles y permisos granulares](roles-permisos.md). Las propuestas originales de T-13 que todavía no tienen código están separadas en el apartado de pendientes.
 Cubre F-05 (comunidades), F-06 (invitaciones e integrantes), F-07 (canales y acceso) y F-08 (mensajes en canales).
 Usa las convenciones de [api.md](api.md) y [sockets.md](sockets.md): rutas bajo `/api`, camelCase, formato de error compartido e historiales paginados por cursor. Los listados de comunidades, integrantes, canales e invitaciones no están paginados. Todas estas rutas requieren sesión y responden `401 UNAUTHORIZED` sin ella.
 En los ejemplos, `Comunidad`, `Canal`, `Integrante` y otros nombres representan objetos de las formas compartidas, no valores JSON literales.
@@ -11,20 +11,20 @@ El chat privado (conversations y eventos message:\*) no cambia.
 ## Decisiones
 
 - Tipos de comunidad: PUBLICA y PRIVADA.
-- Roles base: PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE. Uno por integrante. Los roles personalizados se administran en T-29, se asignan en T-30 y se aplican a los permisos de canal en T-31.
-- Hay un solo propietario por comunidad. No puede abandonarla; actualmente puede eliminarla. Transferir la propiedad sigue pendiente.
+- Roles base asignables: PROPIETARIO, ADMIN e INTEGRANTE. Los roles personalizados agregan capacidades y admiten excepciones por canal y por usuario. Moderador se migra a integrante con un rol personalizado.
+- Hay un solo propietario por comunidad. No puede abandonarla; actualmente puede eliminarla. La propiedad se transfiere mediante la acción exclusiva de propietario.
 - Crear una comunidad es una transaccion: comunidad + membresia PROPIETARIO del creador + canal de texto "general".
 - Eliminar una comunidad: solo el propietario. Borra en cascada canales, mensajes de canal, membresias e invitaciones.
 - Eliminar un canal: ADMIN o mas. Borra en cascada sus mensajes y su configuracion de acceso.
-- Canal publico: lo ven todos los integrantes. Canal privado: solo los habilitados por rol o por usuario.
+- Todos los integrantes ven el catálogo de canales. Los que no tienen VER aparecen bloqueados, sin acceso al contenido. En privados pueden solicitar ingreso.
 - ADMIN y PROPIETARIO siempre tienen acceso total a todos los canales.
-- Los permisos se suman. No hay permisos de denegacion en esta entrega.
+- Público: globales iniciales, roles y excepciones individuales. Privado: habilitaciones por rol o por persona; la excepción individual tiene prioridad. Las solicitudes las aprueban propietario o administradores.
 - Una comunidad privada o un canal sin acceso responden 404, como si no existieran.
-- Los canales de voz y video se crean y configuran, pero no hay llamadas (eso es F-10).
-- El tipo de canal se elige al crearlo y no se puede cambiar después.
-- Decisión de interfaz (F-10): el front solo ofrece TEXTO y VOZ. VIDEO sigue en el modelo y en la API por compatibilidad, pero se muestra como Voz; la cámara y la pantalla se usan dentro de un canal de voz con TRANSMITIR. Editar un canal VIDEO desde la interfaz lo guarda como VOZ.
+- Los canales de voz admiten llamadas, cámara y pantalla con permisos separados (F-10).
+- El tipo (texto/voz) y la privacidad (público/privado) se eligen al crear el canal y no se pueden cambiar después.
+- La creación solo acepta TEXTO y VOZ. VIDEO permanece como valor histórico; las migraciones convierten los anteriores a VOZ conservando su ID. Cámara y pantalla tienen permisos independientes; TRANSMITIR se interpreta por compatibilidad.
 - Mensajes de canal: se envian por socket con ack, como el chat privado. El historial se pide por HTTP.
-- Moderacion: MODERADOR o mas puede eliminar mensajes ajenos (nunca editarlos), salvo de alguien con rol igual o mayor.
+- Moderación: ELIMINAR_MENSAJES permite eliminar mensajes ajenos; protege autores propietario y administradores según autoridad. Nunca permite editarlos.
 - Invitaciones: codigo aleatorio, con vencimiento y cantidad de usos opcionales. Ver una invitacion no hace ingresar.
 - Rechazar una invitacion es solo del front: no llama a la API.
 
@@ -57,46 +57,13 @@ Los cambios de roles de integrantes emiten `community:member-updated`; transfere
 
 ## Roles de comunidad
 
-Jerarquia: PROPIETARIO (4) > ADMIN (3) > MODERADOR (2) > INTEGRANTE (1).
-
-Que puede hacer cada rol (cada rol puede todo lo de los roles menores):
-
-- INTEGRANTE: ver la comunidad, sus integrantes y los canales a los que tiene acceso. Abandonar la comunidad si no es propietario.
-- MODERADOR: crear, listar y revocar invitaciones. Eliminar mensajes ajenos en canales donde tiene VER.
-- ADMIN: editar nombre, imagen y tipo de la comunidad. Crear, editar, ordenar y eliminar canales y configurar su acceso.
-- PROPIETARIO: las acciones de ADMIN y eliminar la comunidad. No puede abandonar. Asignación de roles y transferencia no están implementadas.
-
-La moderación exige jerarquía estrictamente superior al rol actual del autor del mensaje. No permite editar mensajes ajenos. Un autor que abandonó tiene rango cero. Los roles de fixtures/seed no implican que exista una API para cambiarlos.
-
----
+PROPIETARIO tiene acceso completo, incluida eliminación y transferencia. ADMIN tiene acceso completo salvo esas acciones y modificar a otro administrador. INTEGRANTE obtiene acceso por configuración y por sus roles personalizados. Moderador ya no es asignable. La migración conserva responsabilidades anteriores mediante un rol personalizado.
 
 ## Permisos de canal
 
-- VER (todos los tipos): ver y abrir el canal. En TEXTO permite leer historial y recibir mensajes; no habilita llamadas todavía.
-- ESCRIBIR (TEXTO): enviar mensajes. Editar y eliminar los propios tambien lo requiere.
-- HABLAR (VOZ, VIDEO): hablar en la llamada. Se guarda ahora, se usa en F-10.
-- TRANSMITIR (VOZ, VIDEO): camara y pantalla. Se guarda ahora, se usa en F-10.
+Ver [catálogo y cálculo granular](roles-permisos.md). Públicos usan globales y roles, salvo excepciones explícitas del canal. Privados requieren habilitación por rol o persona. Las excepciones individuales reemplazan la herencia, incluso si están vacías. VER es requisito; al guardar otro permiso el servidor lo agrega. Propietario y administradores conservan acceso completo.
 
-Cualquier permiso implica VER: si se guarda ESCRIBIR sin VER, el servidor agrega VER.
-
-Matriz por tipo de canal: VER para acceder y recibir; ESCRIBIR solo en TEXTO; HABLAR (microfono) y TRANSMITIR (camara y pantalla) solo en VOZ y VIDEO.
-
-Como se calculan los permisos de un integrante en un canal:
-
-1. Si es PROPIETARIO o ADMIN: todos los permisos del tipo de canal.
-2. Si el canal es publico, empieza con los permisos por defecto:
-   - TEXTO: VER y ESCRIBIR.
-   - VOZ y VIDEO: VER y HABLAR.
-3. Si el canal es privado, empieza sin permisos.
-4. Se suman los permisos de la habilitacion de su rol base (si existe), de cada uno de sus roles personalizados y de la habilitacion de su usuario (si existe).
-5. Se descartan los permisos que no aplican al tipo de canal (por ejemplo ESCRIBIR en un canal de voz).
-
-Ejemplo de conflicto: si el rol da VER y la habilitacion del usuario da VER y ESCRIBIR, queda VER y ESCRIBIR.
-Para hacer un canal de solo lectura: canal privado con la habilitacion INTEGRANTE: [VER].
-Si un integrante pierde un rol, conserva solo los permisos que le sigan llegando por otra fuente.
-Quien no tiene membresia (porque abandono o fue baneado) no tiene ningun permiso, aunque existan habilitaciones viejas.
-
-Moderar no es un permiso configurable en esta entrega: lo tiene quien es MODERADOR o mas y tiene VER en el canal.
+Cámara y pantalla se controlan por CAMARA y PANTALLA; TRANSMITIR se interpreta como ambos para datos anteriores. Eliminar mensajes ajenos requiere ELIMINAR_MENSAJES y respeta autores protegidos. El catálogo bloqueado nunca habilita contenido. Solicitudes de privados se resuelven por propietario/administrador, desde su apartado específico.
 
 ---
 
@@ -114,7 +81,7 @@ Lo que ve un integrante.
   "tipo": "PRIVADA",
   "idPropietario": 1,
   "cantidadIntegrantes": 12,
-  "miRol": "MODERADOR",
+  "miRol": "INTEGRANTE",
   "fechaCreacion": "2026-10-19T17:03:05.000Z"
 }
 ```
@@ -139,14 +106,14 @@ Lo que ve alguien que no es integrante. Nunca incluye canales, integrantes ni me
 ```json
 {
   "usuario": "UsuarioPublico",
-  "rol": "MODERADOR",
+  "rol": "INTEGRANTE",
   "fechaIngreso": "2026-10-19T17:03:05.000Z"
 }
 ```
 
 ### Invitacion
 
-Solo la ven MODERADOR o mas.
+Requiere GESTIONAR_INVITACIONES o administración.
 
 ```json
 {
@@ -186,21 +153,11 @@ Solo la ven MODERADOR o mas.
 
 ### ConfiguracionAcceso
 
-Solo la ven ADMIN o mas.
+Solo ADMIN y PROPIETARIO pueden consultarla o reemplazarla.
 
-```json
-{
-  "privado": true,
-  "habilitaciones": [
-    { "rol": "MODERADOR", "permisos": ["VER", "ESCRIBIR"] },
-    { "rol": "INTEGRANTE", "permisos": ["VER"] },
-    { "rolPersonalizado": { "id": 3, "nombre": "Editores" }, "permisos": ["VER", "ESCRIBIR"] },
-    { "usuario": "UsuarioPublico", "permisos": ["VER", "ESCRIBIR"] }
-  ]
-}
-```
-
-Cada habilitacion tiene rol, rolPersonalizado o usuario, nunca mas de uno. Solo se admiten los roles MODERADOR e INTEGRANTE (los demas ya tienen todo).
+Público: `{ "privado": false, "permisosGlobales": ["VER", "ESCRIBIR"], "habilitaciones": [] }`.
+Privado: `{ "privado": true, "permisosGlobales": [], "habilitaciones": [{ "usuario": "UsuarioPublico", "permisos": ["VER"] }] }`.
+En escrituras, los públicos envían únicamente privado/permisosGlobales; los privados únicamente privado/habilitaciones, con `idUsuario`. No se aceptan `rol` ni `idRol`.
 
 ### MensajeCanal
 
@@ -231,13 +188,11 @@ Los parámetros HTTP y de historial usan IDs enteros positivos de PostgreSQL (m�
 - tipo de comunidad: PUBLICA o PRIVADA.
 - imagen de comunidad: jpg, png o webp, hasta 2 MB.
 - nombre de canal: 1 a 32 caracteres, sin espacios al inicio ni al final.
-- tipo de canal: TEXTO, VOZ o VIDEO.
+- tipo de canal nuevo: TEXTO o VOZ. VIDEO se conserva solo como valor histórico migrado.
 - privado: booleano.
-- Los roles existen en el modelo; no hay un payload de asignación implementado.
-- permisos: lista sin repetidos de VER, ESCRIBIR, HABLAR, TRANSMITIR.
-- habilitaciones: hasta 50, sin repetir rol ni usuario. Una lista de permisos
-  vacia equivale a omitir esa habilitacion: no se guarda una fila vacia ni
-  deniega los permisos obtenidos por otra via.
+- Los roles de comunidad se asignan mediante T-30 y no sustituyen las habilitaciones privadas de canal.
+- permisos: lista sin repetidos del catálogo cerrado descrito en roles-permisos.md, filtrada por tipo de canal.
+- excepciones: hasta 50 roles y 50 usuarios de la misma comunidad, sin repetidos. Una excepción vacía niega el acceso; quitar la fila restaura herencia.
 - duracionHoras (invitacion): 1, 24, 168 o null (sin vencimiento).
 - usosMaximos (invitacion): 1 a 100, o null (sin limite).
 - orden: todos los ids de canales de la comunidad, sin repetidos.
@@ -325,7 +280,7 @@ Ordenados por rol (mayor primero), después por nombreVisible y por ID de usuari
 
 ### POST /api/communities/:id/invitations
 
-Auth: si. MODERADOR o mas.
+Requiere GESTIONAR_INVITACIONES o administración.
 Body JSON: { "duracionHoras": 24, "usosMaximos": 10 }
 Los dos campos son opcionales y por defecto son null; para omitirlos enviar `{}`.
 201: { "invitacion": Invitacion }
@@ -333,13 +288,13 @@ Errores: 400 VALIDATION_ERROR, 403 INSUFFICIENT_ROLE, 404 COMMUNITY_NOT_FOUND.
 
 ### GET /api/communities/:id/invitations
 
-Auth: si. MODERADOR o mas.
+Requiere GESTIONAR_INVITACIONES o administración.
 Todas las invitaciones de la comunidad, mas nuevas primero.
 200: { "items": [Invitacion] }
 
 ### DELETE /api/communities/:id/invitations/:idInvitacion
 
-Auth: si. MODERADOR o mas.
+Requiere GESTIONAR_INVITACIONES o administración.
 Revoca la invitación (queda guardada con estado REVOCADA). Responde 204; repetirlo también responde 204.
 Errores: 403 INSUFFICIENT_ROLE, 404 INVITATION_NOT_FOUND.
 
@@ -370,14 +325,14 @@ Errores: los mismos que la vista previa.
 ### GET /api/communities/:id/channels
 
 Auth: si. Integrante.
-Solo los canales donde tiene VER, ordenados por posicion y despues por id.
+Todos los canales de esa comunidad, ordenados por posición e id. Incluye `bloqueado`, `misPermisos` y el estado de solicitud propio. No incluye mensajes ni configuración de terceros.
 200: { "items": [Canal] }
 
 ### POST /api/communities/:id/channels
 
 Auth: si. ADMIN o mas.
-Body: { "nombre": "anuncios", "tipo": "TEXTO", "privado": false }
-privado es opcional (false por defecto). El canal se agrega al final.
+Body: { "nombre": "anuncios", "tipo": "TEXTO", "privado": false, "permisosGlobales": ["VER"] }
+privado es opcional (false por defecto). El canal y los permisos iniciales se guardan juntos y se agrega al final. Si se omiten globales en público, usa VER/ESCRIBIR para texto y VER/HABLAR para voz. Los privados arrancan sin habilitaciones.
 201: { "canal": Canal }
 Socket: channel:created a cada integrante con VER (con su misPermisos).
 Errores: 400 VALIDATION_ERROR, 403 INSUFFICIENT_ROLE, 404 COMMUNITY_NOT_FOUND.
@@ -391,7 +346,7 @@ Errores: 404 CHANNEL_NOT_FOUND si no existe o no tiene VER.
 ### PATCH /api/channels/:id
 
 Auth: si. ADMIN o mas.
-Body (al menos uno): { "nombre": "avisos", "privado": true }. `tipo` no se acepta: el tipo no se cambia después de crear el canal.
+Body: { "nombre": "avisos" }. `tipo` y `privado` no se aceptan en PATCH: ambos quedan fijos al crear el canal.
 200: { "canal": Canal }
 Socket: channel:updated a quienes tienen VER y channel:access-lost a quienes lo perdieron.
 Errores:
@@ -426,31 +381,19 @@ Auth: si. ADMIN o mas.
 
 ### PUT /api/channels/:id/access
 
-Auth: si. ADMIN o mas.
-Reemplaza toda la configuracion de acceso del canal.
-Body:
+Requiere autoridad administrativa o GESTIONAR_CANALES en ese canal. Reemplaza la configuración completa dentro del bloqueo de comunidad.
 
-```json
-{
-  "privado": true,
-  "habilitaciones": [
-    { "rol": "INTEGRANTE", "permisos": ["VER"] },
-    { "idRol": 3, "permisos": ["VER", "ESCRIBIR"] },
-    { "idUsuario": 7, "permisos": ["VER", "ESCRIBIR"] }
-  ]
-}
-```
+`{ "privado": false, "permisosGlobales": ["VER"], "roles": [{"idRol": 3, "permisos": ["VER", "ESCRIBIR"]}], "habilitaciones": [{"idUsuario": 7, "permisos": []}] }`.
 
-En el body los usuarios van con idUsuario y los roles personalizados con idRol; en la respuesta vuelven como usuario (UsuarioPublico) y rolPersonalizado ({ id, nombre }).
-200: { "acceso": ConfiguracionAcceso }
-Socket: igual que PATCH (channel:updated y channel:access-lost).
-Errores:
+En privado, enviar `privado:true`, globales vacíos y los roles/personas habilitados. Roles y personas deben pertenecer a la misma comunidad; sin duplicados, hasta 50 de cada uno. Una excepción individual vacía niega acceso; quitarla restaura herencia. El campo `privado` debe coincidir con el canal (`409 CHANNEL_PRIVACY_IMMUTABLE` si intenta convertirlo). Las reglas de combinación y los permisos válidos están en [Roles y permisos](roles-permisos.md).
 
-- 400 VALIDATION_ERROR: permisos o roles invalidos, o repetidos.
-- 403 INSUFFICIENT_ROLE.
-- 404 CHANNEL_NOT_FOUND.
-- 404 MEMBER_NOT_FOUND: algun idUsuario no es integrante.
-- 404 ROLE_NOT_FOUND: algun idRol no es de esta comunidad.
+### Solicitudes de acceso a canal privado
+
+- `POST /api/channels/:id/requests` con `{}`: integrante sin acceso solicita ingreso; devuelve `{ solicitud: { id, estado } }`. Repetir mientras está pendiente es idempotente. Tras rechazo se permite volver a solicitar.
+- `GET /api/channels/:id/requests`: solo propietario/admin; hasta 50 pendientes ordenados por antigüedad. Resolver pedidos recarga la cola para consultar los siguientes.
+- `POST /api/channels/:id/requests/:solicitud` con `{ "aceptar": true, "permisos": ["VER"] }` o `{ "aceptar": false }`: solo propietario/admin. Aceptar exige permisos aplicables no vacíos y crea la habilitación individual atómicamente; rechazar no concede acceso. Una decisión repetida idéntica no duplica avisos; una decisión incompatible devuelve 409.
+
+Las solicitudes se eliminan al abandonar, ser baneado, borrarse el canal o la comunidad. Cada operación vuelve a comprobar sesión, membresía, privacidad y autoridad. Moderadores e integrantes no pueden aprobar pedidos. Se usan avisos persistentes y eventos posteriores al commit para ambas partes.
 
 ---
 
@@ -509,7 +452,7 @@ channel-message:edit
 channel-message:delete
 
 - Payload: { "idMensaje": 340 }
-- El autor (con ESCRIBIR) o un moderador (MODERADOR o mas con VER, y el autor con rol menor). Emite channel-message:deleted.
+- El autor con ESCRIBIR o quien tiene ELIMINAR_MENSAJES, respetando autores protegidos. Emite channel-message:deleted.
 - Ack ok: { "ok": true, "data": { "idMensaje": 340, "idCanal": 21, "eliminadoPorModerador": true } }
 - Errores: VALIDATION_ERROR, MESSAGE_NOT_FOUND, CHANNEL_NOT_TEXT, MESSAGE_DELETED, CANNOT_DELETE_MESSAGE, UNAUTHORIZED.
 
@@ -540,7 +483,7 @@ Mensajes de canal:
 
 ### Perdida de acceso
 
-Al reemplazar el acceso o cambiar privacidad, el servidor retira de `channel:id` las pestañas que pierden VER y envía `channel:access-lost` a `user:id`. El frontend retira el canal de la lista y vuelve al catálogo de canales si lo tenía seleccionado. Quienes ganan o conservan VER reciben `channel:updated` con permisos propios; recuperar acceso permite resuscribirse, sin unión automática.
+Al reemplazar los permisos, el servidor retira de `channel:id` las pestañas que pierden VER y envía `channel:access-lost` a `user:id`. El frontend desmonta mensajes/llamadas y muestra el canal bloqueado, reconsultando el catálogo. Quienes ganan o conservan VER reciben `channel:updated` con permisos propios; recuperar acceso permite resuscribirse, sin unión automática.
 
 Otros retiros tienen eventos distintos:
 
@@ -647,46 +590,11 @@ anteriores que no lo utilizan. No hay nueva migracion ni dependencia.
 - CANNOT_DELETE_MESSAGE (403): mensajes de canal (socket).
 - Se reusan MESSAGE_NOT_FOUND, NOT_AUTHOR y MESSAGE_DELETED.
 
-### Autorizacion compartida y configuracion de acceso (T-23)
+### Autorización compartida y configuración de acceso
 
-GET/PUT /api/channels/:id/access exige ADMIN o PROPIETARIO. PUT reemplaza
-privado y todas las habilitaciones dentro de una transaccion; ambos campos son
-obligatorios. Valida antes de escribir que los usuarios pertenezcan a la misma
-comunidad. No acepta campos extras, roles superiores, targets duplicados ni
-permisos repetidos. VER se agrega al guardar cualquier permiso, aunque luego
-al calcular los efectivos se descarten los que no aplican al tipo actual.
-Las respuestas de acceso muestran solo UsuarioPublico, sin correo ni credenciales.
-Las habilitaciones nunca se incluyen en el DTO normal ni en channel:updated.
+La autorización se centraliza en `effectiveChannelPermissions`, `requireChannelPermission` y `withChannelPermission`. El servidor consulta sesión, membresía, roles y excepciones actuales en cada operación. GET/PUT access requieren GESTIONAR_CANALES o autoridad administrativa; no permiten cambiar privacidad. `withCommunityAccessChange` coordina cambios de roles, membresía y silencio con mensajes, suscripciones y fuentes de llamada. Los eventos se emiten después del commit; perder VER retira suscripciones y llamadas, y perder publicación ajusta las fuentes de LiveKit.
 
-channelsService exporta:
-
-- requireChannelPermission(idCanal, idUsuario, permiso = 'VER', db = prisma):
-  devuelve { canal, rol, permisos } con la membresia y habilitaciones actuales.
-  Sin VER arroja 404 CHANNEL_NOT_FOUND; con VER pero sin ESCRIBIR arroja
-  403 NO_WRITE_PERMISSION. Para HABLAR/TRANSMITIR usa 403 NO_CHANNEL_PERMISSION.
-- requireChannelModerator(idCanal, idUsuario, db = prisma): exige VER y
-  MODERADOR o superior; no convierte una habilitacion individual en rol.
-  Sin capacidad de moderar arroja 403 CANNOT_MODERATE_CHANNEL.
-  La eliminación de T-26 comprueba además autoría y jerarquía del autor; este helper por sí solo no autoriza eliminar cualquier mensaje.
-- withChannelPermission(idCanal, idUsuario, permiso, operation, afterCommit?): adquiere el
-  bloqueo compartido y revalida dentro de la transaccion. operation(tx, context)
-  debe usar tx. Se usa en suscripción, historial y escrituras de mensajes.
-
-Las rutas existentes de detalle/listado y la suscripcion comparten el mismo
-calculo efectivo. Los handlers channel:subscribe/unsubscribe esperan la union
-inicial a rooms y revalidan la sesion en cada operacion. Una suscripcion no
-concede ESCRIBIR ni moderacion. Salir es idempotente aunque ya no exista el canal.
-
-Reemplazar acceso envia channel:updated personalizado a quienes conservan o
-ganan VER. Quienes lo pierden salen de todas las rooms del canal y reciben
-channel:access-lost. Si solo pierden ESCRIBIR conservan la room pero reciben
-sus permisos actualizados. Recuperar VER permite resuscribirse sin reconectar;
-no une automaticamente ninguna pestana. Los mensajes revalidan
-permiso/sesión en cada operación y entrega; la pertenencia a una room no es autorizacion.
-
-Los roles personalizados se asignan con la ruta de integrantes documentada en T-30. Para bloquear el reingreso, usá el baneo de T-41.
-Cuando se agreguen deben compartir el bloqueo y recalcular audiencias, retirando
-las rooms correspondientes. No hay migraciones ni dependencias nuevas en T-23.
+El catálogo puede mostrar canales bloqueados, pero el contenido exige VER. Las habilitaciones individuales no cambian el rol base. Los DTO no exponen credenciales ni correo. Ver [contrato granular](roles-permisos.md) para las reglas de herencia y excepciones.
 
 ### Historial de canales implementado (T-25)
 
@@ -744,10 +652,7 @@ canal inaccesible responde MESSAGE_NOT_FOUND sin divulgar contenido.
 
 Delete es logico: conserva contenido en la base para auditoria pero lo oculta
 en historial/DTO/eventos. Guarda fechaEliminacion e idUsuarioEliminacion.
-El autor requiere ESCRIBIR. Otra persona necesita MODERADOR o superior, VER y
-jerarquia estrictamente mayor que el rol actual del autor. No se permite borrar
-a un par ni superior. Un autor que abandono tiene jerarquia 0 en esa comunidad.
-Una habilitacion individual de VER/ESCRIBIR no concede moderacion.
+El autor requiere ESCRIBIR. Otra persona necesita VER y ELIMINAR_MENSAJES. Los autores propietario y administradores están protegidos según la autoridad del solicitante. VER/ESCRIBIR solos no conceden moderación.
 
 Las escrituras usan el mismo bloqueo por comunidad que acceso, suscripciones,
 tipo, abandono y borrado. withCommunityChannelsLock admite un cuarto argumento
@@ -781,66 +686,26 @@ No existe una clave de idempotencia de comandos en el contrato actual.
 
 La interfaz integrada de T-27 consume estos eventos y el historial de T-25. La validación reproducible del backend se describe en [test/README.md](../apps/backend/test/README.md); no declarar completa T-15 por las comprobaciones específicas de canales.
 
-## Roles personalizados (modelo de datos)
+## Roles personalizados y autoridad vigente
 
-Base de F-09. Modelo T-28, catálogo T-29 y cálculo de acceso T-31. La asignación mediante API corresponde a T-30.
+El contrato completo está en [Roles y permisos granulares](roles-permisos.md): catálogo cerrado de capacidades, roles heredados, admisión privada individual, solicitudes, restricciones de administrador, expulsión de canal y silencio persistente.
 
-- Cada comunidad puede tener sus propios roles (`rol_personalizado`). El nombre es unico dentro de la comunidad sin distinguir mayusculas, no puede estar vacio y no puede repetir un rol base (PROPIETARIO, ADMIN, MODERADOR, INTEGRANTE).
-- Un integrante puede tener varios roles personalizados (`membresia_rol`) ademas de su rol base. El rol base y la autoridad de PROPIETARIO, ADMIN, MODERADOR e INTEGRANTE no cambian.
-- Un rol personalizado puede tener permisos en un canal (`canal_rol_personalizado`): los mismos permisos de canal (VER, ESCRIBIR, HABLAR, TRANSMITIR), con al menos uno.
-- Los permisos de roles base siguen en `canal_rol` (solo MODERADOR e INTEGRANTE) y los individuales en `canal_usuario`. Las habilitaciones anteriores se conservan.
-- La base impide asignar un rol de otra comunidad, asignarlo a alguien que no es integrante y habilitarlo en un canal de otra comunidad.
-- Eliminar un rol borra sus asignaciones y habilitaciones; no toca integrantes, canales ni mensajes. Dejar la comunidad borra los roles personalizados de esa membresia.
+### Catálogo y asignación
 
-## Catálogo de roles personalizados (T-29)
+GET/POST `/api/communities/:id/roles`, GET/PATCH/DELETE `/api/communities/:id/roles/:idRol`. La creación y edición aceptan `{nombre,permisos?}` y devuelven `{rol:{id,idComunidad,nombre,permisos,fechaCreacion}}`. Los integrantes pueden consultar; administrar requiere ADMIN/PROPIETARIO. No se delegan las acciones administrativas en roles personalizados.
 
-Todas las rutas requieren sesión. Un integrante puede listar y consultar los metadatos públicos del catálogo. Solo ADMIN y PROPIETARIO pueden crear, renombrar o eliminar roles; MODERADOR no administra roles. Para externos: comunidad privada/inexistente responde `404 COMMUNITY_NOT_FOUND`; una pública sin membresía responde `403 NOT_MEMBER`.
+POST `/api/communities/:id/roles/suggestion` acepta `{descripcion}` y devuelve una propuesta validada, sin guardarla. Si no hay proveedor/modelo configurados, devuelve AI_UNAVAILABLE y permite completar manualmente.
 
-| Método | Ruta | Respuesta |
-|---|---|---|
-| GET | `/api/communities/:id/roles` | `200 { items: RolPersonalizado[] }` |
-| POST | `/api/communities/:id/roles` | `201 { rol: RolPersonalizado }` |
-| GET | `/api/communities/:id/roles/:idRol` | `200 { rol: RolPersonalizado }` |
-| PATCH | `/api/communities/:id/roles/:idRol` | `200 { rol: RolPersonalizado }` |
-| DELETE | `/api/communities/:id/roles/:idRol` | `204`, sin body |
+PATCH `/api/communities/:id/members/:idUsuario` recibe `{rol?:"ADMIN"|"INTEGRANTE",idsRoles?:[2,3]}`. Omitir conserva; lista vacía quita los personalizados. No se asigna PROPIETARIO ni MODERADOR. Un administrador puede promover a otro integrante; solo el propietario puede modificar a otro administrador. La transferencia usa su ruta exclusiva.
 
-`RolPersonalizado`: `{ id, idComunidad, nombre, fechaCreacion }`. No incluye integrantes asignados, permisos ni IDs de canales. El listado no está paginado y ordena por nombre e ID.
+### Baneo y expulsión
 
-POST/PATCH reciben únicamente `{ "nombre": "Equipo" }`: 1–32 caracteres, sin espacios en los extremos ni nombres base (sin distinguir mayúsculas). Los campos desconocidos, cuerpos vacíos e IDs inválidos devuelven `400 VALIDATION_ERROR`. Las restricciones SQL mantienen unicidad por comunidad: duplicado al crear o renombrar devuelve `409 ROLE_NAME_TAKEN`. Un rol inexistente o perteneciente a otra comunidad devuelve `404 ROLE_NOT_FOUND` después de autorizar al solicitante. Los roles base no son recursos de este catálogo y no se pueden renombrar ni eliminar mediante estas rutas.
+GET/PUT/DELETE `/api/communities/:id/bans[/:idUsuario]` requieren ADMIN/PROPIETARIO. PUT acepta `{motivo?,duracion?}` con 30_MIN, 5_HORAS o PERMANENTE. Solo propietario puede actuar sobre administradores; nunca sobre sí mismo. Vencer o levantar un baneo permite el ingreso normal sin restaurar membresía.
 
-Las operaciones usan `withCommunityChannelsLock` y vuelven a comprobar autoridad dentro de la transacción. Borrar un rol limpia sus asignaciones y grants mediante las cascadas de T-28 sin borrar membresías, mensajes o grants de usuario/rol base. Dos mutaciones concurrentes se serializan por comunidad; repetir DELETE devuelve 404 y no emite otro evento.
+POST `/api/communities/:id/members/:idUsuario/kick` es una salida global reservada a administración. EXPULSAR configurable actúa únicamente sobre un canal: público queda excluido hasta restaurarlo, privado pierde la admisión y puede volver a solicitarla. Ver el contrato granular.
 
-Crear, renombrar y eliminar publican `community:role-created`, `community:role-updated` y `community:role-deleted` después del commit. El evento de catálogo no expone relaciones privadas. Al eliminar se calculan audiencias antes/después y se reutiliza `publishChannelChange` para los canales afectados. El evaluador compartido de T-31 incluye los roles personalizados. Reconsultar tras reconectar: los eventos no son un historial durable.
+### Migraciones de T-42
 
-### Recalculo de accesos
+Se conservan las migraciones históricas `20261120220000_permisos_base_publicos` y `20261120230000_solicitudes_canales`, que materializan accesos anteriores e incorporan solicitudes. `20261121010000_permisos_granulares` agrega capacidades, excepciones vacías, silencio persistente y la conversión de Moderador a un rol personalizado. La migración posterior `20261121011000_moderacion_privada_previa` conserva la moderación de privados de texto ya habilitados. No abre privados por roles globales ni borra mensajes.
 
-La asignación y el cambio de roles base de T-30 usan `withCommunityAccessChange(idComunidad, operacion)` de `channelsService.js`. Toma el bloqueo de la comunidad, compara los permisos de cada integrante en cada canal antes y despues, y despues del commit:
-
-- quien pierde VER sale de la room del canal y recibe `channel:access-lost`;
-- quien cambia de permisos pero sigue con VER recibe `channel:updated` con sus `misPermisos` nuevos.
-
-`onChannelAccessChange(listener)` recibe la lista de cambios ({ idComunidad, idCanal, idUsuario, antes, despues }) despues de cada cambio de acceso. Es el punto de integracion para cortar fuentes multimedia en T-40.
-
-
-## Roles de integrantes (T-30)
-
-`PATCH /api/communities/:id/members/:idUsuario` recibe `{ "rol": "MODERADOR", "idsRoles": [2, 3] }` y devuelve `200 { integrante }`. Al menos uno de los campos es obligatorio. Omitir `rol` o `idsRoles` conserva el valor anterior; `idsRoles: []` quita todas las asignaciones personalizadas. La lista reemplaza las asignaciones del integrante de forma atómica, admite hasta 50 IDs distintos y solo roles de esa comunidad. Repetir el mismo estado, incluso con la lista en otro orden, no duplica relaciones ni eventos.
-
-Solo propietario y administradores pueden cambiar roles de integrantes de menor jerarquía que la suya. Solo el propietario puede otorgar ADMIN. No se puede modificar al propietario, a uno mismo ni otorgar PROPIETARIO. Un rol personalizado no concede autoridad administrativa. El cuerpo inválido responde `400 VALIDATION_ERROR`; falta de autoridad, `403 INSUFFICIENT_ROLE`; un integrante o un rol inexistente en la comunidad, `404 MEMBER_NOT_FOUND` o `404 ROLE_NOT_FOUND`. Se conserva el control de visibilidad de la comunidad.
-
-El listado de integrantes y el DTO `Integrante` incluyen `rolesPersonalizados: [{ id, nombre }]`, sin habilitaciones de canales. La mutación se serializa con abandono, cambios de acceso y borrado mediante el bloqueo de comunidad. Después del commit se publican las diferencias de acceso de T-31 y luego `community:member-updated`. Las pantallas de administración de integrantes y de permisos personalizados corresponden a T-32/T-33.
-
-
-## Baneo de integrantes (F-09/T-41)
-
-El baneo se aplica a una sola comunidad. Se guarda por comunidad y usuario, con fecha, autor, rol base previo y un motivo opcional. La jerarquía base es Propietario > Admin > Moderador > Integrante. A partir de moderador solo se pueden gestionar baneos de roles inferiores; nadie se puede banear a sí mismo. Los roles personalizados no conceden esa facultad.
-
-| Método y ruta (requieren sesión) | Resultado |
-| --- | --- |
-| `GET /api/communities/:id/bans` | `200 { items }`, limitado a los roles previos que puede gestionar quien consulta. Cada elemento incluye `usuario`, `autor` (o `null`), `rolAnterior`, `motivo` (o `null`) y `fechaCreacion`. |
-| `PUT /api/communities/:id/bans/:idUsuario` | `204`. Acepta `{}` o `{ "motivo": "texto de hasta 300 caracteres" }`. Repetir un baneo permitido conserva el autor, la fecha y el motivo originales. |
-| `DELETE /api/communities/:id/bans/:idUsuario` | `204`. Levanta un baneo permitido. Repetirlo sin un baneo activo no cambia el estado. |
-
-Se responde con `403 BAN_HIERARCHY` si el objetivo es propio o tiene un rango protegido, y con `404 MEMBER_NOT_FOUND` al intentar banear a alguien que no integra esa comunidad y no tiene un baneo activo. Las reglas existentes de sesión, membresía y privacidad también aplican a las tres rutas.
-
-Banear retira la membresía, sus roles personalizados y sus habilitaciones individuales de canal. Los mensajes previos y el resto de la cuenta se conservan. Una invitación válida devuelve `403 COMMUNITY_BANNED` al usuario baneado, incluso en la vista previa, sin revelar el motivo ni consumir usos. Levantar el baneo permite aceptar una invitación válida: no restaura la membresía, los roles ni los permisos anteriores. Revocar un enlace sigue siendo una acción aparte y no retira a nadie.
+La migración `20261121190000_armonia_chat` actualiza el contrato: materializa admisiones privadas por rol, conserva denegaciones públicas como expulsiones y retira excepciones de rol/delegación de baneo. Ver [armonía de interfaz](armonia-interfaz.md).

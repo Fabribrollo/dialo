@@ -71,3 +71,5 @@
 @keyframes ns-in { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: none; } }
 @media (max-width: 767px) { .ns-zone { bottom: 104px; } }
 @media (prefers-reduced-motion: reduce) { .ns { animation: none; } }
+
+.ns-zone{left:16px;right:16px;transform:none;width:auto;max-width:none;align-items:center}.ns{height:auto;min-height:52px;max-width:min(560px,100%);align-items:center}.ns-text{white-space:normal;overflow-wrap:anywhere;text-align:center}

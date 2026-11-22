@@ -103,14 +103,14 @@ async function invite(c) {
 
 test('la jerarquía base y la comunidad determinan quién puede gestionar y leer baneos', async () => {
   const c = await community(), another = await community();
-  await member(c, dani, 'MODERADOR');
+  await member(c, dani, 'ADMIN');
   await member(another, eli);
   assert.equal((await request(endpoint(c))).status, 401);
   assert.equal((await request(endpoint(c), { as: eli })).status, 404);
   assert.equal((await ban(c, eli)).status, 404);
-  assert.equal((await ban(c, ana)).body.error.code, 'BAN_HIERARCHY');
-  assert.equal((await ban(c, ana, dani)).body.error.code, 'BAN_HIERARCHY');
-  assert.equal((await ban(c, dani, dani)).body.error.code, 'BAN_HIERARCHY');
+  assert.equal((await ban(c, ana)).body.error.code, 'INSUFFICIENT_ROLE');
+  assert.equal((await ban(c, ana, dani)).body.error.code, 'INSUFFICIENT_ROLE');
+  assert.equal((await ban(c, dani, dani)).body.error.code, 'INSUFFICIENT_ROLE');
   assert.equal((await ban(c, dani, ana, { motivo: ' '.repeat(3), rol: 'ADMIN' })).status, 400);
   await member(c, eli);
   const role = await prisma.rolPersonalizado.create({ data: { idComunidad: c.id, nombre: 'Administración' } });

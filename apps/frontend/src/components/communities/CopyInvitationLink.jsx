@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { invitationPath } from '../../utils/invitations.js';
 import Button from '../ui/Button.jsx';
 import Icon from '../ui/Icon.jsx';
+import Notice from '../ui/Notice.jsx';
 import { avisar } from '../shell/systemToastsStore.js';
 
 export default function CopyInvitationLink({ codigo, disabled = false }) {
@@ -22,7 +23,7 @@ export default function CopyInvitationLink({ codigo, disabled = false }) {
       await navigator.clipboard.writeText(link);
       setManual(false);
       setMessage('Enlace copiado.');
-      avisar({ id: 'enlace', tipo: 'enlace', texto: 'Enlace copiado', anunciar: false });
+
     } catch {
       setManual(true);
       setMessage('No se pudo copiar automáticamente. El enlace quedó seleccionado para copiarlo manualmente.');
@@ -35,7 +36,7 @@ export default function CopyInvitationLink({ codigo, disabled = false }) {
         <Icon name="copiar" size={15} stroke={2} />Copiar enlace
       </Button>
       {manual && <label className="inp ci-manual"><input ref={input} readOnly value={link} aria-label="Enlace de invitación" onFocus={(e) => e.target.select()} /></label>}
-      <span id={messageId} role="status" className="ci-msg">{message}</span>
+      {message&&<Notice tone={manual?"error":"exito"} title={message}/>}
     </>
   );
 }

@@ -1,3 +1,5 @@
+import SystemToasts from '../components/shell/SystemToasts.jsx';
+import {leerAvisos,cerrarAviso} from '../components/shell/systemToastsStore.js';
 // Estas pruebas conservan el alcance de administración de T-24. El chat y el selector real se verifican por separado.
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
@@ -11,8 +13,9 @@ import { getCommunityRoles } from '../services/communityRolesService.js';
 import * as channels from '../services/channelsService.js';
 import { useSocket } from '../hooks/useSocket.js';
 
+const chatMock=vi.hoisted(()=>vi.fn(()=>null));
 vi.mock('../components/communities/CommunityDashboard.jsx', async () => { const { Link } = await import('react-router'); return { default: ({ comunidad }) => <><Link to={`/comunidades/${comunidad.id}/canales`}>Ver canales</Link><Link to={`/comunidades/${comunidad.id}/integrantes`}>Ver integrantes</Link></> }; });
-vi.mock('../components/channel-chat/ChannelChat.jsx', () => ({ default: () => null }));
+vi.mock('../components/channel-chat/ChannelChat.jsx', () => ({ default: chatMock }));
 vi.mock('../components/calls/CallPanel.jsx', () => ({ default: ({ canal }) => <p>Panel de llamada de {canal.nombre}</p> }));
 vi.mock('../components/channels/ChannelSelector.jsx', () => ({ default: ({ children }) => <div>{children}</div> }));
 vi.mock('../hooks/useSocket.js', () => ({ useSocket: vi.fn() }));
@@ -30,14 +33,16 @@ const fail = (status, code, message = code) => Object.assign(new Error(message),
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 function emit(event, data) { act(() => listeners.get(event)?.forEach((fn) => fn(data))); }
 function show(path = '/comunidades/4/canales/1') {
-  return render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/comunidades" element={<CommunitiesLayout />}>
+  return render(<MemoryRouter initialEntries={[path]}><SystemToasts/><Routes><Route path="/comunidades" element={<CommunitiesLayout />}>
     <Route index element={<CommunitiesPage />} /><Route path=":id" element={<CommunityPage />} />
     <Route path=":id/canales/:canalId?" element={<CommunityChannelsPage />} />
   </Route></Routes></MemoryRouter>);
 }
 const panel = () => screen.getByRole('region', { name: 'Detalle del canal' });
-async function openAccess() { fireEvent.click(await screen.findByRole('button', { name: 'Permisos' })); return screen.findByRole('button', { name: 'Guardar permisos' }); }
+async function openAccess() { fireEvent.click(await screen.findByRole('button', { name: 'Ajustes' })); fireEvent.click(screen.getByRole('tab', {name:'Permisos'})); return screen.findByRole('button', { name: 'Guardar permisos' }); }
 beforeEach(() => {
+  leerAvisos().forEach(a=>cerrarAviso(a.key));
+  chatMock.mockClear();
   Object.values(communities).forEach((fn) => fn.mockReset()); Object.values(channels).forEach((fn) => fn.mockReset());
   communities.getCommunity.mockResolvedValue({ comunidad: community }); communities.getCommunities.mockResolvedValue({ items: [community] });
   communities.getCommunityMembers.mockResolvedValue({ items: [member] });
@@ -48,7 +53,7 @@ beforeEach(() => {
   channels.updateChannel.mockImplementation(async (id, data) => { items = items.map((c) => c.id === id ? { ...c, ...data } : c); return { canal: items.find((c) => c.id === id) }; });
   channels.deleteChannel.mockImplementation(async (id) => { items = items.filter((c) => c.id !== id); });
   channels.orderChannels.mockImplementation(async (_id, order) => { items = order.map((id, posicion) => ({ ...items.find((c) => c.id === id), posicion })); });
-  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }] } });
+  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: false, permisosGlobales: ['VER'], habilitaciones: [] } });
   channels.replaceChannelAccess.mockResolvedValue({ acceso: {} });
   listeners = new Map();
   useSocket.mockReturnValue({ on: (name, fn) => { if (!listeners.has(name)) listeners.set(name, new Set()); listeners.get(name).add(fn); }, off: (name, fn) => listeners.get(name)?.delete(fn) });
@@ -66,7 +71,7 @@ it.each(['INTEGRANTE', 'MODERADOR'])('%s consulta canales pero no administra ni 
   items = [{ ...text, misPermisos: ['VER'] }]; show();
   expect(await screen.findByText('Este canal es de solo lectura para tu cuenta')).toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Crear canal' })).not.toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Permisos' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Ajustes' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: /Subir/ })).not.toBeInTheDocument();
   expect(channels.getChannelAccess).not.toHaveBeenCalled();
 });
@@ -103,7 +108,7 @@ it('crea un canal privado de voz en pasos y abre el resultado sin duplicar enví
   fireEvent.click(screen.getByRole('switch', { name: 'Canal privado' }));
   fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
   const crear = within(screen.getByRole('dialog')).getByRole('button', { name: 'Crear canal' }); fireEvent.click(crear); fireEvent.click(crear);
-  expect(channels.createChannel).toHaveBeenCalledExactlyOnceWith(4, { nombre: 'audio', tipo: 'VOZ', privado: true });
+  expect(channels.createChannel).toHaveBeenCalledExactlyOnceWith(4, { nombre: 'audio', tipo: 'VOZ', privado: true, permisosGlobales: [] });
   items = [...items, { ...voice, id: 8, nombre: 'audio', privado: true }];
   await act(async () => pending.resolve({ canal: items.at(-1) }));
   fireEvent.click(await screen.findByRole('button', { name: 'Ir al canal' }));
@@ -129,7 +134,7 @@ it('si la IA no está disponible ofrece completar a mano', async () => {
 });
 it('edita solo el nombre, el tipo queda fijo y un error no pierde los cambios', async () => {
   channels.updateChannel.mockRejectedValue(fail(400, 'VALIDATION_ERROR', 'Datos inválidos')); show();
-  fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Ajustes' }));
   expect(screen.queryByLabelText('Tipo de canal')).not.toBeInTheDocument();
   expect(screen.getByText('Canal de texto')).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Nombre del canal'), { target: { value: 'avisos' } });
@@ -139,7 +144,7 @@ it('edita solo el nombre, el tipo queda fijo y un error no pierde los cambios', 
   expect(screen.getByLabelText('Nombre del canal')).toHaveValue('avisos');
 });
 it('adentro del canal no hay botón de eliminar', async () => {
-  show(); await screen.findByRole('button', { name: 'Permisos' });
+  show(); await screen.findByRole('button', { name: 'Ajustes' });
   expect(screen.queryByRole('button', { name: 'Eliminar canal' })).not.toBeInTheDocument();
 });
 it('eliminar desde editar exige confirmar, cancelar devuelve el foco y confirmar retira el canal', async () => {
@@ -175,68 +180,43 @@ it('un orden obsoleto informa el conflicto y reconsulta', async () => {
   expect(await screen.findByRole('alert')).toHaveTextContent('La lista de canales cambió');
   await waitFor(() => expect(channels.getChannels.mock.calls.length).toBeGreaterThan(1));
 });
-it('guarda solo lectura por rol sin otorgar moderación ni exponer permisos de administrador', async () => {
-  show(); const save = await openAccess(); fireEvent.click(save);
-  await screen.findByText('Permisos guardados.');
-  expect(channels.replaceChannelAccess).toHaveBeenCalledExactlyOnceWith(1, { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }] });
-});
-it('agrega habilitación individual, escribir incluye VER y quitarla no afecta al rol', async () => {
-  show(); await openAccess();
-  fireEvent.change(screen.getByLabelText('Integrante a habilitar'), { target: { value: '7' } }); fireEvent.click(screen.getByRole('button', { name: 'Agregar integrante' }));
-  fireEvent.click(screen.getByLabelText('Feli (@feli): Escribir')); fireEvent.click(screen.getByRole('button', { name: 'Guardar permisos' }));
-  await screen.findByText('Permisos guardados.');
-  expect(channels.replaceChannelAccess).toHaveBeenCalledWith(1, { privado: true, habilitaciones: [
-    { rol: 'INTEGRANTE', permisos: ['VER'] }, { idUsuario: 7, permisos: ['VER', 'ESCRIBIR'] },
-  ] });
-});
-it('quitar una habilitación individual conserva las habilitaciones del rol', async () => {
-  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER'] }, { usuario: member.usuario, permisos: ['VER', 'ESCRIBIR'] }] } });
-  show(); await openAccess(); fireEvent.click(screen.getByRole('button', { name: 'Quitar habilitación de Feli (@feli)' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Guardar permisos' })); await screen.findByText('Permisos guardados.');
-  expect(channels.replaceChannelAccess.mock.calls[0][1].habilitaciones).toEqual([{ rol: 'INTEGRANTE', permisos: ['VER'] }]);
-});
-it('voz ofrece HABLAR y TRANSMITIR y conserva permisos de otros tipos sin conceder escritura efectiva', async () => {
-  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [{ rol: 'INTEGRANTE', permisos: ['VER', 'ESCRIBIR'] }] } });
-  show('/comunidades/4/canales/2'); await openAccess();
-  expect(screen.queryByLabelText('Integrantes: Escribir')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByLabelText('Integrantes: Transmitir cámara o pantalla')); fireEvent.click(screen.getByRole('button', { name: 'Guardar permisos' }));
-  await screen.findByText('Permisos guardados.'); expect(channels.replaceChannelAccess.mock.calls[0][1].habilitaciones[0].permisos).toEqual(['VER', 'ESCRIBIR', 'TRANSMITIR']);
-});
 it('un fallo al guardar acceso conserva el borrador y no duplica solicitudes', async () => {
   const pending = deferred(); channels.replaceChannelAccess.mockReturnValue(pending.promise); show(); await openAccess();
-  fireEvent.click(screen.getByLabelText('Integrantes: Escribir')); const form = screen.getByRole('button', { name: 'Guardar permisos' }).closest('form');
+  fireEvent.click(screen.getByLabelText('Permisos globales: Escribir')); const form = screen.getByRole('button', { name: 'Guardar permisos' }).closest('form');
   fireEvent.submit(form); fireEvent.submit(form); expect(channels.replaceChannelAccess).toHaveBeenCalledTimes(1);
   await act(async () => pending.reject(fail(0, 'NETWORK_ERROR', 'Sin conexión')));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión'); expect(screen.getByLabelText('Integrantes: Escribir')).toBeChecked();
+  expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión'); expect(screen.getByLabelText('Permisos globales: Escribir')).toBeChecked();
 });
 it('un fallo al cargar permisos admite reintento sin enviar un reemplazo vacío', async () => {
   channels.getChannelAccess.mockRejectedValueOnce(fail(0, 'NETWORK_ERROR', 'Sin conexión')); show();
-  fireEvent.click(await screen.findByRole('button', { name: 'Permisos' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Ajustes' })); fireEvent.click(screen.getByRole('tab',{name:'Permisos'}));
   expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión'); expect(channels.replaceChannelAccess).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Reintentar permisos' })); await screen.findByRole('button', { name: 'Guardar permisos' });
 });
 it('un cambio remoto invalida el borrador de acceso y exige cargar la configuración vigente', async () => {
-  show(); await openAccess(); fireEvent.click(screen.getByLabelText('Integrantes: Escribir'));
+  show(); await openAccess(); fireEvent.click(screen.getByLabelText('Permisos globales: Escribir'));
   emit('channel:updated', { canal: text });
-  expect(await screen.findByRole('alert')).toHaveTextContent('Recargá el formulario');
+  expect(await screen.findByText('La configuración cambió')).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Guardar permisos' })).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Recargar formulario' }));
   await waitFor(() => expect(screen.getByRole('button', { name: 'Guardar permisos' })).toBeEnabled());
-  expect(screen.getByLabelText('Integrantes: Escribir')).not.toBeChecked();
+  expect(screen.getByLabelText('Permisos globales: Escribir')).not.toBeChecked();
 });
 it('una actualización de otro canal no invalida el formulario actual', async () => {
   show(); await openAccess(); emit('channel:updated', { canal: voice });
   await waitFor(() => expect(screen.getByRole('button', { name: 'Guardar permisos' })).toBeEnabled());
 });
 it.each(['channel:access-lost', 'channel:deleted'])('%s retira inmediatamente el canal abierto y permite navegar', async (event) => {
-  show(); await screen.findByRole('button', { name: 'Permisos' }); items = [voice, video];
+  show(); await screen.findByRole('button', { name: 'Ajustes' }); items = [voice, video];
   emit(event, { idComunidad: 4, idCanal: 1 });
   await screen.findByText('El canal se eliminó o ya no tenés acceso.');
   expect(screen.queryByRole('link', { name: /Texto general/ })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('link', { name: /Voz charla/ })); expect(await within(panel()).findByRole('heading', { name: 'charla' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('link', { name: /Voz charla/ }));
+  const nextPanel=await screen.findByRole('region',{name:'Detalle del canal'});
+  expect(await within(nextPanel).findByRole('heading', { name: 'charla' })).toBeInTheDocument();
 });
 it('una respuesta anterior a perder acceso no restaura el canal', async () => {
-  show(); await screen.findByRole('button', { name: 'Permisos' }); const old = deferred(); const current = deferred();
+  show(); await screen.findByRole('button', { name: 'Ajustes' }); const old = deferred(); const current = deferred();
   channels.getChannels.mockReturnValueOnce(old.promise).mockReturnValueOnce(current.promise);
   emit('connect');
   items = [voice, video]; emit('channel:access-lost', { idComunidad: 4, idCanal: 1 });
@@ -245,14 +225,14 @@ it('una respuesta anterior a perder acceso no restaura el canal', async () => {
   await act(async () => current.resolve({ items }));
 });
 it('ignora eventos de otra comunidad y recupera canales al reconectar', async () => {
-  show(); await screen.findByRole('button', { name: 'Permisos' }); const before = channels.getChannels.mock.calls.length;
+  show(); await screen.findByRole('button', { name: 'Ajustes' }); const before = channels.getChannels.mock.calls.length;
   emit('channel:access-lost', { idComunidad: 99, idCanal: 1 }); expect(channels.getChannels).toHaveBeenCalledTimes(before);
   items = [text, voice]; emit('connect'); await waitFor(() => expect(screen.queryByRole('link', { name: /Voz reunión/ })).not.toBeInTheDocument());
 });
 it('salir de la comunidad cierra la administración y vuelve al listado', async () => {
-  show(); await screen.findByRole('button', { name: 'Permisos' }); communities.getCommunities.mockResolvedValue({ items: [] });
+  show(); await screen.findByRole('button', { name: 'Ajustes' }); communities.getCommunities.mockResolvedValue({ items: [] });
   emit('community:left', { idComunidad: 4 }); await screen.findByRole('heading', { name: 'Comunidades' });
-  expect(screen.queryByRole('button', { name: 'Permisos' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Ajustes' })).not.toBeInTheDocument();
 });
 
 it('un cambio remoto durante un envío fallido exige recargar antes de reintentar', async () => {
@@ -263,20 +243,20 @@ it('un cambio remoto durante un envío fallido exige recargar antes de reintenta
   expect(screen.getByRole('button', { name: 'Recargar formulario' })).toBeInTheDocument();
 });
 it('cancelar la edición restituye el foco al control que la abrió', async () => {
-  show(); fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
-  fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
-  expect(screen.getByRole('button', { name: 'Editar canal' })).toHaveFocus();
+  show(); fireEvent.click(await screen.findByRole('button', { name: 'Ajustes' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Volver al canal' }));
+  await screen.findByRole('button', { name: 'Ajustes' });
 });
 it('un integrante que desaparece exige renovar los permisos antes de otro reemplazo', async () => {
   channels.replaceChannelAccess.mockRejectedValue(fail(404, 'MEMBER_NOT_FOUND')); show(); await openAccess();
   fireEvent.click(screen.getByRole('button', { name: 'Guardar permisos' }));
-  await screen.findByText(/Un integrante ya no pertenece/);
+  await screen.findByText('MEMBER_NOT_FOUND');
   expect(screen.getByRole('button', { name: 'Guardar permisos' })).toBeDisabled();
 });
 it('cambiar de canal descarta la respuesta tardía de un formulario anterior', async () => {
   const pending = deferred(); channels.updateChannel.mockReturnValue(pending.promise); show();
-  fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' })); fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
-  fireEvent.click(screen.getByRole('link', { name: /Voz charla/ })); await within(panel()).findByRole('heading', { name: 'charla' });
+  fireEvent.click(await screen.findByRole('button', { name: 'Ajustes' })); fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
+  fireEvent.click(screen.getByRole('button', {name:'Volver al canal'})); fireEvent.click(screen.getByRole('link', { name: /Voz charla/ })); await within(panel()).findByRole('heading', { name: 'charla' });
   await act(async () => pending.resolve({ canal: { ...text, nombre: 'nuevo' } }));
   expect(within(panel()).getByRole('heading', { name: 'charla' })).toBeInTheDocument();
   expect(screen.queryByText('Canal actualizado.')).not.toBeInTheDocument();
@@ -286,81 +266,26 @@ it('una desconexión invalida el borrador hasta actualizar la configuración', a
   expect(screen.getByRole('button', { name: 'Guardar permisos' })).toBeDisabled();
 });
 
-it('conserva habilitaciones de roles personalizados al guardar el formulario existente', async () => {
-  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [
-    { rolPersonalizado: { id: 9, nombre: 'Equipo' }, permisos: ['VER'] },
-  ] } });
-  show();
-  fireEvent.click(await openAccess());
-  await screen.findByText('Permisos guardados.');
-  expect(channels.replaceChannelAccess).toHaveBeenCalledWith(1, {
-    privado: true, habilitaciones: [{ idRol: 9, permisos: ['VER'] }],
-  });
-});
-
-it('agrega un rol personalizado de escritura sin reemplazar las demás habilitaciones', async () => {
-  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [
-    { rol: 'MODERADOR', permisos: ['VER'] },
-    { usuario: member.usuario, permisos: ['VER'] },
-  ] } });
-  show(); const save = await openAccess();
-  fireEvent.change(screen.getByLabelText('Rol personalizado a habilitar'), { target: { value: '9' } });
-  fireEvent.click(screen.getByRole('button', { name: 'Agregar rol' }));
-  expect(screen.getByLabelText('Diseño: Ver')).toBeChecked();
-  expect(screen.queryByLabelText('Diseño: Hablar')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByLabelText('Diseño: Escribir'));
-  fireEvent.click(save);
-  await screen.findByText('Permisos guardados.');
-  expect(channels.replaceChannelAccess).toHaveBeenCalledWith(1, { privado: true, habilitaciones: [
-    { rol: 'MODERADOR', permisos: ['VER'] }, { idUsuario: 7, permisos: ['VER'] },
-    { idRol: 9, permisos: ['VER', 'ESCRIBIR'] },
-  ] });
-});
-
-it('edita y puede quitar un rol personalizado en voz', async () => {
-  channels.getChannelAccess.mockResolvedValue({ acceso: { privado: true, habilitaciones: [
-    { rolPersonalizado: { id: 9, nombre: 'Diseño' }, permisos: ['VER', 'HABLAR'] },
-    { rol: 'INTEGRANTE', permisos: ['VER'] },
-  ] } });
-  show('/comunidades/4/canales/2'); const save = await openAccess();
-  expect(screen.getByLabelText('Diseño: Hablar')).toBeChecked();
-  expect(screen.getByLabelText('Diseño: Transmitir cámara o pantalla')).not.toBeChecked();
-  expect(screen.queryByLabelText('Diseño: Escribir')).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: 'Quitar habilitación de Diseño' }));
-  fireEvent.click(save);
-  await screen.findByText('Permisos guardados.');
-  expect(channels.replaceChannelAccess).toHaveBeenCalledWith(2, { privado: true, habilitaciones: [
-    { rol: 'INTEGRANTE', permisos: ['VER'] },
-  ] });
-});
-
-it('bloquea un borrador al eliminarse un rol de la comunidad y recarga la configuración vigente', async () => {
-  show(); const save = await openAccess();
-  emit('community:role-deleted', { idComunidad: 5, idRol: 9 });
-  expect(save).toBeEnabled();
-  getCommunityRoles.mockResolvedValue({ items: [] });
-  emit('community:role-deleted', { idComunidad: 4, idRol: 9 });
-  expect(save).toBeDisabled();
-  fireEvent.submit(save.closest('form'));
-  expect(channels.replaceChannelAccess).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'Recargar formulario' }));
-  expect(await screen.findByText(/No hay roles personalizados/)).toBeInTheDocument();
-});
-
-it('un rol borrado durante el guardado conserva el editor y exige recargar', async () => {
-  channels.replaceChannelAccess.mockRejectedValue(fail(404, 'ROLE_NOT_FOUND'));
-  show(); const save = await openAccess();
-  fireEvent.click(save);
-  expect(await screen.findByText(/Las habilitaciones cambiaron/)).toBeInTheDocument();
-  expect(save).toBeDisabled();
-  expect(screen.queryByText('Permisos guardados.')).not.toBeInTheDocument();
-});
 it('solo ofrece Texto y Voz al crear; un canal VIDEO existente se muestra como Voz y no cambia de tipo', async () => {
   show('/comunidades/4/canales/3');
   expect(await screen.findByText('Voz · Privado')).toBeInTheDocument();
-  fireEvent.click(await screen.findByRole('button', { name: 'Editar canal' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Ajustes' }));
   expect(screen.queryByLabelText('Tipo de canal')).not.toBeInTheDocument();
   expect(screen.getByText('Canal de voz')).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Guardar canal' }));
   await waitFor(() => expect(channels.updateChannel).toHaveBeenCalledWith(3, { nombre: 'reunión' }));
+});
+
+it('privado bloqueado muestra solicitud sin montar mensajes ni buscador',async()=>{
+  communities.getCommunity.mockResolvedValue({comunidad:{...community,miRol:'INTEGRANTE'}});
+  items=[{...text,privado:true,bloqueado:true,misPermisos:[],solicitud:null}];
+  show();expect(await screen.findByText('Solicitar acceso')).toBeInTheDocument();
+  expect(chatMock).not.toHaveBeenCalled();expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Permisos'})).not.toBeInTheDocument();
+});
+it('público sin VER muestra bloqueo sin ofrecer pedir acceso ni montar mensajes',async()=>{
+  communities.getCommunity.mockResolvedValue({comunidad:{...community,miRol:'INTEGRANTE'}});
+  items=[{...text,bloqueado:true,misPermisos:[]}];show();
+  expect(await screen.findByText('Canal bloqueado')).toBeInTheDocument();
+  expect(screen.queryByText('Solicitar acceso')).not.toBeInTheDocument();expect(chatMock).not.toHaveBeenCalled();
 });

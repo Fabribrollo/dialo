@@ -175,3 +175,23 @@ La conectividad real (tres participantes en dos redes) y la medicion de la revoc
 ## Integración de interfaz
 
 `npm run test:kanban -w apps/backend` ejecuta validaciones y escenarios de integración nuevos sobre `TEST_DATABASE_URL`, con esquema temporal. Ver [alcance y configuración](../../../docs/kanban-integracion.md). Para el conjunto completo: `node --test apps/backend/test/*.test.js` desde la raíz. Las pruebas aíslan las cuotas de rate limit entre escenarios y esperan los efectos posteriores antes de cerrar sus conexiones.
+
+### Centro de actividad (T-42)
+
+Con `TEST_DATABASE_URL` apuntando a PostgreSQL exclusivo de pruebas, ejecutar `npm run test:notifications -w apps/backend`. La suite crea un esquema aislado, aplica las migraciones y lo elimina al terminar. Cubre roles, borrados de roles, restricciones, baneo/rehabilitación, privacidad tras pérdida de acceso o borrado de comunidad, preferencias, rollback, paginación, lectura concurrente, aislamiento y eventos en varias pestañas/reconexión. No utiliza credenciales LiveKit ni proveedores de correo/IA.
+
+### Política global e ingreso privado
+
+`npm run test:channel-policy -w apps/backend` usa PostgreSQL exclusivo de pruebas, crea un esquema aislado y aplica las migraciones. Cubre creación atómica, globales, bloqueos sin contenido, solicitudes, aprobaciones/rechazos, duplicados, concurrencia, baneos, eventos entre pestañas, migración de configuraciones anteriores, seed y los cuatro smokes existentes contra el servidor aislado. La suite actualiza los escenarios históricos de acceso por rol al contrato individual/global vigente. No usa claves de LiveKit ni correo/IA reales.
+
+## Roles y permisos granulares
+
+Con TEST_DATABASE_URL exclusiva de pruebas: `npm run test:roles-granular -w apps/backend`. Verifica catálogo estricto, herencia pública, admisión privada individual y herencia de roles, rechazo de excepciones por rol, protecciones de administrador, expulsión de canal y baneo exclusivo de administración, separación cámara/pantalla, silencio persistente, migración de Moderador y propuestas IA validadas mediante transporte simulado. No usa claves reales ni consulta al proveedor.
+
+## Armonía de chat
+
+`npm run test:harmony -w apps/backend`, con TEST_DATABASE_URL exclusiva, cubre vencimientos 30 minutos/5 horas/permanente, rechazo de delegación administrativa, admisiones privadas y migración de datos anteriores, expulsión/restauración de canal, archivado individual y por comunidad, ocultamiento sin perder amistad, contadores autorizados y videos/rangos/descarga con límite de 2 MiB. Conjunto completo: `node --test apps/backend/test/*.test.js`. No usa servicios externos ni credenciales reales.
+
+La suite `harmony.test.js` cubre además envío múltiple atómico con texto, validación de recursos, autorización y moderación simulada, inmutabilidad de registros de llamadas y migración de registros históricos. El fixture previo de roles usa SQL del modelo anterior antes de aplicar nuevas migraciones.
+
+Los recibos de envío se comprueban en harmony.test.js: concurrencia con UUID repetido, conflicto de carga, revocación de permisos/amistad, replay de mensajes editados/eliminados y tandas sin duplicados. La suite de mensajes conserva su pool de una conexión, cubriendo la reutilización de la conexión transaccional.

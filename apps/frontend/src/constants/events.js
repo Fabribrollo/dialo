@@ -1,4 +1,6 @@
 export const EVENTS = {
+  MESSAGE_INTERACT:'message:interact',
+  CHANNEL_MESSAGE_INTERACT:'channel-message:interact',
   COMMUNITY_ROLE_CREATED: 'community:role-created',
   COMMUNITY_ROLE_UPDATED: 'community:role-updated',
   COMMUNITY_ROLE_DELETED: 'community:role-deleted',

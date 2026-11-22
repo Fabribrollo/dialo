@@ -1,3 +1,4 @@
+import { SocketContext } from '../context/SocketContext.jsx';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { Link, MemoryRouter, Route, Routes } from 'react-router';
@@ -284,6 +285,7 @@ it('salir mientras conecta no deja una conexión colgada', async () => {
   joinCall.mockImplementationOnce(() => new Promise((resolve) => { responder = resolve; }));
   show();
   fireEvent.click(screen.getByRole('button', { name: 'Unirse' }));
+  await waitFor(() => expect(joinCall).toHaveBeenCalledOnce());
   fireEvent.click(screen.getByRole('button', { name: 'Salir' }));
   await waitFor(() => expect(estado()).toBe('DESCONECTADO'));
   await act(async () => responder(llamada()));
@@ -434,4 +436,20 @@ it('sin TRANSMITIR no comparte pantalla', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Pantalla' }));
   await act(async () => {});
   expect(ultimaRoom().localParticipant.setScreenShareEnabled).not.toHaveBeenCalled();
+});
+
+it('cámara y pantalla se autorizan por separado',async()=>{
+ joinCall.mockResolvedValue(llamada(['VER','CAMARA']));await conectado();
+ fireEvent.click(screen.getByRole('button',{name:'Cámara',exact:true}));await waitFor(()=>expect(ultimaRoom().localParticipant.setCameraEnabled).toHaveBeenCalledWith(true));
+ fireEvent.click(screen.getByRole('button',{name:'Pantalla',exact:true}));expect(ultimaRoom().localParticipant.setScreenShareEnabled).not.toHaveBeenCalled();
+});
+it('cambio remoto corta las fuentes revocadas y perder acceso cierra la llamada',async()=>{
+ const listeners=new Map();const socket={on:(e,f)=>listeners.set(e,f),off:(e)=>listeners.delete(e)};
+ joinCall.mockResolvedValue(llamada(['VER','HABLAR','CAMARA','PANTALLA']));
+ render(<SocketContext.Provider value={socket}><CallProvider><Panel/></CallProvider></SocketContext.Provider>);
+ fireEvent.click(screen.getByRole('button',{name:'Unirse',exact:true}));await waitFor(()=>expect(estado()).toBe('CONECTADO'));
+ fireEvent.click(screen.getByRole('button',{name:'Cámara',exact:true}));await waitFor(()=>expect(ultimaRoom().localParticipant.isCameraEnabled).toBe(true));
+ await act(async()=>listeners.get('channel:updated')({canal:{...voz,misPermisos:['VER','PANTALLA']}}));
+ expect(ultimaRoom().localParticipant.setMicrophoneEnabled).toHaveBeenLastCalledWith(false);expect(ultimaRoom().localParticipant.setCameraEnabled).toHaveBeenLastCalledWith(false);
+ await act(async()=>listeners.get('channel:access-lost')({idCanal:voz.id}));await waitFor(()=>expect(estado()).toBe('DESCONECTADO'));
 });

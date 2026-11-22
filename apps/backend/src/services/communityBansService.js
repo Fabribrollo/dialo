@@ -1,3 +1,6 @@
+import { requireChannelPermission } from './channelsService.js';
+import { protectMember, requireCommunityPermission } from './communityPermissionsService.js';
+import { securityNotice, publishNotices } from './notificationsService.js';
 import { requireRole, JERARQUIA, getMembership } from './communitiesService.js';
 import { withCommunityAccessChange } from './channelsService.js';
 import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
@@ -7,13 +10,9 @@ import { emitToCommunity, emitToUser, leaveCommunity } from '../sockets/emitter.
 import { EVENTS } from '../sockets/events.js';
 
 const banKey = (idComunidad, idUsuario) => ({ idComunidad_idUsuario: { idComunidad, idUsuario } });
-const lowerRoles = (rol) => Object.keys(JERARQUIA).filter((other) => JERARQUIA[other] < JERARQUIA[rol]);
+const lowerRoles = rol => rol === 'PROPIETARIO' ? ['ADMIN','INTEGRANTE','MODERADOR'] : ['INTEGRANTE','MODERADOR'];
 
-function requireTarget(actor, target, rol, rolAnterior) {
-  if (actor === target || (rolAnterior && !lowerRoles(rol).includes(rolAnterior))) {
-    throw new AppError(403, 'BAN_HIERARCHY', 'Solo podés gestionar baneos de integrantes con un rol base inferior al tuyo');
-  }
-}
+function requireTarget(actor,target,rol,rolAnterior) { protectMember(actor,target,rol,rolAnterior); }
 
 async function staffIds(tx, idComunidad, rolAnterior) {
   const staff = await tx.membresia.findMany({
@@ -29,11 +28,11 @@ function notifyStaff(idComunidad, staff) {
 
 export async function listBans(idComunidad, actor) {
   return withCommunityChannelsLock(idComunidad, async (tx) => {
-    const { rol } = await requireRole(idComunidad, actor, 'MODERADOR', tx);
+    const { rol } = await requireRole(idComunidad,actor,'ADMIN',tx);
     const bans = await tx.comunidadBaneo.findMany({
-      where: { idComunidad, rolAnterior: { in: lowerRoles(rol) } },
+      where: { idComunidad, OR:[{fechaVencimiento:null},{fechaVencimiento:{gt:new Date()}}],rolAnterior: { in: lowerRoles(rol) } },
       orderBy: [{ fechaCreacion: 'desc' }, { idUsuario: 'asc' }],
-      select: { motivo: true, rolAnterior: true, fechaCreacion: true, usuario: { select: usuarioPublicoSelect }, autor: { select: usuarioPublicoSelect } },
+      select: { fechaVencimiento:true,motivo: true, rolAnterior: true, fechaCreacion: true, usuario: { select: usuarioPublicoSelect }, autor: { select: usuarioPublicoSelect } },
     });
     return bans.map(({ usuario, autor, ...ban }) => ({
       ...ban, usuario: toUsuarioPublico(usuario), autor: autor ? toUsuarioPublico(autor) : null,
@@ -41,21 +40,26 @@ export async function listBans(idComunidad, actor) {
   });
 }
 
-export async function banMember(idComunidad, actor, target, { motivo }) {
+export async function banMember(idComunidad, actor, target, { motivo,duracion='PERMANENTE' }, idCanal) {
   await withCommunityAccessChange(idComunidad, async (tx) => {
-    const { rol } = await requireRole(idComunidad, actor, 'MODERADOR', tx);
+    const context=await requireRole(idComunidad,actor,'ADMIN',tx);
+    if(idCanal&&(await tx.canal.findUnique({where:{id:idCanal},select:{idComunidad:true}}))?.idComunidad!==idComunidad)throw new AppError(404,'CHANNEL_NOT_FOUND','El canal no existe');
+    if(idCanal)await requireChannelPermission(idCanal,target,'VER',tx);
+    const {rol}=context;
     const existing = await tx.comunidadBaneo.findUnique({ where: banKey(idComunidad, target) });
     requireTarget(actor, target, rol, existing?.rolAnterior);
-    if (existing) return null;
+    if(existing&&(!existing.fechaVencimiento||existing.fechaVencimiento>new Date()))return null;
+    if(existing)await tx.comunidadBaneo.delete({where:banKey(idComunidad,target)});
     const member = await getMembership(idComunidad, target, tx);
     if (!member) throw new AppError(404, 'MEMBER_NOT_FOUND', 'El usuario no es integrante de esta comunidad');
     requireTarget(actor, target, rol, member.rol);
-    await tx.comunidadBaneo.create({ data: { idComunidad, idUsuario: target, idAutor: actor, rolAnterior: member.rol, motivo } });
+    await tx.comunidadBaneo.create({ data: { idComunidad, idUsuario: target, idAutor: actor, rolAnterior: member.rol, motivo,fechaVencimiento:duracion==='PERMANENTE'?null:new Date(Date.now()+(duracion==='30_MIN'?30*60:5*60*60)*1000) } });
     await tx.membresia.delete({ where: banKey(idComunidad, target) });
     const canales = await tx.canal.findMany({ where: { idComunidad }, select: { id: true } });
-    return { channels: canales.map(({ id }) => id), staff: await staffIds(tx, idComunidad, member.rol) };
+    return { notices: await securityNotice(tx, [target], 'baneo', idComunidad), channels: canales.map(({ id }) => id), staff: await staffIds(tx, idComunidad, member.rol) };
   }, undefined, (result) => {
     if (!result) return;
+    publishNotices(result.notices);
     leaveCommunity(idComunidad, target, result.channels);
     emitToUser(target, EVENTS.COMMUNITY_LEFT, { idComunidad });
     emitToCommunity(idComunidad, EVENTS.COMMUNITY_MEMBER_LEFT, { idComunidad, idUsuario: target });
@@ -65,11 +69,11 @@ export async function banMember(idComunidad, actor, target, { motivo }) {
 
 export async function removeBan(idComunidad, actor, target) {
   await withCommunityChannelsLock(idComunidad, async (tx) => {
-    const { rol } = await requireRole(idComunidad, actor, 'MODERADOR', tx);
+    const { rol } = await requireRole(idComunidad,actor,'ADMIN',tx);
     const existing = await tx.comunidadBaneo.findUnique({ where: banKey(idComunidad, target) });
     requireTarget(actor, target, rol, existing?.rolAnterior);
     if (!existing) return null;
     await tx.comunidadBaneo.delete({ where: banKey(idComunidad, target) });
-    return staffIds(tx, idComunidad, existing.rolAnterior);
-  }, undefined, (staff) => { if (staff) notifyStaff(idComunidad, staff); });
+    return { staff: await staffIds(tx, idComunidad, existing.rolAnterior), notices: await securityNotice(tx, [target], 'rehabilitado', idComunidad) };
+  }, undefined, (result) => { if (result) { publishNotices(result.notices); notifyStaff(idComunidad, result.staff); } });
 }

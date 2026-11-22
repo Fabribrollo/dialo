@@ -134,13 +134,13 @@ test('HTTP: el webhook firmado llega a los oyentes y uno sin firma se rechaza', 
   } finally { quitar(); }
 });
 
-test('el token privado acota sala, identidad y fuentes sin conceder administración ni pantalla', async () => {
+test('el token privado acota sala, identidad y fuentes habilita cámara/pantalla sin conceder administración', async () => {
   for (const video of [false,true]) {
     const {token,sala}=await adaptador().crearTokenPrivado({sala:'privada-00000000-0000-4000-8000-000000000001',idUsuario:7,nombre:'Ana',ingreso:'llamada-1',video});
     const c=claims(token);
     assert.equal(c.sub,'usuario-7');assert.equal(c.video.room,sala);assert.equal(c.video.roomJoin,true);
     assert.equal(c.video.roomAdmin,undefined);assert.equal(c.video.roomCreate,undefined);assert.equal(c.video.canPublishData,false);
-    assert.deepEqual(c.video.canPublishSources,video?['microphone','camera']:['microphone']);
+    assert.deepEqual(c.video.canPublishSources,['microphone','camera','screen_share','screen_share_audio']);
     assert.equal(c.exp-c.nbf,TOKEN_TTL_SEGUNDOS);assert.equal(JSON.parse(c.metadata).ingreso,'llamada-1');
   }
 });

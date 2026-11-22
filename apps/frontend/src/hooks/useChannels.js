@@ -45,7 +45,7 @@ export function useChannels(id, enabled) {
       if (canal.idComunidad !== id) return;
       mutate((items) => canal.misPermisos?.includes('VER')
         ? [...items.filter((item) => item.id !== canal.id), canal]
-        : items.filter((item) => item.id !== canal.id));
+        : [...items.filter((item) => item.id !== canal.id), {...canal,bloqueado:true}]);
       setVersions((old) => ({ ...old, [canal.id]: (old[canal.id] ?? 0) + 1 }));
       reload();
     };
@@ -56,8 +56,9 @@ export function useChannels(id, enabled) {
     };
     const reorder = ({ idComunidad }) => { if (idComunidad === id) reload(); };
     const reconnect = () => { setConnectionVersion((n) => n + 1); reload(); };
-    const handlers = { connect: reconnect, disconnect: () => setConnectionVersion((n) => n + 1), [EVENTS.CHANNEL_CREATED]: upsert, [EVENTS.CHANNEL_UPDATED]: upsert,
-      [EVENTS.CHANNEL_DELETED]: remove, [EVENTS.CHANNEL_ACCESS_LOST]: remove, [EVENTS.CHANNELS_REORDERED]: reorder };
+    const lost=({idComunidad,idCanal})=>{if(idComunidad!==id)return;mutate(items=>items.map(c=>c.id===idCanal?{...c,misPermisos:[],bloqueado:true}:c));reload();};
+    const handlers = { 'channels:catalog-changed':reorder, 'channel:requests-changed':reorder, connect: reconnect, disconnect: () => setConnectionVersion((n) => n + 1), [EVENTS.CHANNEL_CREATED]: upsert, [EVENTS.CHANNEL_UPDATED]: upsert,
+      [EVENTS.CHANNEL_DELETED]: remove, [EVENTS.CHANNEL_ACCESS_LOST]: lost, [EVENTS.CHANNELS_REORDERED]: reorder };
     Object.entries(handlers).forEach(([name, handler]) => socket.on(name, handler));
     return () => Object.entries(handlers).forEach(([name, handler]) => socket.off(name, handler));
   }, [socket, id, allowed, mutate, reload]);

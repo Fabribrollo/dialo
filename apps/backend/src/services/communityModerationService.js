@@ -1,3 +1,4 @@
+import { requireCommunityPermission } from './communityPermissionsService.js';
 import { emitToCommunity } from '../sockets/emitter.js';
 import { withCommunityChannelsLock } from '../utils/communityChannelsLock.js';
 import { prisma } from '../prisma/client.js';
@@ -20,14 +21,14 @@ function toModeration(comunidad) {
 }
 
 export async function getModeration(idComunidad, idUsuario) {
-  await requireRole(idComunidad, idUsuario, 'ADMIN');
+  await requireCommunityPermission(idComunidad, idUsuario, 'GESTIONAR_MODERACION');
   const comunidad = await prisma.comunidad.findUnique({ where: { id: idComunidad }, select: moderacionSelect });
   return toModeration(comunidad);
 }
 
 export async function replaceModeration(idComunidad, idUsuario, { activa, reglas }) {
   const comunidad = await withCommunityChannelsLock(idComunidad, async (tx) => {
-    await requireRole(idComunidad, idUsuario, 'ADMIN', tx);
+    await requireCommunityPermission(idComunidad, idUsuario, 'GESTIONAR_MODERACION', tx);
     await tx.reglaModeracion.deleteMany({ where: { idComunidad } });
     await tx.reglaModeracion.createMany({ data: reglas.map((descripcion) => ({ idComunidad, descripcion })) });
     return tx.comunidad.update({ where: { id: idComunidad }, data: { moderacionActiva: activa }, select: moderacionSelect });

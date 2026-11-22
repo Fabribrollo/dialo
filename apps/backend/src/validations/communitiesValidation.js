@@ -24,9 +24,9 @@ export const communityMemberParamsSchema = communityIdParamsSchema.extend({
   idUsuario: z.coerce.number().int().positive().max(MAX_ID),
 });
 export const updateMemberRolesSchema = z.strictObject({
-  rol: z.enum(['ADMIN', 'MODERADOR', 'INTEGRANTE']).optional(),
+  rol: z.enum(['ADMIN', 'INTEGRANTE']).optional(),
   idsRoles: z.array(memberRoleId).max(50)
     .refine((ids) => new Set(ids).size === ids.length, 'No repitas roles').optional(),
 }).refine((body) => body.rol !== undefined || body.idsRoles !== undefined, 'Indicá el rol base o los roles personalizados');
 
-export const banMemberSchema = z.object({ motivo: z.string().trim().min(1).max(300).optional() }).strict();
+export const banMemberSchema = z.object({ duracion:z.enum(['30_MIN','5_HORAS','PERMANENTE']).optional(),motivo: z.string().trim().min(1).max(300).optional() }).strict();

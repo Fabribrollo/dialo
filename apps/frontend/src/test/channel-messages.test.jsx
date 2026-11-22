@@ -151,3 +151,6 @@ it('un subscribe tardío anterior a una revocación no abre el historial',async(
  fire('channel:access-lost',{idCanal:1,idComunidad:4});await act(async()=>reply(null,{ok:true,data:{canal:canal()}}));
  expect(getChannelMessages).not.toHaveBeenCalled();expect(result.current.lost).toBe(true);expect(result.current.messages).toEqual([]);
 });
+it('la respuesta de adjuntos no vacía ni recarga el historial y respeta eliminaciones',async()=>{
+ const {result}=show();await ready(result);const count=getChannelMessages.mock.calls.length;act(()=>result.current.acceptMessages([message(8)]));fire('channel-message:new',{mensaje:message(8)});expect(result.current.messages.filter(x=>x.id===8)).toHaveLength(1);expect(getChannelMessages).toHaveBeenCalledTimes(count);fire('channel-message:deleted',{idCanal:1,idMensaje:8});act(()=>result.current.acceptMessages([message(8)]));expect(result.current.messages.find(x=>x.id===8).eliminado).toBe(true);
+});

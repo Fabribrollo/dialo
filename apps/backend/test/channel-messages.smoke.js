@@ -48,7 +48,7 @@ try {
   assert.equal((await history(ch, owner, 'cursor=2147483647')).data.error.code, 'VALIDATION_ERROR');
   for (const canal of [voice, video]) { const r = await history(canal); assert.equal(r.status, 400); assert.equal(r.data.error.code, 'CHANNEL_NOT_TEXT'); }
   assert.equal((await history(hidden, member)).status, 404);
-  await configure([{ rol: 'INTEGRANTE', permisos: ['VER'] }]);
+  await configure([{ idUsuario: member.id, permisos: ['VER'] }]);
   assert.deepEqual((await history(hidden, member)).data, { items: [], nextCursor: null });
   const detail = await request(`/channels/${hidden.id}`, { as: member }); assert.deepEqual(detail.data.canal.misPermisos, ['VER']);
   await configure([]);

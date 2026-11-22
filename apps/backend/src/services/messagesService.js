@@ -1,3 +1,5 @@
+import {requireReply} from './messageInteractionsService.js';
+import {withSendReceipt,sendFingerprint} from '../utils/sendReceipt.js';
 import { trackEffect } from '../utils/backgroundEffects.js';
 import { notify } from './notificationsService.js';
 import { prisma } from '../prisma/client.js';
@@ -8,18 +10,17 @@ import { EVENTS } from '../sockets/events.js';
 import { AppError } from '../utils/AppError.js';
 import { mensajeSelect, toMensaje } from '../utils/messages.js';
 
-export async function sendMessage(idUsuario, { idConversacion, contenido }) {
-  const conversacion = await requireConversationParticipant(idConversacion, idUsuario);
-  const otroId = conversacion.idUsuarioA === idUsuario ? conversacion.idUsuarioB : conversacion.idUsuarioA;
-  if (!(await areFriends(idUsuario, otroId))) {
-    throw new AppError(403, 'NOT_FRIENDS', 'Ya no son amigos');
-  }
-  const mensaje = toMensaje(await prisma.mensaje.create({
-    data: { idAutor: idUsuario, idConversacion, contenido },
-    select: mensajeSelect,
-  }));
-  emitToConversation(idConversacion, EVENTS.MESSAGE_NEW, { mensaje });
-  trackEffect(notify(otroId, 'conversacion', idConversacion, `mensaje:${mensaje.id}`));
+export async function sendMessage(idUsuario, { idConversacion, contenido, idEnvio, idRespuesta, encuesta }) {
+  let otroId;
+  const rows=await prisma.$transaction(async tx=>{
+    const conversacion=await requireConversationParticipant(idConversacion,idUsuario,tx);
+    otroId=conversacion.idUsuarioA===idUsuario?conversacion.idUsuarioB:conversacion.idUsuarioA;
+    if(!await areFriends(idUsuario,otroId,tx))throw new AppError(403,'NOT_FRIENDS','Ya no son amigos');
+    return withSendReceipt(tx,idUsuario,idEnvio,sendFingerprint('conversacion',idConversacion,contenido,...(idRespuesta?[idRespuesta]:[]),...(encuesta?[encuesta]:[])),mensajeSelect,async()=>{await requireReply(tx,idRespuesta,'conversacion',idConversacion);return [await tx.mensaje.create({data:{idAutor:idUsuario,idConversacion,contenido,idRespuesta,...(encuesta?{encuesta:{create:encuesta}}:{}),},select:mensajeSelect})];});
+  });
+  const mensaje=toMensaje(rows[0]);
+  if(!rows.replayed){emitToConversation(idConversacion, EVENTS.MESSAGE_NEW, { mensaje });
+  trackEffect(notify(otroId, 'conversacion', idConversacion, `mensaje:${mensaje.id}`));}
   return { mensaje };
 }
 
@@ -32,6 +33,7 @@ async function requireAuthoredMessage(idMensaje, idUsuario) {
     throw new AppError(403, 'NOT_AUTHOR', 'Solo el autor puede modificar el mensaje');
   }
   await requireConversationParticipant(mensaje.idConversacion, idUsuario);
+  if (mensaje.registroLlamada) throw new AppError(403, 'CALL_RECORD_IMMUTABLE', 'Los registros de llamadas no se pueden editar ni eliminar');
   if (mensaje.fechaEliminacion !== null) {
     throw new AppError(409, 'MESSAGE_DELETED', 'El mensaje ya fue eliminado');
   }
@@ -56,6 +58,8 @@ async function modifyMessage(idMensaje, operation) {
 export function editMessage(idUsuario, { idMensaje, contenido }) {
   return modifyMessage(idMensaje, async () => {
     const original = await requireAuthoredMessage(idMensaje, idUsuario);
+    if(original.encuesta)throw new AppError(403,'POLL_IMMUTABLE','Las encuestas publicadas no se pueden editar');
+    if(original.adjunto)throw new AppError(403,'ATTACHMENT_NOT_EDITABLE','Los recursos solo se pueden eliminar');
     const { count } = await prisma.mensaje.updateMany({
       where: { id: idMensaje, idAutor: idUsuario, fechaEliminacion: null },
       data: { contenido, fechaEdicion: new Date() },

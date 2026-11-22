@@ -25,3 +25,5 @@
 .cd-danger-btns { display: flex; gap: 10px; }
 
 @media (max-width: 1023px) { .cd-grid { grid-template-columns: 1fr; grid-template-areas: 'ch' 'mem' 'act'; } }
+
+.cd-channel-icons{gap:8px;flex:none}.cd-channel-icons .av{--av:40px;flex:none;background:color-mix(in srgb,var(--acc) 9%,white);color:var(--acc)}.cd-channel-icons .av+.av{margin-left:0}.cd-mem-count{min-width:0}.cd-head{gap:12px;flex-wrap:wrap}.cd-link{white-space:nowrap}

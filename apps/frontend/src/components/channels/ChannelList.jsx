@@ -39,7 +39,7 @@ export default function ChannelList({ items, base, canManage, disabled, onReorde
           {canManage && <span className="chl-grip" aria-hidden="true"><Icon name="grip" size={18} stroke={2} /></span>}
           <Link to={`${base}/${canal.id}`} className="chl-link" aria-label={`${canal.tipo === 'TEXTO' ? 'Texto' : 'Voz'} ${canal.nombre}`}>
             <span className="cd-ch-ic">{canal.tipo === 'TEXTO' ? <Icon name="canalTexto" size={16} stroke={2.1} /> : <Icon name="canalVoz" size={17} stroke={2} />}</span>
-            <span className="chl-name">{canal.nombre}</span>
+            <span className="chl-name">{canal.nombre}{canal.bloqueado && <span className="li-sub"> · Bloqueado{canal.solicitud==='PENDIENTE'?' · Solicitud pendiente':''}</span>}</span>
           </Link>
           <span className="cd-ch-priv">{canal.privado ? <><Icon name="privado" size={13} stroke={2} />Privada</> : <><Icon name="publica" size={13} stroke={2} />Pública</>}</span>
           {canManage && (

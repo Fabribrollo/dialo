@@ -1,70 +1,21 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router';
-import { useCall } from '../../hooks/useCall.js';
-import { useCallTime } from '../../hooks/useCallTime.js';
-import Avatar, { AvatarGroup } from '../ui/Avatar.jsx';
-import Badge from '../ui/Badge.jsx';
 import Icon from '../ui/Icon.jsx';
-import { useRefraction } from '../ui/Refraction.jsx';
-import { SpeakingIcon } from './CallTile.jsx';
-import { CameraButton, MicrophoneButton, ScreenButton } from './CallPanel.jsx';
-import './calls.css';
-
-const ESTADOS = { CONECTANDO: 'Conectando…', CONECTADO: 'En la llamada', RECONECTANDO: 'Reconectando…', SALIENDO: 'Saliendo…', ERROR: 'Llamada interrumpida' };
-const VISIBLES = 3;
-
-export default function ActiveCallBar() {
-  const call = useCall();
-  const { pathname } = useLocation();
-  const [abierta, setAbierta] = useState(false);
-  const tiempo = useCallTime(call?.desde);
-  const [ref, filtro] = useRefraction({ scale: 26, backdrop: 'blur(6px) saturate(1.6)' });
-  if (!call?.canal || !ESTADOS[call.estado]) return null;
-  const ruta = `/comunidades/${call.canal.idComunidad}/canales/${call.canal.id}`;
-  if (pathname === ruta) return null;
-  const personas = call.participantes;
-  const resto = personas.length - VISIBLES;
-  const activa = call.estado !== 'ERROR';
-
-  return (
-    <aside className="acb-wrap" aria-label="Llamada activa">
-      <div ref={ref} className="lg dk acb">
-        <span className="acb-ic" aria-hidden="true"><SpeakingIcon /></span>
-        <span className="acb-text" role="status">
-          <b>{ESTADOS[call.estado]} · {call.canal.nombre}</b>
-          {!activa && call.error ? <span>{call.error.message}</span> : tiempo && <span>{tiempo}</span>}
-        </span>
-        {activa && personas.length > 0 && (
-          <button type="button" className="pr acb-people" aria-expanded={abierta} onClick={() => setAbierta((v) => !v)}>
-            <AvatarGroup people={personas.map((p) => ({ id: p.idUsuario, nombre: p.nombre, foto: p.foto }))} max={VISIBLES} size={26} />
-            <span>{abierta ? 'Ver menos' : resto > 0 ? `${resto} más` : 'Ver todos'}</span>
-            <span className={`acb-chev ${abierta ? 'is-open' : ''}`}><Icon name="chevron" size={15} stroke={2.2} /></span>
-          </button>
-        )}
-        {activa && call.misPermisos.includes('HABLAR') && <MicrophoneButton call={call} dark />}
-        {activa && call.misPermisos.includes('TRANSMITIR') && <CameraButton call={call} dark />}
-        {activa && call.pantalla && <ScreenButton call={call} dark />}
-        <Link className="acb-back pr" to={ruta}>Volver al canal</Link>
-        <button type="button" className="ib pr acb-leave" disabled={call.estado === 'SALIENDO'} onClick={call.salir} aria-label={activa ? 'Salir de la llamada' : 'Cerrar'}>
-          <Icon name="cerrarSesion" size={18} stroke={2} />
-        </button>
-        {filtro}
-      </div>
-      {activa && abierta && (
-        <ul className="lg dk acb-list" aria-label="En la llamada">
-          {personas.map((p) => (
-            <li key={p.idUsuario} className={`acb-person ${p.hablando ? 'is-speaking' : ''}`}>
-              <Avatar nombre={p.nombre} foto={p.foto} size={32} dark={p.local} />
-              <span className="acb-person-name">{p.nombre}{p.local && ' (vos)'}</span>
-              <span className="acb-person-badges">
-                {p.microfono === false && <Badge kind="silenciado" />}
-                {p.video && <Badge kind="conCamara" />}
-                {p.pantalla && <Badge kind="comparte" />}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </aside>
-  );
+import {useCallOrigin} from '../../context/CallOriginContext.jsx';
+import Notice from '../ui/Notice.jsx';
+import {useLocation} from 'react-router';
+import {useCall} from '../../hooks/useCall.js';
+import {usePrivateCall} from '../../context/PrivateCallContext.jsx';
+import CallBar from './CallBar.jsx';
+import {CameraButton,MicrophoneButton,ScreenButton} from './CallPanel.jsx';
+export default function ActiveCallBar(){
+ const call=useCall(),privateCall=usePrivateCall();const {pathname}=useLocation();const scene=useCallOrigin();const atOrigin=to=>scene?scene.origin===to:pathname===to;
+ if(privateCall?.active){
+  if(privateCall.incoming&&privateCall.call.estado==='LLAMANDO')return null;
+  const to=`/conversaciones/${privateCall.call.idConversacion}`;if(atOrigin(to))return null;
+  const adapter=privateCall.adapter;
+  return <CallBar title={privateCall.other?.nombreVisible??'Llamada privada'} status={privateCall.connected?'En la llamada':'Conectando…'} desde={privateCall.desde} people={privateCall.people.length?privateCall.people:[privateCall.other??{}]} to={to} backLabel="Volver a la llamada" onReturn={privateCall.showCall} onEnd={privateCall.end} busy={privateCall.busy} controls={privateCall.connected&&<>{adapter.audioBloqueado&&<button type="button" className="ib call-ctl" aria-label="Activar audio" onClick={adapter.activarAudio}><Icon name="canalVoz" size={17}/></button>}<MicrophoneButton call={adapter} dark/><CameraButton call={adapter} dark/>{privateCall.canShare&&<ScreenButton call={adapter} dark/>}</>}/>;
+ }
+ if(call?.canal&&call.estado==='ERROR'&&pathname!==`/comunidades/${call.canal.idComunidad}/canales/${call.canal.id}`)return <Notice title={call.error?.message??'Llamada interrumpida'}/>;
+ if(!call?.canal||!['CONECTANDO','CONECTADO','RECONECTANDO','SALIENDO'].includes(call.estado))return null;
+ const to=`/comunidades/${call.canal.idComunidad}/canales/${call.canal.id}`;if(atOrigin(to))return null;
+ return <CallBar title={call.canal.nombre} status={call.estado==='CONECTADO'?'En la llamada':'Conectando…'} desde={call.desde} people={call.participantes} to={to} backLabel="Volver al canal" onEnd={call.salir} busy={call.estado==='SALIENDO'} controls={<>{call.misPermisos.includes('HABLAR')&&<MicrophoneButton call={call} dark/>}{(call.misPermisos.includes('CAMARA')||call.misPermisos.includes('TRANSMITIR'))&&<CameraButton call={call} dark/>}{call.puedeCompartirPantalla&&(call.misPermisos.includes('PANTALLA')||call.misPermisos.includes('TRANSMITIR'))&&<ScreenButton call={call} dark/>}</>}/>;
 }

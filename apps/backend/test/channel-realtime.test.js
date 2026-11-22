@@ -160,7 +160,7 @@ test('payloads estrictos rechazan identidad, campos ajenos, IDs inválidos y con
 });
 test('solo VER no permite enviar, editar ni eliminar mensajes propios', async () => {
   const c = await community(), ch = await create(c, { privado: true }); const original = await stored(ch);
-  await access(ch, [{ rol: 'INTEGRANTE', permisos: ['VER'] }]); const d = await subscribe(dani, ch);
+  await access(ch, [{ idUsuario: dani.id, permisos: ['VER'] }]); const d = await subscribe(dani, ch);
   assert.equal((await send(d, ch)).error.code, 'NO_WRITE_PERMISSION');
   assert.equal((await edit(d, original.id)).error.code, 'NO_WRITE_PERMISSION');
   assert.equal((await remove(d, original.id)).error.code, 'CANNOT_DELETE_MESSAGE');
@@ -188,7 +188,7 @@ test('borrado propio es lógico, conserva auditoría y nunca emite contenido eli
 });
 test('moderador con VER puede eliminar a un rol menor sin ESCRIBIR y no puede editarlo', async () => {
   const c = await community(), ch = await create(c, { privado: true });
-  await access(ch, [{ rol: 'MODERADOR', permisos: ['VER'] }, { rol: 'INTEGRANTE', permisos: ['ESCRIBIR'] }]);
+  await access(ch, [{ idUsuario: cata.id, permisos: ['VER','ELIMINAR_MENSAJES'] }, { idUsuario: dani.id, permisos: ['ESCRIBIR'] }]);
   const d = await subscribe(dani, ch), mod = await subscribe(cata, ch); const m = (await send(d, ch)).data.mensaje;
   assert.equal((await edit(mod, m.id)).error.code, 'NOT_AUTHOR'); assert.equal((await remove(mod, m.id)).ok, true);
   const row = await prisma.mensaje.findUnique({ where: { id: m.id } }); assert.equal(row.idUsuarioEliminacion, cata.id);
@@ -210,6 +210,7 @@ test('habilitación individual no concede moderación y moderador sin acceso no 
 });
 test('autor que abandonó puede ser moderado por quien conserva autoridad en el canal', async () => {
   const c = await community(), ch = await create(c), m = await stored(ch), mod = await subscribe(cata, ch);
+  const role=await prisma.rolPersonalizado.create({data:{idComunidad:c.id,nombre:'Gestión mensajes',permisos:['ELIMINAR_MENSAJES']}});await prisma.membresiaRol.create({data:{idComunidad:c.id,idUsuario:cata.id,idRol:role.id}});
   await request(`/communities/${c.id}/leave`, { method: 'POST', as: dani }); assert.equal((await remove(mod, m.id)).ok, true);
 });
 test('IDs inexistentes, de chat privado y de canal oculto no permiten editar/eliminar', async () => {
@@ -222,7 +223,7 @@ test('IDs inexistentes, de chat privado y de canal oculto no permiten editar/eli
   assert.equal((await prisma.mensaje.findUnique({ where: { id: privateMessage.id } })).contenido, 'Privado');
 });
 test('al perder VER salen todas las pestañas y no reciben operaciones posteriores', async () => {
-  const c = await community(), ch = await create(c, { privado: true }); await access(ch, [{ rol: 'INTEGRANTE', permisos: ['ESCRIBIR'] }]);
+  const c = await community(), ch = await create(c, { privado: true }); await access(ch, [{ idUsuario: dani.id, permisos: ['ESCRIBIR'] }]);
   const a = await subscribe(ana, ch), d1 = await subscribe(dani, ch), d2 = await subscribe(dani, ch);
   const m = (await send(d1, ch)).data.mensaje, logs = [capture(d1), capture(d2)];
   await access(ch, []); assert.equal((await send(a, ch)).ok, true);
@@ -233,9 +234,9 @@ test('al perder VER salen todas las pestañas y no reciben operaciones posterior
   await send(a, ch); await flush(a, d1); assert.equal(messageEvents(recovery).length, 1);
 });
 test('retirar solo ESCRIBIR mantiene eventos de lectura y rechaza envíos posteriores', async () => {
-  const c = await community(), ch = await create(c, { privado: true }); await access(ch, [{ rol: 'INTEGRANTE', permisos: ['ESCRIBIR'] }]);
+  const c = await community(), ch = await create(c, { privado: true }); await access(ch, [{ idUsuario: dani.id, permisos: ['ESCRIBIR'] }]);
   const a = await subscribe(ana, ch), d = await subscribe(dani, ch), logs = capture(d);
-  await access(ch, [{ rol: 'INTEGRANTE', permisos: ['VER'] }]); assert.equal((await send(d, ch)).error.code, 'NO_WRITE_PERMISSION');
+  await access(ch, [{ idUsuario: dani.id, permisos: ['VER'] }]); assert.equal((await send(d, ch)).error.code, 'NO_WRITE_PERMISSION');
   await send(a, ch); await flush(a, d); assert.equal(messageEvents(logs).length, 1);
 });
 test('abandonar impide nuevas operaciones y entregas sin reconectar', async () => {
@@ -277,6 +278,7 @@ test('sesión revocada mientras espera la cola no persiste un envío', async () 
 });
 test('dos eliminaciones concurrentes producen un solo evento y auditoría definitiva', async () => {
   const c = await community(), ch = await create(c), a = await subscribe(ana, ch), mod = await subscribe(cata, ch), m = await stored(ch), logs = capture(a);
+  const role=await prisma.rolPersonalizado.create({data:{idComunidad:c.id,nombre:'Gestión mensajes',permisos:['ELIMINAR_MENSAJES']}});await prisma.membresiaRol.create({data:{idComunidad:c.id,idUsuario:cata.id,idRol:role.id}});
   const results = await Promise.all([remove(a, m.id), remove(mod, m.id)]);
   assert.equal(results.filter((r) => r.ok).length, 1); assert.equal(results.find((r) => !r.ok).error.code, 'MESSAGE_DELETED');
   await flush(a, mod); assert.equal(messageEvents(logs).filter((e) => e.event === 'channel-message:deleted').length, 1);

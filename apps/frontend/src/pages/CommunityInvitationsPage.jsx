@@ -1,3 +1,4 @@
+import { hasCommunityPermission } from '../utils/permissionCatalog.js';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router';
@@ -52,7 +53,7 @@ export default function CommunityInvitationsPage() {
   const { id: param } = useParams();
   const id = /^\d+$/.test(param ?? '') ? Number(param) : NaN;
   const detail = useCommunity(id);
-  const permitted = ['PROPIETARIO', 'ADMIN', 'MODERADOR'].includes(detail.comunidad?.miRol);
+  const permitted = hasCommunityPermission(detail.comunidad,'GESTIONAR_INVITACIONES');
   const list = useCommunityCollection(id, service.getInvitations, permitted);
   const [duration, setDuration] = useState('24'), [uses, setUses] = useState('');
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [notice, setNotice] = useState(''), [usesError, setUsesError] = useState('');

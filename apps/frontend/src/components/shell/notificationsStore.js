@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 // Comparte el contador y la acción de abrir el panel con la navegación del celular.
-let estado = { noLeidas: 0, abrir: null };
+let estado = { noLeidas: 0, abrir: null, expanded: false };
 const oyentes = new Set();
 
 export const notificationsStore = {

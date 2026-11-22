@@ -32,6 +32,7 @@ const permisosDe = (fuentes) => ({
   canSubscribe: true,
   canPublish: fuentes.length > 0,
   canPublishData: false,
+
   canPublishSources: fuentes.flatMap((fuente) => FUENTES[fuente] ?? []),
 });
 
@@ -58,7 +59,7 @@ export function crearAdaptadorMedia({ url, apiKey, apiSecret, roomService } = {}
     async crearTokenPrivado({ sala, idUsuario, nombre, ingreso, video }) {
       exigir();
       const token = new AccessToken(apiKey, apiSecret, { identity: identidadDeUsuario(idUsuario), name: nombre, ttl: TOKEN_TTL_SEGUNDOS, metadata: JSON.stringify({ ingreso }) });
-      token.addGrant({ room: sala, roomJoin: true, ...permisosDe(video ? ['microfono','camara'] : ['microfono']) });
+      token.addGrant({ room: sala, roomJoin: true, ...permisosDe(['microfono','camara','pantalla']) });
       return { token: await token.toJwt(), url, sala };
     },
     async listarPrivadas() {

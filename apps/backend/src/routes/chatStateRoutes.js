@@ -1,0 +1,11 @@
+import {Router} from 'express';
+import {z} from 'zod';
+import {authenticate} from '../middlewares/authenticate.js';
+import {validate} from '../middlewares/validate.js';
+import {chatStates,changeChatState} from '../services/chatStateService.js';
+const router=Router();router.use(authenticate);
+const params=z.object({tipo:z.enum(['conversacion','comunidad','canal']),destino:z.coerce.number().int().positive().max(2147483647)});
+const body=z.strictObject({archivado:z.boolean().optional(),oculto:z.boolean().optional(),silencio:z.enum(['0','60','1440','siempre']).optional(),leido:z.literal(true).optional()}).refine(v=>Object.keys(v).length>0,'Enviá un cambio');
+router.get('/',async(req,res)=>res.json({items:await chatStates(req.user.id)}));
+router.patch('/:tipo/:destino',validate({params,body}),async(req,res)=>res.json({estado:await changeChatState(req.user.id,req.validated.params.tipo,req.validated.params.destino,req.validated.body)}));
+export default router;

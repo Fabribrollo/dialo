@@ -1,0 +1,25 @@
+import {Prisma} from '@prisma/client';
+import {prisma} from '../prisma/client.js';
+import {AppError} from '../utils/AppError.js';
+import {requireConversationParticipant} from './conversationsService.js';
+import {areFriends} from './friendsService.js';
+import {withChannelPermission} from './channelsService.js';
+import {mensajeSelect,toMensaje} from '../utils/messages.js';
+import {channelMessageSelect,toChannelMessage} from '../utils/channelMessages.js';
+import {emitToUser,emitToConversation,emitToChannel} from '../sockets/emitter.js';
+const schema=new URL(process.env.DATABASE_URL).searchParams.get('schema')||'public';
+const table=Prisma.raw(`"${schema.replaceAll('"','""')}"."mensaje"`);
+export const blocked=async(a,b,db=prisma)=>Boolean(await db.bloqueoUsuario.findFirst({where:{OR:[{idActor:a,idObjetivo:b},{idActor:b,idObjetivo:a}]},select:{idActor:true}}));
+export async function requireNoBlock(a,b,db=prisma){if(await blocked(a,b,db))throw new AppError(403,'USER_BLOCKED','No se puede contactar a este usuario');}
+export async function adminCommunity(actor,id){const m=await prisma.membresia.findUnique({where:{idComunidad_idUsuario:{idComunidad:id,idUsuario:actor}},select:{rol:true}});if(!m||!['ADMIN','PROPIETARIO'].includes(m.rol))throw new AppError(403,'NO_PERMISSION','Solo la administración puede consultar este apartado');return m;}
+async function messageOperation(actor,id,operation){
+ const m=await prisma.mensaje.findUnique({where:{id},select:{idCanal:true,idConversacion:true}});if(!m)throw new AppError(404,'MESSAGE_NOT_FOUND','El mensaje no existe');
+ const run=async(db,context)=>{await db.$queryRaw`SELECT id_mensaje FROM ${table} WHERE id_mensaje=${id} FOR UPDATE`;const original=await db.mensaje.findUnique({where:{id},select:channelMessageSelect});if(!original||original.fechaEliminacion)throw new AppError(404,'MESSAGE_NOT_FOUND','El mensaje no está disponible');if(m.idCanal){if(!context.permisos.includes('ESCRIBIR'))throw new AppError(403,'NO_WRITE_PERMISSION','No podés participar en este canal');}else{const conv=await requireConversationParticipant(m.idConversacion,actor,db);if(!await areFriends(actor,conv.idUsuarioA===actor?conv.idUsuarioB:conv.idUsuarioA,db))throw new AppError(403,'NOT_FRIENDS','No podés participar en esta conversación');}return operation(db,original,context);};
+ const publish=data=>m.idCanal?emitToChannel(m.idCanal,'channel-message:updated',data):emitToConversation(m.idConversacion,'message:updated',data);
+ if(m.idCanal)return withChannelPermission(m.idCanal,actor,'VER',run,publish);
+ const result=await prisma.$transaction(run);await publish(result);return result;
+}
+export async function votePoll(actor,id,opciones){return messageOperation(actor,id,async(db,m)=>{if(!m.encuesta||m.encuesta.cerrada)throw new AppError(409,'POLL_CLOSED','La encuesta no está disponible');if(new Set(opciones).size!==opciones.length||opciones.some(i=>i>=m.encuesta.opciones.length)||(!m.encuesta.multiple&&opciones.length>1))throw new AppError(400,'INVALID_VOTE','Elegí opciones válidas');await db.votoEncuesta.deleteMany({where:{idMensaje:id,idUsuario:actor}});if(opciones.length)await db.votoEncuesta.createMany({data:opciones.map(opcion=>({idMensaje:id,idUsuario:actor,opcion}))});const saved=await db.mensaje.findUnique({where:{id},select:m.idCanal?channelMessageSelect:mensajeSelect});return {mensaje:(m.idCanal?toChannelMessage:toMensaje)(saved)};});}
+export async function closePoll(actor,id){return messageOperation(actor,id,async(db,m,ctx)=>{if(!m.encuesta)throw new AppError(404,'POLL_NOT_FOUND','La encuesta no existe');if(m.idAutor!==actor&&!ctx?.permisos.includes('GESTIONAR_CANALES'))throw new AppError(403,'NO_PERMISSION','Solo el autor o la administración pueden cerrar la encuesta');await db.encuesta.update({where:{idMensaje:id},data:{cerrada:true}});const saved=await db.mensaje.findUnique({where:{id},select:m.idCanal?channelMessageSelect:mensajeSelect});return {mensaje:(m.idCanal?toChannelMessage:toMensaje)(saved)};});}
+export async function listThread(actor,id,cursor){const root=await prisma.mensaje.findUnique({where:{id},select:{idCanal:true,idHilo:true,fechaEliminacion:true}});if(!root?.idCanal||root.idHilo||root.fechaEliminacion)throw new AppError(404,'THREAD_NOT_FOUND','El hilo no está disponible');return withChannelPermission(root.idCanal,actor,'VER',async db=>{const rows=await db.mensaje.findMany({where:{idHilo:id,...(cursor?{id:{gt:cursor}}:{})},select:channelMessageSelect,orderBy:{id:'asc'},take:31});return {items:rows.slice(0,30).map(toChannelMessage),nextCursor:rows.length>30?rows[29].id:null};});}
+export async function markReceipt(actor,id,estado){const conv=await requireConversationParticipant(id,actor);const where={idConversacion:id,idAutor:{not:actor},fechaEliminacion:null};const now=new Date();await prisma.$transaction(async db=>{await db.mensaje.updateMany({where:{...where,fechaEntrega:null},data:{fechaEntrega:now}});if(estado==='leido')await db.mensaje.updateMany({where:{...where,fechaLectura:null},data:{fechaLectura:now}});});emitToConversation(id,'message:receipts',{idConversacion:id,idUsuario:actor,estado,fecha:now});return {ok:true};}

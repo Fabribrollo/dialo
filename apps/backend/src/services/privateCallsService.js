@@ -30,13 +30,14 @@ export async function startPrivateCall(actor,session,{idConversacion,video}) {
   if(!await areFriends(actor.id,other))throw new AppError(403,'NOT_FRIENDS','Solo podés llamar a tus amigos');
   const saved=await prisma.$transaction(async(tx)=>{
     await lockCallUsers(tx,[actor.id,other]);
+    if(!await areFriends(actor.id,other,tx))throw new AppError(403,'NOT_FRIENDS','Solo podés llamar a tus amigos');
     const privateBusy=await tx.llamadaPrivada.count({where:{estado:{in:active},OR:[{idEmisor:{in:[actor.id,other]}},{idReceptor:{in:[actor.id,other]}}]}});
     const channelBusy=await tx.participanteLlamada.count({where:{idUsuario:{in:[actor.id,other]}}});
     if(privateBusy||channelBusy)return null;
     return tx.llamadaPrivada.create({data:{id:randomUUID(),idConversacion,idEmisor:actor.id,idReceptor:other,sesionEmisor:session,video},include:people});
   });
   if (!saved) {
-    const mensaje = toMensaje(await prisma.mensaje.create({ data: {idConversacion,idAutor:actor.id,contenido:'Llamada no iniciada: línea ocupada.'}, select:mensajeSelect }));
+    const mensaje = toMensaje(await prisma.mensaje.create({ data: {idConversacion,idAutor:actor.id,registroLlamada:true,contenido:'Llamada no iniciada: línea ocupada.'}, select:mensajeSelect }));
     emitToConversation(idConversacion,'message:new',{mensaje});
     throw new AppError(409,'CALL_BUSY','Una de las personas ya está en una llamada');
   }
@@ -71,7 +72,7 @@ export async function finishPrivateCall(id,user,state='FINALIZADA') {
     if(!active.includes(c.estado))return null;
     const estado=c.estado==='LLAMANDO'?(state==='PERDIDA'?'PERDIDA':c.idReceptor===user?'RECHAZADA':'CANCELADA'):'FINALIZADA';
     const saved=await tx.llamadaPrivada.update({where:{id},data:{estado,fechaFin:new Date()},include:people});
-    const message=toMensaje(await tx.mensaje.create({data:{idConversacion:c.idConversacion,idAutor:c.idEmisor,contenido:`Llamada ${c.video?'de video':'de voz'}: ${estado.toLowerCase()}.`},select:mensajeSelect}));
+    const message=toMensaje(await tx.mensaje.create({data:{idConversacion:c.idConversacion,idAutor:c.idEmisor,registroLlamada:true,contenido:`Llamada ${c.video?'de video':'de voz'}: ${estado.toLowerCase()}.`},select:mensajeSelect}));
     return {saved,message};
   });
   if(result) {

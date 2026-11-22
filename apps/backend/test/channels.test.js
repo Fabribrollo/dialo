@@ -121,8 +121,8 @@ test('propietario y administrador crean los tipos texto y voz al final con datos
   for (const [index, tipo] of ['TEXTO', 'VOZ'].entries()) {
     const channel = await create(c, { nombre: tipo.toLowerCase(), tipo }, index % 2 ? beto : ana);
     assert.equal(channel.idComunidad, c.id); assert.equal(channel.posicion, index + 1); assert.equal(channel.privado, false);
-    assert.deepEqual(channel.misPermisos, tipo === 'TEXTO' ? ['VER', 'ESCRIBIR'] : ['VER', 'HABLAR', 'TRANSMITIR']);
-    assert.deepEqual(Object.keys(channel).sort(), ['fechaCreacion', 'id', 'idComunidad', 'misPermisos', 'moderacionActiva', 'nombre', 'posicion', 'privado', 'tipo']);
+    assert.deepEqual(channel.misPermisos, tipo === 'TEXTO' ? ['VER', 'ESCRIBIR', 'ELIMINAR_MENSAJES', 'GESTIONAR_CANALES', 'EXPULSAR', 'BANEAR'] : ['VER', 'HABLAR', 'CAMARA', 'PANTALLA', 'TRANSMITIR', 'SILENCIAR', 'GESTIONAR_CANALES', 'EXPULSAR', 'BANEAR']);
+    assert.deepEqual(Object.keys(channel).sort(), ['bloqueado','fechaCreacion', 'id', 'idComunidad', 'misPermisos', 'moderacionActiva', 'nombre', 'posicion', 'privado', 'tipo']);
   }
   assert.equal((await list(c)).length, 3);
 });
@@ -167,11 +167,11 @@ test('el listado tiene orden estable por posición e ID y se limita a la comunid
   assert.equal((await list(other)).length, 1);
 });
 
-test('canales privados aplican roles, usuarios habilitados y el tipo sin filtrar su configuración', async () => {
+test('canales privados muestran bloqueo y aplican usuarios habilitados y el tipo sin filtrar su configuración', async () => {
   const c = await community(), channel = await create(c, { privado: true });
-  assert.equal((await list(c, dani)).some((i) => i.id === channel.id), false);
+  assert.equal((await list(c, dani)).find((i) => i.id === channel.id).bloqueado, true);
   assert.equal((await request(`/channels/${channel.id}`, { as: dani })).status, 404);
-  await prisma.canalRol.create({ data: { idCanal: channel.id, rol: 'MODERADOR', permisos: ['VER', 'ESCRIBIR'] } });
+  await prisma.canalUsuario.create({data:{idCanal:channel.id,idComunidad:c.id,idUsuario:cata.id,permisos:['VER','ESCRIBIR']}});
   await prisma.canalUsuario.create({ data: { idCanal: channel.id, idComunidad: c.id, idUsuario: dani.id, permisos: ['VER'] } });
   const moderator = await request(`/channels/${channel.id}`, { as: cata });
   const member = await request(`/channels/${channel.id}`, { as: dani });
@@ -263,11 +263,11 @@ test('los eventos llegan a las pestañas autorizadas con permisos propios y excl
   assert.deepEqual(recorded[2], []); assert.deepEqual(recorded[3], []);
 });
 
-test('volver privado retira todas las pestañas sin acceso de la room y abrirlo notifica el acceso recuperado', async () => {
+test('expulsar del canal saca todas las pestañas y restaurar informa acceso recuperado', async () => {
   const c = await community(); const channel = await create(c);
   const clients = await Promise.all([ana, dani, dani].map(socketFor)), recorded = clients.map(capture);
   for (const socket of clients) await io.sockets.sockets.get(socket.id).join(`channel:${channel.id}`);
-  assert.equal((await request(`/channels/${channel.id}`, { method: 'PATCH', as: ana, body: { privado: true } })).status, 200);
+  assert.equal((await request(`/channels/${channel.id}/members/${dani.id}/kick`, { method: 'POST', as: ana, body: {} })).status, 204);
   await flush(...clients);
   for (let n = 1; n < 3; n++) {
     assert.equal(io.sockets.sockets.get(clients[n].id).rooms.has(`channel:${channel.id}`), false);
@@ -275,8 +275,9 @@ test('volver privado retira todas las pestañas sin acceso de la room y abrirlo 
   }
   assert.equal(io.sockets.sockets.get(clients[0].id).rooms.has(`channel:${channel.id}`), true);
   recorded.forEach((r) => r.splice(0));
-  await request(`/channels/${channel.id}`, { method: 'PATCH', as: ana, body: { privado: false } }); await flush(...clients);
-  for (const r of recorded) assert.equal(r[0].event, 'channel:updated');
+  await request(`/channels/${channel.id}/members/${dani.id}/restore`, { method: 'POST', as: ana, body: {} }); await flush(...clients);
+  for (const r of recorded.slice(1)) assert.equal(r[0].event, 'channel:updated');
+  assert.deepEqual(recorded[0],[]);
 });
 
 test('reordenar y eliminar no difunden IDs privados a usuarios sin acceso', async () => {

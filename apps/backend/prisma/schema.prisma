@@ -53,11 +53,26 @@ enum PermisoCanal {
   ESCRIBIR
   HABLAR
   TRANSMITIR
+  CAMARA
+  PANTALLA
+  SILENCIAR
+  ELIMINAR_MENSAJES
+  BANEAR
+  EXPULSAR
+  GESTIONAR_CANALES
+  GESTIONAR_INVITACIONES
+  GESTIONAR_ROLES
+  EDITAR_COMUNIDAD
+  GESTIONAR_MODERACION
 
   @@map("permiso_canal")
 }
 
 model Usuario {
+  portadaUrl String? @map("portada_url")
+  bloqueosRealizados BloqueoUsuario[] @relation("BloqueoActor")
+  bloqueosRecibidos BloqueoUsuario[] @relation("BloqueoObjetivo")
+  estadosChat EstadoChat[]
   id                  Int            @id @default(autoincrement()) @map("id_usuario")
   nombreUsuario       String         @unique @map("nombre_usuario") @db.VarChar(32)
   correo              String         @unique @db.VarChar(254)
@@ -79,8 +94,14 @@ model Usuario {
   amistadesComoB       Amistad[]             @relation("AmistadUsuarioB")
   conversacionesComoA  ConversacionPrivada[] @relation("ConversacionUsuarioA")
   conversacionesComoB  ConversacionPrivada[] @relation("ConversacionUsuarioB")
+  enviosConfirmados EnvioConfirmado[]
   llamadasEmitidas LlamadaPrivada[] @relation("LlamadaEmisor")
   llamadasRecibidas LlamadaPrivada[] @relation("LlamadaReceptor")
+  reacciones ReaccionMensaje[]
+  tituloPerfil String? @db.VarChar(80) @map("titulo_perfil")
+  pronombres String? @db.VarChar(30)
+  colorPerfil String? @db.VarChar(7) @map("color_perfil")
+  votosEncuesta VotoEncuesta[]
   mensajesEscritos     Mensaje[]             @relation("MensajeAutor")
   mensajesEliminados   Mensaje[]             @relation("MensajeEliminadoPor")
   membresias           Membresia[]
@@ -167,16 +188,42 @@ model ConversacionPrivada {
   @@map("conversacion_privada")
 }
 
+model EnvioConfirmado {
+  idAutor Int @map("id_autor")
+  clave String @db.Uuid
+  huella String @db.VarChar(64)
+  mensajes Int[]
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+  autor Usuario @relation(fields:[idAutor], references:[id], onDelete:Cascade)
+  @@id([idAutor,clave])
+  @@map("envio_confirmado")
+}
+
 model Mensaje {
   id                   Int       @id @default(autoincrement()) @map("id_mensaje")
   idAutor              Int       @map("id_autor")
   idConversacion       Int?      @map("id_conversacion")
   idCanal              Int?      @map("id_canal")
   contenido            String    @db.VarChar(2000)
+  idGrupoAdjuntos     String?   @db.Uuid @map("id_grupo_adjuntos")
+  cantidadGrupoAdjuntos Int?    @map("cantidad_grupo_adjuntos")
+  registroLlamada      Boolean   @default(false) @map("registro_llamada")
   fechaCreacion        DateTime  @default(now()) @map("fecha_creacion")
   fechaEdicion         DateTime? @map("fecha_edicion")
   fechaEliminacion     DateTime? @map("fecha_eliminacion")
   idUsuarioEliminacion Int?      @map("id_usuario_eliminacion")
+
+  idHilo Int? @map("id_hilo")
+  hilo Mensaje? @relation("Hilos",fields:[idHilo],references:[id],onDelete:Cascade)
+  hijosHilo Mensaje[] @relation("Hilos")
+  encuesta Encuesta?
+  fechaEntrega DateTime? @map("fecha_entrega")
+  fechaLectura DateTime? @map("fecha_lectura")
+  idRespuesta Int? @map("id_respuesta")
+  fechaFijado DateTime? @map("fecha_fijado")
+  respuesta Mensaje? @relation("Respuestas", fields:[idRespuesta], references:[id], onDelete:SetNull)
+  respuestas Mensaje[] @relation("Respuestas")
+  reacciones ReaccionMensaje[]
 
   adjunto Adjunto?
   autor        Usuario              @relation("MensajeAutor", fields: [idAutor], references: [id], onDelete: Cascade)
@@ -187,6 +234,8 @@ model Mensaje {
   // Mismo orden que el historial (más nuevos primero, desempate por id): la página sale del índice sin ordenar.
   @@index([idConversacion, fechaCreacion(sort: Desc), id(sort: Desc)], map: "mensaje_conversacion_historial")
   @@index([idCanal, fechaCreacion(sort: Desc), id(sort: Desc)], map: "mensaje_canal_historial")
+  @@index([idHilo,id],map:"mensaje_hilo_idx")
+  @@index([idRespuesta], map:"mensaje_respuesta_idx")
   @@map("mensaje")
 }
 
@@ -223,6 +272,7 @@ model ReglaModeracion {
 }
 
 model ComunidadBaneo {
+  fechaVencimiento DateTime? @map("fecha_vencimiento")
   idComunidad   Int          @map("id_comunidad")
   idUsuario     Int          @map("id_usuario")
   idAutor       Int?         @map("id_autor")
@@ -249,6 +299,9 @@ model Membresia {
   comunidad      Comunidad      @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
   usuario        Usuario        @relation(fields: [idUsuario], references: [id], onDelete: Cascade)
   habilitaciones CanalUsuario[]
+  solicitudesCanal SolicitudAccesoCanal[]
+  expulsionesCanal CanalExpulsion[]
+  silencios CanalSilencio[]
   rolesPersonalizados MembresiaRol[]
 
   @@id([idComunidad, idUsuario])
@@ -275,6 +328,8 @@ model Invitacion {
 }
 
 model Canal {
+  expulsiones CanalExpulsion[]
+  silencios CanalSilencio[]
   id            Int       @id @default(autoincrement()) @map("id_canal")
   idComunidad   Int       @map("id_comunidad")
   nombre        String    @db.VarChar(32)
@@ -290,6 +345,8 @@ model Canal {
   mensajes              Mensaje[]
   participantesLlamada  ParticipanteLlamada[]
   bloqueosMensaje BloqueoMensaje[]
+  permisosGlobales PermisoCanal[] @default([VER, ESCRIBIR]) @map("permisos_globales")
+  solicitudesAcceso SolicitudAccesoCanal[]
 
   @@unique([id, idComunidad])
   @@index([idComunidad, posicion])
@@ -322,6 +379,7 @@ model CanalUsuario {
 }
 
 model RolPersonalizado {
+  permisos String[] @default([])
   id            Int      @id @default(autoincrement()) @map("id_rol")
   idComunidad   Int      @map("id_comunidad")
   nombre        String   @db.VarChar(32)
@@ -402,6 +460,7 @@ model Notificacion {
   idUsuario Int @map("id_usuario")
   tipo String @db.VarChar(24)
   referencia Int
+  distincion String? @db.VarChar(16)
   origen String @db.VarChar(80)
   leida Boolean @default(false)
   fechaCreacion DateTime @default(now()) @map("fecha_creacion")
@@ -438,4 +497,110 @@ model LlamadaPrivada {
   @@index([idEmisor,estado],map:"llamada_emisor_estado")
   @@index([idReceptor,estado],map:"llamada_receptor_estado")
   @@map("llamada_privada")
+}
+
+model SolicitudAccesoCanal {
+  id Int @id @default(autoincrement())
+  idCanal Int @map("id_canal")
+  idComunidad Int @map("id_comunidad")
+  idUsuario Int @map("id_usuario")
+  estado String @default("PENDIENTE") @db.VarChar(16)
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+  fechaResolucion DateTime? @map("fecha_resolucion")
+  canal Canal @relation(fields: [idCanal, idComunidad], references: [id, idComunidad], onDelete: Cascade)
+  membresia Membresia @relation(fields: [idComunidad, idUsuario], references: [idComunidad, idUsuario], onDelete: Cascade)
+  @@unique([idCanal, idUsuario])
+  @@index([idComunidad, estado])
+  @@map("solicitud_acceso_canal")
+}
+
+model CanalSilencio {
+ idCanal Int @map("id_canal")
+ idComunidad Int @map("id_comunidad")
+ idUsuario Int @map("id_usuario")
+ canal Canal @relation(fields:[idCanal,idComunidad],references:[id,idComunidad],onDelete:Cascade)
+ membresia Membresia @relation(fields:[idComunidad,idUsuario],references:[idComunidad,idUsuario],onDelete:Cascade)
+ @@id([idCanal,idUsuario])
+ @@map("canal_silencio")
+}
+
+model CanalExpulsion {
+ idCanal Int @map("id_canal")
+ idComunidad Int @map("id_comunidad")
+ idUsuario Int @map("id_usuario")
+ canal Canal @relation(fields:[idCanal,idComunidad],references:[id,idComunidad],onDelete:Cascade)
+ membresia Membresia @relation(fields:[idComunidad,idUsuario],references:[idComunidad,idUsuario],onDelete:Cascade)
+ @@id([idCanal,idUsuario])
+ @@map("canal_expulsion")
+}
+model EstadoChat {
+ idUsuario Int @map("id_usuario")
+ tipo String @db.VarChar(16)
+ destino Int
+ archivado Boolean @default(false)
+ oculto Boolean @default(false)
+ silenciadoHasta DateTime? @map("silenciado_hasta")
+ silencioPermanente Boolean @default(false) @map("silencio_permanente")
+ leidoHasta DateTime? @map("leido_hasta")
+ usuario Usuario @relation(fields:[idUsuario],references:[id],onDelete:Cascade)
+ @@id([idUsuario,tipo,destino])
+ @@map("estado_chat")
+}
+
+model ReaccionMensaje {
+  idMensaje Int @map("id_mensaje")
+  idUsuario Int @map("id_usuario")
+  emoji String @db.VarChar(16)
+  mensaje Mensaje @relation(fields:[idMensaje], references:[id], onDelete:Cascade)
+  usuario Usuario @relation(fields:[idUsuario], references:[id], onDelete:Cascade)
+  @@id([idMensaje,idUsuario])
+  @@map("reaccion_mensaje")
+}
+
+model Encuesta {
+ idMensaje Int @id @map("id_mensaje")
+ opciones String[]
+ multiple Boolean @default(false)
+ cerrada Boolean @default(false)
+ mensaje Mensaje @relation(fields:[idMensaje],references:[id],onDelete:Cascade)
+ votos VotoEncuesta[]
+ @@map("encuesta")
+}
+model VotoEncuesta {
+ idMensaje Int @map("id_mensaje")
+ idUsuario Int @map("id_usuario")
+ opcion Int
+ encuesta Encuesta @relation(fields:[idMensaje],references:[idMensaje],onDelete:Cascade)
+ usuario Usuario @relation(fields:[idUsuario],references:[id],onDelete:Cascade)
+ @@id([idMensaje,idUsuario,opcion])
+ @@map("voto_encuesta")
+}
+model BloqueoUsuario {
+ actor Usuario @relation("BloqueoActor",fields:[idActor],references:[id],onDelete:Cascade,onUpdate:NoAction,map:"bloqueo_usuario_id_actor_fkey")
+ objetivo Usuario @relation("BloqueoObjetivo",fields:[idObjetivo],references:[id],onDelete:Cascade,onUpdate:NoAction,map:"bloqueo_usuario_id_objetivo_fkey")
+ idActor Int @map("id_actor")
+ idObjetivo Int @map("id_objetivo")
+ fecha DateTime @default(now())
+ @@id([idActor,idObjetivo])
+ @@map("bloqueo_usuario")
+}
+model ReporteUsuario {
+ id Int @id @default(autoincrement())
+ idAutor Int @map("id_autor")
+ idObjetivo Int @map("id_objetivo")
+ idComunidad Int? @map("id_comunidad")
+ motivo String @db.VarChar(1000)
+ estado String @default("PENDIENTE") @db.VarChar(20)
+ fecha DateTime @default(now())
+ @@index([idComunidad,id])
+ @@map("reporte_usuario")
+}
+model Auditoria {
+ id Int @id @default(autoincrement())
+ idComunidad Int @map("id_comunidad")
+ idActor Int @map("id_actor")
+ accion String @db.VarChar(140)
+ fecha DateTime @default(now())
+ @@index([idComunidad,id])
+ @@map("auditoria")
 }

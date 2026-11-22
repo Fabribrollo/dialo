@@ -52,10 +52,16 @@ try {
   const invite = await request(`/communities/${communityId}/invitations`, { method: 'POST', as: a, body: { duracionHoras: 1, usosMaximos: 1 } });
   assert.equal(invite.status, 201);
   assert.equal((await request(`/invitations/${invite.data.invitacion.codigo}/accept`, { method: 'POST', as: b })).status, 201);
-  const make = await request(`/communities/${communityId}/channels`, { method: 'POST', as: a, body: { nombre: 'mensajes', tipo: 'TEXTO' } });
+  const make = await request(`/communities/${communityId}/channels`, { method: 'POST', as: a, body: { nombre: 'mensajes', tipo: 'TEXTO',privado:true } });
   assert.equal(make.status, 201); const ch = make.data.canal;
   const clients = await Promise.all([a, a, b, b, c].map(socketFor)), recorded = clients.map(capture);
-  const ack = (socket, event, payload) => new Promise((resolve, reject) => socket.timeout(20000).emit(event, payload, (error, reply) => error ? reject(error) : resolve(reply)));
+  const ack = async (socket,event,payload) => {
+    for(let attempt=0;attempt<4;attempt++) {
+      const reply=await new Promise((resolve,reject)=>socket.timeout(20000).emit(event,payload,(error,result)=>error?reject(error):resolve(result)));
+      if(reply.error?.code!=='RATE_LIMITED'||attempt===3)return reply;
+      await new Promise(resolve=>setTimeout(resolve,Math.min(10,reply.error.retryAfter??5)*1000));
+    }
+  };
   const join = (socket) => ack(socket, 'channel:subscribe', { idCanal: ch.id });
   const send = (socket, contenido) => ack(socket, 'channel-message:send', { idCanal: ch.id, contenido });
   const edit = (socket, idMensaje, contenido) => ack(socket, 'channel-message:edit', { idMensaje, contenido });
@@ -69,6 +75,7 @@ try {
   const access = async (habilitaciones) => {
     const r = await request(`/channels/${ch.id}/access`, { method: 'PUT', as: a, body: { privado: true, habilitaciones } }); assert.equal(r.status, 200);
   };
+  await access([{idUsuario:b.id,permisos:['VER','ESCRIBIR']}]);
   for (const socket of clients.slice(0, 4)) assert.equal((await join(socket)).ok, true);
   assert.equal((await join(clients[4])).error.code, 'CHANNEL_NOT_FOUND');
   assert.equal((await send(clients[4], 'No permitido')).error.code, 'CHANNEL_NOT_FOUND');
@@ -103,7 +110,7 @@ try {
     assert(deletion >= 0); assert(!events.slice(deletion + 1).some((e) => e.event === 'channel-message:updated' && e.data.mensaje.id === racing.id));
   }
   const writeTarget = (await send(clients[2], 'Quedará de solo lectura')).data.mensaje;
-  await access([{ rol: 'INTEGRANTE', permisos: ['VER'] }]);
+  await access([{ idUsuario: b.id, permisos: ['VER'] }]);
   assert.equal((await send(clients[2], 'Bloqueado')).error.code, 'NO_WRITE_PERMISSION');
   assert.equal((await edit(clients[2], writeTarget.id, 'Bloqueado')).error.code, 'NO_WRITE_PERMISSION');
   clear(); assert.equal((await send(clients[0], 'Leen sin escribir')).ok, true); await flush();

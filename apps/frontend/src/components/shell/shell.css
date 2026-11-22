@@ -25,7 +25,7 @@
 }
 .shell .skip-link:focus { top: 12px; outline: 2.5px solid var(--acc); outline-offset: 3px; }
 
-@media (max-width: 767px) {
+@media (max-width: 767px), (max-width:1023px) and (max-height:550px) {
   .shell { padding: 0; gap: 0; flex-direction: column; background: #ECEDF0; }
   .shell .side { display: none; }
   .shell-main { border-radius: 0; background: #ECEDF0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; padding-bottom: 110px; animation: mIn .38s cubic-bezier(.2, .8, .2, 1) both; }
@@ -38,3 +38,15 @@
   .shell .m-nav { display: flex; }
 }
 @media (prefers-reduced-motion: reduce) { .shell-main { animation: none; } }
+@media (max-width: 767px), (max-width:1023px) and (max-height:550px) {
+  .shell-activity .side { display: flex; flex: 1; min-height: 0; border-radius: 0; padding: max(20px, env(safe-area-inset-top)) 16px 100px; }
+  .shell-activity .shell-main { display: none; }
+  .shell-activity .side-me { display: none; }
+}
+
+/* La llamada permanece visible también al abrir el lateral en móvil. */
+@media(max-width:767px),(max-width:1023px) and (max-height:550px){
+ .shell-home .shell-main:has(.active-call-bar),.shell-activity .shell-main:has(.active-call-bar){display:flex;flex:0 0 auto;order:-1;padding:0 0 8px;background:transparent;overflow:visible;min-height:0}
+ .shell-home .shell-main:has(.active-call-bar)>:not(.active-call-bar),.shell-activity .shell-main:has(.active-call-bar)>:not(.active-call-bar){display:none}
+ .shell-home:has(.active-call-bar) .side,.shell-activity:has(.active-call-bar) .side{padding-top:16px}
+}

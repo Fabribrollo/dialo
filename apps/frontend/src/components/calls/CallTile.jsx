@@ -36,7 +36,7 @@ export function ScreenTile({ persona, otras = [], onElegir, onGrid, onStop }) {
         <Video track={persona.videoPantalla} label={`Pantalla de ${persona.nombre}`} contain />
       )}
       <figcaption className="ct-screen-tag"><Icon name="pantalla" size={15} stroke={2} />{propia ? 'Tu pantalla' : `Pantalla de ${persona.nombre}`}</figcaption>
-      <div className="ct-screen-tools">
+      <div className="ct-screen-tools"><button type="button" className="pr ct-float" aria-label="Ampliar pantalla compartida" onClick={e=>{e.currentTarget.closest('figure')?.requestFullscreen?.().catch(()=>{});}}>Pantalla completa</button>
         {otras.map((p) => (
           <button key={p.idUsuario} type="button" className="pr ct-float" onClick={() => onElegir?.(p)}>
             <Icon name="pantalla" size={15} stroke={2.2} />{p.local ? 'Ver la tuya' : `Ver la de ${p.nombre}`}
@@ -52,6 +52,8 @@ export default function CallTile({ persona, big = false, onScreen }) {
   const nombre = `${persona.nombre}${persona.local ? ' (vos)' : ''}`;
   return (
     <figure className={`ct ${persona.hablando ? 'is-speaking' : ''}`}>
+
+      <button type="button" className="ct-expand" aria-label={`Ampliar cámara de ${persona.nombre}`} onClick={e=>{const el=e.currentTarget.closest('figure');el?.requestFullscreen?.().catch(()=>{});}}>⛶</button>
       {persona.video
         ? <Video track={persona.video} label={`Cámara de ${persona.nombre}`} />
         : <Avatar nombre={persona.nombre} foto={persona.foto} size={big ? 64 : 44} dark={persona.local} />}
