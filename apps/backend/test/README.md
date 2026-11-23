@@ -195,3 +195,7 @@ Con TEST_DATABASE_URL exclusiva de pruebas: `npm run test:roles-granular -w apps
 La suite `harmony.test.js` cubre además envío múltiple atómico con texto, validación de recursos, autorización y moderación simulada, inmutabilidad de registros de llamadas y migración de registros históricos. El fixture previo de roles usa SQL del modelo anterior antes de aplicar nuevas migraciones.
 
 Los recibos de envío se comprueban en harmony.test.js: concurrencia con UUID repetido, conflicto de carga, revocación de permisos/amistad, replay de mensajes editados/eliminados y tandas sin duplicados. La suite de mensajes conserva su pool de una conexión, cubriendo la reutilización de la conexión transaccional.
+
+## Comunidades con IA (T-44/T-45)
+
+`npm run test:community-proposals -w apps/backend` usa `TEST_DATABASE_URL` exclusiva y un schema temporal. Proveedor IA simulado; API, sesiones y persistencia reales. Cubre borradores sin escrituras, límites, permisos, confirmación atómica, concurrencia, rollback y recibos por autor. Ver [comunidades con IA](../../../docs/comunidades-ia.md).

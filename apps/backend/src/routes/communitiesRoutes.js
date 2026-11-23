@@ -1,4 +1,6 @@
 import {auditCommunity} from '../middlewares/auditCommunity.js';
+import { suggestCommunity, confirmCommunity } from '../services/communityProposalService.js';
+import { communityPurposeSchema, confirmCommunitySchema } from '../validations/communityProposalValidation.js';
 import { kickMember } from '../services/memberActionsService.js';
 import { communityActivity } from '../services/communityActivityService.js';
 import { suggestChannel, suggestionInput } from '../services/channelSuggestionService.js';
@@ -40,6 +42,13 @@ import rolesRoutes from './rolesRoutes.js';
 const router = Router();
 
 router.use(authenticate);router.use(auditCommunity('comunidad'));
+router.post('/suggestion', validate({ body: communityPurposeSchema }), async (req, res) => {
+  res.json({ propuesta: await suggestCommunity(req.user.id, req.validated.body) });
+});
+router.post('/from-draft', validate({ body: confirmCommunitySchema }), async (req, res) => {
+  const result = await confirmCommunity(req.user.id, req.validated.body);
+  res.status(result.repetida ? 200 : 201).json(result);
+});
 router.post('/:id/ownership', validate({ params: communityIdParamsSchema, body: z.strictObject({ idUsuario: z.number().int().positive().max(2147483647) }) }), async (req, res) => {
   await transferOwnership(req.validated.params.id, req.user.id, req.validated.body.idUsuario);
   res.status(204).end();

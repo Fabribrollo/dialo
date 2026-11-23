@@ -657,3 +657,7 @@ Los mensajes de un envío de cuatro a seis recursos incluyen `grupoAdjuntos: { i
 ### Interacciones de mensajes
 
 Los envíos de texto y archivos admiten `idRespuesta` del mismo destino. El DTO incluye estado de fijado, reacciones agrupadas y cita vigente cuando corresponde. Ver [contrato y autorizaciones](menu-mensajes.md); los campos sensibles del autor y el texto eliminado no forman parte de la cita.
+
+## Comunidades con estructura inicial (T-44 y T-45)
+
+`POST /api/communities/suggestion` genera un borrador autenticado sin guardar datos. `POST /api/communities/from-draft` confirma la estructura revisada con UUID por envío, validación estricta y creación atómica e idempotente. Contrato, errores, límites, configuración y migración en [Comunidades con IA](comunidades-ia.md).

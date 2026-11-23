@@ -103,19 +103,28 @@ export async function listCommunities(idUsuario) {
   return membresias.map((m) => toComunidad(m.comunidad, m.rol));
 }
 
-export async function createCommunity(idUsuario, { nombre, tipo }) {
-  const creada = await prisma.comunidad.create({
+export async function createCommunityRecord(db, idUsuario, { nombre, tipo, canales, roles = [] }) {
+  const creada = await db.comunidad.create({
     data: {
       nombre,
       tipo,
       membresias: { create: { idUsuario, rol: 'PROPIETARIO' } },
-      canales: { create: { nombre: 'general', tipo: 'TEXTO', privado: false } },
+      canales: { create: canales ? canales.map((canal, posicion) => ({ ...canal, posicion })) : { nombre: 'general', tipo: 'TEXTO', privado: false } },
+      rolesPersonalizados: { create: roles },
     },
     select: comunidadSelect,
   });
-  const comunidad = toComunidad(creada, 'PROPIETARIO');
+  return toComunidad(creada, 'PROPIETARIO');
+}
+
+export function announceCommunity(comunidad, idUsuario) {
   joinCommunity(comunidad.id, [idUsuario]);
   emitToUser(idUsuario, EVENTS.COMMUNITY_NEW, { comunidad });
+}
+
+export async function createCommunity(idUsuario, datos) {
+  const comunidad = await createCommunityRecord(prisma, idUsuario, datos);
+  announceCommunity(comunidad, idUsuario);
   return comunidad;
 }
 

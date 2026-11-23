@@ -38,7 +38,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "test:community-proposals": "node --test test/community-proposals.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

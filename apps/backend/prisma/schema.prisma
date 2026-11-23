@@ -95,6 +95,7 @@ model Usuario {
   conversacionesComoA  ConversacionPrivada[] @relation("ConversacionUsuarioA")
   conversacionesComoB  ConversacionPrivada[] @relation("ConversacionUsuarioB")
   enviosConfirmados EnvioConfirmado[]
+  creacionesComunidad CreacionComunidad[]
   llamadasEmitidas LlamadaPrivada[] @relation("LlamadaEmisor")
   llamadasRecibidas LlamadaPrivada[] @relation("LlamadaReceptor")
   reacciones ReaccionMensaje[]
@@ -197,6 +198,18 @@ model EnvioConfirmado {
   autor Usuario @relation(fields:[idAutor], references:[id], onDelete:Cascade)
   @@id([idAutor,clave])
   @@map("envio_confirmado")
+}
+
+// Recibo durable: una confirmación repetida no recrea una comunidad eliminada.
+model CreacionComunidad {
+  idAutor Int @map("id_autor")
+  clave String @db.Uuid
+  huella String @db.VarChar(64)
+  idComunidad Int @map("id_comunidad")
+  fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+  autor Usuario @relation(fields: [idAutor], references: [id], onDelete: Cascade)
+  @@id([idAutor, clave])
+  @@map("creacion_comunidad")
 }
 
 model Mensaje {
