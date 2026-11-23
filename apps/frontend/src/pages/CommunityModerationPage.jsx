@@ -1,3 +1,4 @@
+import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import AdministrationLog from '../components/communities/AdministrationLog.jsx';
 import {useUnsavedChanges} from '../context/UnsavedChangesContext.jsx';
 import { hasCommunityPermission } from '../utils/permissionCatalog.js';
@@ -6,8 +7,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import Button from '../components/ui/Button.jsx';
-import Card from '../components/ui/Card.jsx';
-import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import Notice from '../components/ui/Notice.jsx';
 import '../styles/members.css';
 import '../styles/moderation.css';
@@ -53,39 +53,39 @@ function ModerationForm({ moderacion, onSave }) {
   }
 
   return <div className="md">
-    <Card className="md-card">
+    <section className="set-card md-card">
       <div className="md-switch-row">
-        <span className={`md-ico ${activa ? 'md-ico-on' : ''}`}><Icon name="moderacion" size={23} stroke={2} /></span>
-        <h2 className="page-h2 md-h2" id="mod-ia">Moderar mensajes con IA</h2>
+        <span className={`set-icon ${activa ? 'on' : ''}`}><Icon name="moderacion" size={22} stroke={2} /></span>
+        <header className="set-head"><h2 id="mod-ia">Moderar mensajes con IA</h2><p>Revisa cada mensaje antes de publicarlo y bloquea los que coinciden con tus reglas.</p></header>
         <button type="button" className={`md-sw ${activa ? 'md-sw-on' : ''}`} role="switch" aria-checked={activa} aria-labelledby="mod-ia" disabled={busy}
           onClick={() => { setActiva(!activa); setOk(false); }}><span /></button>
       </div>
-    </Card>
-    <Card className={`md-card md-rules ${activa ? '' : 'md-off'}`}>
-      <div className="md-rules-head"><h2 className="page-h2 md-h2">Bloquear el mensaje si contiene…</h2><span className="bdg bdg-base md-count">{reglas.length} de {MAX_REGLAS}</span></div>
+      <div className={`mod-section md-rules ${activa ? '' : 'md-off'}`}>
+        <div className="md-rules-head"><h3>Bloquear el mensaje si contiene…</h3><span className="bdg bdg-base md-count">{reglas.length} de {MAX_REGLAS}</span></div>
       {reglas.length > 0 && <div className="md-list">{reglas.map((regla) => <span key={regla} className="md-rule">{regla}
-        <button type="button" className="pr" onClick={() => remove(regla)} aria-label={`Quitar ${regla}`}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
-        </button></span>)}</div>}
-      {reglas.length < MAX_REGLAS ? <>
-        <div className="md-new">
-          <label className="fl" htmlFor="nueva-regla">Nueva regla</label>
-          <div className="md-new-row">
-            <span className={`inp md-inp ${error || nueva.length > MAX_LARGO ? 'inp-error' : ''}`}>
-              <input id="nueva-regla" type="text" maxLength={120} placeholder="acoso o violencia" value={nueva} disabled={busy}
-                onChange={(e) => { setNueva(e.target.value); setError(''); }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
-              <span className="md-len">{nueva.length}/{MAX_LARGO}</span>
-            </span>
-            <Button variant="secundario" onClick={() => add()} disabled={!nueva.trim() || busy}><Icon name="mas" size={17} stroke={2.4} />Agregar</Button>
+          <button type="button" className="pr" onClick={() => remove(regla)} aria-label={`Quitar ${regla}`}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button></span>)}</div>}
+        {reglas.length < MAX_REGLAS ? <>
+          <div className="md-new">
+            <label className="fl" htmlFor="nueva-regla">Nueva regla</label>
+            <div className="md-new-row">
+              <span className={`inp md-inp ${error || nueva.length > MAX_LARGO ? 'inp-error' : ''}`}>
+                <input id="nueva-regla" type="text" maxLength={120} placeholder="acoso o violencia" value={nueva} disabled={busy}
+                  onChange={(e) => { setNueva(e.target.value); setError(''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); add(); } }} />
+                <span className="md-len">{nueva.length}/{MAX_LARGO}</span>
+              </span>
+              <Button variant="secundario" onClick={() => add()} disabled={!nueva.trim() || busy}><Icon name="mas" size={17} stroke={2.4} />Agregar</Button>
+            </div>
+            {error && <span className="fld-error" role="alert"><Icon name="error" size={15} stroke={2} />{error}</span>}
           </div>
-          {error && <span className="fld-error" role="alert"><Icon name="error" size={15} stroke={2} />{error}</span>}
-        </div>
-        {sugeridas.length > 0 && <div className="md-sug-wrap"><span className="li-sub">Sugeridas</span><div className="md-list">
-          {sugeridas.map((g) => <button key={g} type="button" className="md-sug pr" onClick={() => add(g)}><Icon name="mas" size={14} stroke={2.4} />{g}</button>)}
-        </div></div>}
-      </> : <div className="md-max"><Icon name="info" size={18} stroke={2.1} /><span>Llegaste al máximo de {MAX_REGLAS} reglas.</span></div>}
-    </Card>
+          {sugeridas.length > 0 && <div className="md-sug-wrap"><span className="li-sub">Sugeridas</span><div className="md-list">
+            {sugeridas.map((g) => <button key={g} type="button" className="md-sug pr" onClick={() => add(g)}><Icon name="mas" size={14} stroke={2.4} />{g}</button>)}
+          </div></div>}
+        </> : <div className="md-max"><Icon name="info" size={18} stroke={2.1} /><span>Llegaste al máximo de {MAX_REGLAS} reglas.</span></div>}
+      </div>
+    </section>
     {saveError && <Notice tone="error" title={saveError} />}
     {dirty && <div className="lg dk md-bar">
       <Icon name="info" size={18} stroke={2.1} />
@@ -109,7 +109,7 @@ function ModerationSettings({ detail }) {
     }
   }
   return !allowed ? <Notice tone="conflicto" title="Necesitás el permiso Configurar moderación." />
-    : config.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando moderación…</span>
+    : config.loading ? <SkeletonRows rows={3} avatar={0} action label="Cargando moderación…" />
       : config.error ? <Notice tone="error" title={config.error.message} actionLabel="Reintentar" onAction={config.reload} />
         : <ModerationForm moderacion={config.moderacion} onSave={save} />;
 }
@@ -120,8 +120,10 @@ export default function CommunityModerationPage() {
   useLostCommunity(detail.lost);
   if (!detail.comunidad) return <div className="page"><div className="page-body"><CommunityState {...detail} /></div></div>;
   return <CommunityShell comunidad={detail.comunidad}>
-      {['ADMIN','PROPIETARIO'].includes(detail.comunidad.miRol)&&<AdministrationLog id={id}/>}
+    <div className="mod-stack">
       <ModerationSettings key={`settings-${id}`} detail={detail} />
       {hasCommunityPermission(detail.comunidad,'GESTIONAR_MODERACION') && <BlockedMessages key={`blocked-${id}`} id={id} />}
+      {['ADMIN','PROPIETARIO'].includes(detail.comunidad.miRol)&&<AdministrationLog id={id}/>}
+    </div>
   </CommunityShell>;
 }

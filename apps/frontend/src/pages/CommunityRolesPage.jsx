@@ -1,3 +1,4 @@
+import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import PermissionPills from '../components/channels/PermissionPills.jsx';
 import { api } from '../services/api.js';
 import { permissionLabels, hasCommunityPermission } from '../utils/permissionCatalog.js';
@@ -8,7 +9,7 @@ import CommunityRoleFormDialog from '../components/communities/CommunityRoleForm
 import Field from '../components/ui/Field.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card, { ListRow } from '../components/ui/Card.jsx';
-import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import Notice from '../components/ui/Notice.jsx';
 import '../styles/members.css';
 import '../styles/roles.css';
@@ -80,7 +81,7 @@ function RolesCatalog({ detail }) {
       {allowed && !list.loading && !list.error && <Button onClick={(e) => open(e, 'create')}><Icon name="mas" size={15} stroke={2.2} />Crear rol</Button>}
     </div>
     {list.error && <Notice tone="error" title={list.error.message} actionLabel="Reintentar" onAction={() => { detail.reload(); list.reload(); }} />}
-    {list.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando roles…</span> : <>
+    {list.loading ? <SkeletonRows rows={3} avatar={28} label="Cargando roles…" /> : <>
       {!list.error && !list.items.length && <span className="cm-state">Todavía no hay roles personalizados.</span>}
       {list.items.length > 0 && <Card as="ul">{list.items.map((role) => <ListRow as="li" key={role.id}>
         <span className="cr-dot" />

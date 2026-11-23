@@ -1,5 +1,5 @@
 .bdg { height: 26px; border-radius: 13px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; box-sizing: border-box; white-space: nowrap; }
-.bdg-base { background: rgba(19, 19, 22, .06); color: #131316; }
-.bdg-suave { background: rgba(19, 19, 22, .06); color: rgba(19, 19, 22, .7); }
-.bdg-acento { background: color-mix(in srgb, var(--acc) 10%, #fff); color: var(--acc); }
-.bdg-oscuro { background: #131316; color: #fff; }
+.bdg-base { background: light-dark(rgba(19, 19, 22, .06), rgba(242,241,245,0.069)); color: light-dark(#131316, #efedf6); }
+.bdg-suave { background: light-dark(rgba(19, 19, 22, .06), rgba(242,241,245,0.069)); color: light-dark(rgba(19, 19, 22, .7), rgba(239,237,246,0.7)); }
+.bdg-acento { background: color-mix(in srgb, var(--acc) 10%, light-dark(#fff, #2a2931)); color: var(--acc-text); }
+.bdg-oscuro { background: light-dark(#131316, #323235); color: #fff; }

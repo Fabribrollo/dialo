@@ -1,3 +1,4 @@
+import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import { api } from '../services/api.js';
 import CommunityActionDialog from '../components/communities/CommunityActionDialog.jsx';
 import OwnershipTransfer from '../components/communities/OwnershipTransfer.jsx';
@@ -5,7 +6,7 @@ import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card, { ListRow } from '../components/ui/Card.jsx';
 import Avatar from '../components/ui/Avatar.jsx';
-import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import Notice from '../components/ui/Notice.jsx';
 import SearchInput from '../components/ui/SearchInput.jsx';
 import '../styles/members.css';
@@ -53,7 +54,7 @@ export default function CommunityMembersPage() {
       {detail.error && <Notice tone="error" title="No se pudo actualizar la comunidad." actionLabel="Reintentar" onAction={detail.reload} />}
       {notice?.id === id && <Notice tone="exito" title={notice.message} />}
       {list.error && <Notice tone="error" title={list.error.message} actionLabel="Reintentar" onAction={list.reload} />}
-      {list.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando integrantes…</span> : <>
+      {list.loading ? <SkeletonRows rows={5} avatar={40} action label="Cargando integrantes…" /> : <>
         <div className="cm-bar">
           <SearchInput className="cm-search" label="Buscar integrante" placeholder="Buscar integrante" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
           <span className="cm-count">{list.items.length} {list.items.length === 1 ? 'integrante' : 'integrantes'}</span>

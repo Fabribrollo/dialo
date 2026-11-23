@@ -1,10 +1,10 @@
+import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import { useState } from 'react';
 import { AmigosLista } from '../components/friends/AmigosLista.jsx';
 import { BuscadorUsuarios } from '../components/friends/BuscadorUsuarios.jsx';
 import { SolicitudesEnviadas, SolicitudesRecibidas } from '../components/friends/SolicitudesListas.jsx';
 import Segmented from '../components/ui/Segmented.jsx';
 import Notice from '../components/ui/Notice.jsx';
-import { Spinner } from '../components/ui/Icon.jsx';
 import { useFriends } from '../hooks/useFriends.js';
 import '../styles/friends.css';
 
@@ -27,7 +27,7 @@ export default function AmigosPage() {
         <Segmented dark className="fr-tabs" options={tabs} value={tab} onChange={setTab} label="Secciones de amigos" />
       </div>
       <div className="page-body">
-        {friends.estado === 'cargando' && <span className="fr-note" role="status"><Spinner size={15} />Cargando amigos…</span>}
+        {friends.estado === 'cargando' && <SkeletonRows rows={4} avatar={44} action label="Cargando amigos…" />}
         {friends.estado === 'error' && <Notice tone="error" title={friends.error} actionLabel="Reintentar" onAction={friends.recargar} />}
         {friends.estado === 'listo' && tab === 'amigos' && <AmigosLista friends={friends} />}
         {friends.estado === 'listo' && tab === 'solicitudes' && (

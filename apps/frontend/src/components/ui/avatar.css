@@ -1,18 +1,18 @@
 .av {
   position: relative; width: var(--av); height: var(--av); flex: none; box-sizing: border-box;
   display: flex; align-items: center; justify-content: center; border-radius: 50%;
-  background: #D8D9DF; color: #131316; font-weight: 700; font-size: calc(var(--av) * .36);
+  background: light-dark(#D8D9DF, #1d1b23); color: light-dark(#131316, #efedf6); font-weight: 700; font-size: calc(var(--av) * .36);
 }
-.av-dk, .avc { background: #131316; color: #fff; }
+.av-dk, .avc { background: light-dark(#131316, #323235); color: #fff; }
 .av img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
 
-.pres { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--pres-ring, #fff); box-sizing: content-box; }
+.pres { position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; border: 2px solid var(--pres-ring, light-dark(#fff, #3e3b46)); box-sizing: content-box; }
 .pres-EN_LINEA { background: #1FAE5B; }
-.pres-AUSENTE { background: #fff; box-shadow: inset 0 0 0 2.5px #F2B01E; }
+.pres-AUSENTE { background: light-dark(#fff, #2a2931); box-shadow: inset 0 0 0 2.5px #F2B01E; }
 .pres-NO_MOLESTAR { background: #D7263D; }
-.pres-NO_MOLESTAR::after { content: ''; position: absolute; left: 2.5px; right: 2.5px; top: 4.5px; height: 2px; border-radius: 2px; background: #fff; }
-.pres-INVISIBLE { background: #fff; box-shadow: inset 0 0 0 2.5px #9A9CA5; }
+.pres-NO_MOLESTAR::after { content: ''; position: absolute; left: 2.5px; right: 2.5px; top: 4.5px; height: 2px; border-radius: 2px; background: light-dark(#fff, #2a2931); }
+.pres-INVISIBLE { background: light-dark(#fff, #2a2931); box-shadow: inset 0 0 0 2.5px #9A9CA5; }
 
 .avg { display: flex; }
-.avg .av { box-shadow: 0 0 0 2px var(--avg-ring, #fff); font-size: 10px; }
+.avg .av { box-shadow: 0 0 0 2px var(--avg-ring, light-dark(#fff, rgba(255,255,255,0.1))); font-size: 10px; }
 .avg .av + .av { margin-left: -7px; }

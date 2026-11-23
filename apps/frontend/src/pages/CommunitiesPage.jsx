@@ -1,10 +1,11 @@
+import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { useCommunities } from '../context/CommunitiesContext.jsx';
 import Button from '../components/ui/Button.jsx';
 import Card, { ListRow, RowText } from '../components/ui/Card.jsx';
 import CommunityTile from '../components/ui/CommunityTile.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
-import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import Notice from '../components/ui/Notice.jsx';
 import '../styles/page.css';
 import '../styles/communitiesList.css';
@@ -30,7 +31,7 @@ export default function CommunitiesPage() {
         {state?.notice && <Notice tone="exito" title={state.notice} />}
         {error && <Notice tone="error" title="No se pudieron cargar las comunidades" actionLabel="Reintentar" onAction={reload}>Revisá tu conexión.</Notice>}
         {loading ? (
-          <span className="cl-loading" role="status"><Spinner size={15} />Cargando comunidades…</span>
+          <SkeletonRows rows={4} avatar={52} square label="Cargando comunidades…" />
         ) : items.length === 0 && !error ? (
           <EmptyState icon="comunidades" title="No pertenecés a ninguna comunidad" actionLabel="Crear comunidad" onAction={crear}>
             Podés crear una o entrar con un enlace de invitación.

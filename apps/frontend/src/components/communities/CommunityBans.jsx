@@ -1,8 +1,8 @@
+import { SkeletonRows } from '../ui/Skeleton.jsx';
 import Field from '../ui/Field.jsx';
 import Button from '../ui/Button.jsx';
 import Card, { ListRow, RowText } from '../ui/Card.jsx';
 import Notice from '../ui/Notice.jsx';
-import { Spinner } from '../ui/Icon.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useCommunityCollection } from '../../hooks/useCommunityCollection.js';
 import { useSocket } from '../../hooks/useSocket.js';
@@ -48,7 +48,7 @@ export default function CommunityBans({ id }) {
     {notice && <Notice tone="exito" title={notice} />}
     {open && <>
       {bans.error && <Notice tone="error" title={bans.error.message} actionLabel="Reintentar" onAction={bans.reload} />}
-      {bans.loading && <span className="cm-state" role="status"><Spinner size={15} />Cargando baneos…</span>}
+      {bans.loading && <SkeletonRows rows={3} avatar={40} action label="Cargando baneos…" />}
       {!bans.loading && !bans.error && bans.items.length === 0 && <span className="cm-state">No hay baneos para mostrar.</span>}
       {bans.items.length > 0 && <Card as="ul">{bans.items.map((ban) => <ListRow as="li" key={ban.usuario.id}>
         <RowText title={ban.usuario.nombreVisible}>

@@ -1,3 +1,4 @@
+import { SkeletonRows } from '../ui/Skeleton.jsx';
 import {usePrivateCall} from '../../context/PrivateCallContext.jsx';
 import Notice from '../ui/Notice.jsx';
 import { enabled, supported } from '../../utils/browserNotifications.js';
@@ -293,7 +294,7 @@ export default function ActivityCenter({ panelTarget, onOpenChange }) {
 
         {error&&<Notice title={error} actionLabel="Reintentar" onAction={load}/>}
 
-        {cargando && !data.items.length && <span className="act-state" role="status"><Spinner size={15} />Cargando notificaciones…</span>}
+        {cargando && !data.items.length && <SkeletonRows rows={4} avatar={40} className="act-skel" label="Cargando notificaciones…" />}
 
         {!cargando && !grupos.length && !error && (
           <EmptyState icon="campana" title="No tenés notificaciones">Te avisamos acá sobre mensajes, solicitudes y cambios en tus accesos.</EmptyState>

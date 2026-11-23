@@ -1,3 +1,4 @@
+import { SkeletonRows } from '../ui/Skeleton.jsx';
 import ChatRowMenu from './ChatRowMenu.jsx';
 import {useChatStates} from '../../context/ChatStateContext.jsx';
 import {usePrivateCall} from '../../context/PrivateCallContext.jsx';
@@ -136,7 +137,7 @@ export default function Sidebar() {
         <Segmented options={filtros} value={filtro} onChange={setFiltro} label="Filtrar conversaciones" />
       </div>
 
-      {conversations.loading && filtro !== 'comunidades' && <span className="side-state" role="status"><Spinner size={15} />Cargando conversaciones…</span>}
+      {conversations.loading && filtro !== 'comunidades' && <SkeletonRows rows={5} avatar={46} className="side-skel" label="Cargando conversaciones…" />}
       {conversations.error && filtro !== 'comunidades' && (
         <Notice tone="error" title="No se pudieron cargar las conversaciones" actionLabel="Reintentar" onAction={conversations.reload}>Revisá tu conexión.</Notice>
       )}

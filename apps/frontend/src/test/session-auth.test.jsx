@@ -55,3 +55,16 @@ it('sin sesion la raiz muestra la pagina de bienvenida', async () => {
   await screen.findByRole('heading', { name: 'Bienvenida' });
   expect(screen.queryByRole('heading', { name: 'Login' })).not.toBeInTheDocument();
 });
+
+it('al cerrar sesión vuelve a la página de bienvenida y no al login', async () => {
+  const { useAuth } = await import('../hooks/useAuth.js');
+  function Salir() { const { logout } = useAuth(); return <button type="button" onClick={() => logout()}>Salir</button>; }
+  auth.getMe.mockResolvedValueOnce({ usuario: { id: 1 } });
+  auth.logout.mockResolvedValueOnce(null);
+  render(<MemoryRouter initialEntries={['/amigos']}><AuthProvider><Routes>
+    <Route element={<GuestRoute />}><Route path="/login" element={<h1>Login</h1>} /><Route path="/inicio" element={<h1>Bienvenida</h1>} /></Route>
+    <Route element={<ProtectedRoute />}><Route path="/amigos" element={<Salir />} /></Route>
+  </Routes></AuthProvider></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Salir' }));
+  await screen.findByRole('heading', { name: 'Bienvenida' });
+});

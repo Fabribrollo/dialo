@@ -40,6 +40,11 @@ const shapes = {
   subir: <path d="M12 16V5M7.5 9.5L12 5l4.5 4.5M5 19.5h14" />,
   telefono: <path d="M6.6 3.5h2.8l1.4 3.9-1.9 1.3a11.5 11.5 0 0 0 6.4 6.4l1.3-1.9 3.9 1.4v2.8a2 2 0 0 1-2.1 2A16.5 16.5 0 0 1 4.6 5.6a2 2 0 0 1 2-2.1z" />,
   colgar: <path d="M3.2 13.6c4.9-4.3 12.7-4.3 17.6 0l-1.3 2.9-3.5-.9-.4-2.5a9.8 9.8 0 0 0-7.2 0l-.4 2.5-3.5.9z" />,
+  puntos: <><circle cx="5.5" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.7" fill="currentColor" stroke="none" /><circle cx="18.5" cy="12" r="1.7" fill="currentColor" stroke="none" /></>,
+  pausa: <><rect x="6.5" y="5" width="3.6" height="14" rx="1.2" fill="currentColor" stroke="none" /><rect x="13.9" y="5" width="3.6" height="14" rx="1.2" fill="currentColor" stroke="none" /></>,
+  play: <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor" stroke="none" />,
+  sol: <><circle cx="12" cy="12" r="4" /><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4" /></>,
+  luna: <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />,
   campana: <><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.6 2H4.4z" /><path d="M10 20.8a2.3 2.3 0 0 0 4 0" /></>,
 };
 

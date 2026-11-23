@@ -8,6 +8,8 @@
     <link rel="preload" href="/fonts/schibsted-grotesk-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#7042ff" />
+    <!-- Aplica el tema antes de pintar para que no parpadee en claro. -->
+    <script>try{var t=localStorage.getItem("dialo:tema");if(t!=="claro"&&t!=="oscuro")t=matchMedia("(prefers-color-scheme: dark)").matches?"oscuro":"claro";document.documentElement.dataset.theme=t}catch(e){}</script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,0 +1,14 @@
+/* Tarjeta de ajustes compartida: perfil, notificaciones, moderación y registros usan la misma superficie y encabezado. */
+.set-card { position: relative; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 22px; border-radius: 26px; background: linear-gradient(150deg, rgba(var(--glass-tint), calc(var(--glass-a) + .2)), rgba(var(--glass-tint), calc(var(--glass-b) + .3))); box-shadow: inset 0 1.5px 1px -.5px rgba(255, 255, 255, calc(.95 * var(--spec))), inset 0 0 0 1px rgba(255, 255, 255, calc(.7 * var(--spec) + .03)), 0 12px 32px -22px light-dark(rgba(38, 20, 82, .4), rgba(0, 0, 0, .6)); backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); }
+.set-head { display: flex; flex-direction: column; gap: 4px; }
+.set-head h2 { margin: 0; font-family: var(--font-display); font-size: 18px; letter-spacing: -.02em; line-height: 1.2; }
+.set-head p { margin: 0; font-size: 13px; line-height: 1.45; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
+.set-empty { margin: 0; font-size: 14px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
+.set-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.set-head-row > .set-head { flex: 1; min-width: 200px; }
+.set-section, .mod-section { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 1px solid light-dark(rgba(19, 19, 22, .07), rgba(255,255,255,0.07)); }
+.set-section h3, .mod-section h3 { margin: 0; font-size: 14px; font-weight: 650; }
+.set-icon { width: 44px; height: 44px; border-radius: 14px; flex: none; display: grid; place-items: center; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); background: light-dark(rgba(19, 19, 22, .05), rgba(242,241,245,0.057)); transition: background-color .2s, color .2s; }
+.set-icon.on { color: #fff; background: var(--acc); }
+.mod-stack { display: flex; flex-direction: column; gap: 18px; width: 100%; max-width: 880px; }
+@media (max-width: 600px) { .set-card { position: relative; min-width: 0; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; padding: 22px; border-radius: 26px; background: linear-gradient(150deg, rgba(var(--glass-tint), calc(var(--glass-a) + .2)), rgba(var(--glass-tint), calc(var(--glass-b) + .3))); box-shadow: inset 0 1.5px 1px -.5px rgba(255, 255, 255, calc(.95 * var(--spec))), inset 0 0 0 1px rgba(255, 255, 255, calc(.7 * var(--spec) + .03)), 0 12px 32px -22px light-dark(rgba(38, 20, 82, .4), rgba(0, 0, 0, .6)); backdrop-filter: blur(22px) saturate(1.6); -webkit-backdrop-filter: blur(22px) saturate(1.6); } .mod-stack { gap: 14px; } }

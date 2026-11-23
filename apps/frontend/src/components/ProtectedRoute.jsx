@@ -6,7 +6,7 @@ import BootScreen from "./shell/BootScreen.jsx";
 import { invitationReturnPath, rememberInvitation } from "../utils/invitations.js";
 
 export default function ProtectedRoute() {
-  const { estado } = useAuth();
+  const { estado, salio } = useAuth();
   const { pathname } = useLocation();
   const invitation = invitationReturnPath(pathname);
   useEffect(() => {
@@ -17,7 +17,7 @@ export default function ProtectedRoute() {
     return <BootScreen>Cargando sesión…</BootScreen>;
   if (estado === "error") return <SesionNoVerificada />;
   if (estado === "noLogueado") {
-    if (pathname === "/" && !invitation) return <Navigate to="/inicio" replace />;
+    if ((pathname === "/" || salio) && !invitation) return <Navigate to="/inicio" replace />;
     return <Navigate to="/login" replace state={invitation ? { from: invitation } : undefined} />;
   }
   return <Outlet />;

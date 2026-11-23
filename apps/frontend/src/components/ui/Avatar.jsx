@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {openProfile} from '../../utils/profiles.js';
 import './avatar.css';
 
@@ -18,9 +19,12 @@ export function initials(nombre = '') {
 }
 
 export default function Avatar({ nombre, foto, size = 40, presence, color, dark = false, className = '',idUsuario }) {
+  // Si la foto no carga (borrada, sin permiso, bloqueo), se muestran las iniciales en vez de la imagen rota.
+  const [rota, setRota] = useState(null);
+  const verFoto = foto && rota !== foto;
   return (
     <span {...(idUsuario?{role:'button',tabIndex:0,'aria-label':`Ver perfil de ${nombre}`,onClick:()=>openProfile(idUsuario),onKeyDown:e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openProfile(idUsuario);}}}:{})} className={`av ${dark ? 'av-dk' : ''} ${className}`} style={{ '--av': `${size}px`, ...(color && { background: color, color: textoSobre(color) }) }}>
-      {foto ? <img src={foto} alt="" /> : initials(nombre).slice(0, 1)}
+      {verFoto ? <img src={foto} alt="" onError={() => setRota(foto)} /> : initials(nombre).slice(0, 1)}
       {presence && <span className={`pres pres-${presence}`} role="img" aria-label={presenceLabels[presence]} />}
     </span>
   );

@@ -1,44 +1,61 @@
 .dsp { font-family: var(--font-display); font-weight: 800; letter-spacing: -.035em; }
 
+/* Vidrio líquido. La luz especular siempre es blanca: en oscuro solo baja su intensidad (--spec). */
+:root { --spec: 1; --glass-tint: 255, 255, 255; --glass-a: .5; --glass-b: .26; }
+:root[data-theme=oscuro] { --spec: .16; --glass-tint: 44, 39, 58; --glass-a: .62; --glass-b: .42; }
+
 .win {
   position: relative; isolation: isolate;
-  background: linear-gradient(150deg, rgba(255, 255, 255, .7), rgba(255, 255, 255, .4));
-  backdrop-filter: blur(36px) saturate(1.9); -webkit-backdrop-filter: blur(36px) saturate(1.9);
-  box-shadow: inset 0 1.5px 1px -.5px rgba(255, 255, 255, .95), inset 0 0 0 1px rgba(255, 255, 255, .55),
-    inset 0 -18px 28px -22px rgba(19, 19, 22, .1), 0 18px 40px -18px rgba(40, 24, 90, .22), 0 .9px 4px -.7px rgba(19, 19, 22, .04);
+  background: linear-gradient(150deg, rgba(var(--glass-tint), var(--glass-a)), rgba(var(--glass-tint), var(--glass-b)));
+  backdrop-filter: blur(42px) saturate(2.1) brightness(1.04); -webkit-backdrop-filter: blur(42px) saturate(2.1) brightness(1.04);
+  box-shadow:
+    inset 0 2px 1.5px -1px rgba(255, 255, 255, calc(.98 * var(--spec))),
+    inset 0 0 0 1px rgba(255, 255, 255, calc(.5 * var(--spec))),
+    inset 0 -22px 34px -26px light-dark(rgba(60, 40, 120, .16), rgba(0, 0, 0, .45)),
+    0 22px 48px -20px light-dark(rgba(40, 24, 90, .28), rgba(0, 0, 0, .55)),
+    0 1px 4px -1px light-dark(rgba(19, 19, 22, .05), rgba(0, 0, 0, .3));
 }
 
 .lg {
-  position: relative; isolation: isolate; background: rgba(255, 255, 255, .35);
-  box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .6), inset 0 -6px 10px -7px rgba(19, 19, 22, .1),
-    0 4.8px 13.6px -5.6px rgba(19, 19, 22, .144), 0 .6px 2.4px -.7px rgba(19, 19, 22, .054);
+  position: relative; isolation: isolate; background: rgba(var(--glass-tint), calc(var(--glass-b) + .06));
+  -webkit-backdrop-filter: blur(16px) saturate(1.8); backdrop-filter: blur(16px) saturate(1.8);
+  box-shadow: inset 0 1px 1px -.5px rgba(255, 255, 255, calc(.9 * var(--spec))), inset 0 0 0 .5px rgba(255, 255, 255, calc(.65 * var(--spec))),
+    inset 0 -7px 11px -8px light-dark(rgba(19, 19, 22, .12), rgba(0, 0, 0, .4)),
+    0 5px 14px -6px light-dark(rgba(19, 19, 22, .16), rgba(0, 0, 0, .45)), 0 .6px 2.4px -.7px light-dark(rgba(19, 19, 22, .06), rgba(0, 0, 0, .3));
 }
 
 .lg::before, .win::before {
   content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
-  background: radial-gradient(260px circle at var(--lx, 22%) var(--ly, -30%), rgba(255, 255, 255, .9), rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(280px circle at var(--lx, 22%) var(--ly, -30%), rgba(255, 255, 255, calc(.95 * var(--spec))), light-dark(rgba(255, 255, 255, 0), rgba(42,41,49,0)) 70%);
   mix-blend-mode: soft-light;
 }
-.win::before { background: radial-gradient(420px circle at var(--lx, 18%) var(--ly, -10%), rgba(255, 255, 255, .75), rgba(255, 255, 255, 0) 70%); }
+.win::before {
+  background:
+    radial-gradient(460px circle at var(--lx, 18%) var(--ly, -10%), rgba(255, 255, 255, calc(.85 * var(--spec))), light-dark(rgba(255, 255, 255, 0), rgba(42,41,49,0)) 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, calc(.35 * var(--spec))), light-dark(rgba(255, 255, 255, 0), rgba(42,41,49,0)) 120px);
+}
 
+/* Borde de luz fijo: más intenso arriba a la izquierda, como si la luz viniera de ahí. */
 .lg::after, .win::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3; padding: 1.4px;
-  background: conic-gradient(from var(--la, -45deg), rgba(255, 255, 255, 1), rgba(255, 255, 255, .3) 16%, rgba(255, 255, 255, .05) 34%,
-    rgba(255, 255, 255, .6) 50%, rgba(255, 255, 255, .05) 66%, rgba(255, 255, 255, .3) 84%, rgba(255, 255, 255, 1));
+  background: conic-gradient(from var(--la, -45deg), rgba(255, 255, 255, var(--spec)), rgba(255, 255, 255, calc(.35 * var(--spec))) 16%, rgba(255, 255, 255, calc(.06 * var(--spec))) 34%,
+    rgba(255, 255, 255, calc(.7 * var(--spec))) 50%, rgba(255, 255, 255, calc(.06 * var(--spec))) 66%, rgba(255, 255, 255, calc(.35 * var(--spec))) 84%, rgba(255, 255, 255, var(--spec)));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
 }
-.win::after { padding: 1.6px; }
+:root[data-theme=oscuro] :is(.lg, .win)::after { opacity: 1; }
+.win::after { padding: 1.7px; }
 .lg.nr::after { display: none; }
 
 .lg.dk {
-  background: rgba(19, 19, 22, .88); color: #fff;
-  box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .2), inset 0 -7px 11px -8px rgba(0, 0, 0, .25), 0 7.8px 18.4px -6.3px rgba(19, 19, 22, .27);
+  background: light-dark(rgba(19, 19, 22, .86), rgba(70, 62, 90, .9)); color: #fff;
+  box-shadow: inset 0 1px 1px -.5px rgba(255, 255, 255, .25), inset 0 0 0 .5px rgba(255, 255, 255, .18), inset 0 -7px 11px -8px rgba(0, 0, 0, .3), 0 7.8px 18.4px -6.3px light-dark(rgba(19, 19, 22, .27), rgba(0, 0, 0, .5));
 }
-.lg.dk::before { background: radial-gradient(220px circle at var(--lx, 22%) var(--ly, -30%), rgba(255, 255, 255, .55), rgba(255, 255, 255, 0) 70%); }
+.lg.dk::before { background: radial-gradient(220px circle at var(--lx, 22%) var(--ly, -30%), light-dark(rgba(255, 255, 255, .45), rgba(42,41,49,0.45)), light-dark(rgba(255, 255, 255, 0), rgba(42,41,49,0)) 70%); }
 .lg.dk::after { opacity: .65; }
 
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .win { background: rgba(255, 255, 255, .92); }
+  .win { background: light-dark(rgba(255, 255, 255, .94), rgba(42, 38, 52, .96)); }
+  .lg { background: light-dark(rgba(255, 255, 255, .85), rgba(52, 47, 64, .95)); }
 }
 
 .pr { transition: transform .5s cubic-bezier(.3, 1.7, .5, 1), background-color .25s; }
@@ -57,11 +74,11 @@
 
 /* Vidrio líquido para superficies flotantes: diálogos, paneles, avisos y menús. */
 .glass-float, .dlg, .ntf, .ns, .sf-panel, .private-call-panel {
-  background: linear-gradient(150deg, rgba(255, 255, 255, .86), rgba(255, 255, 255, .66)) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(1.9); backdrop-filter: blur(28px) saturate(1.9);
-  box-shadow: inset 0 1.5px 1px -.5px #fff, inset 0 0 0 1px rgba(255, 255, 255, .6), inset 0 -14px 24px -20px rgba(19, 19, 22, .12),
-    0 24px 50px -24px rgba(40, 24, 90, .32), 0 2px 8px -4px rgba(19, 19, 22, .12) !important;
+  background: linear-gradient(150deg, light-dark(rgba(255, 255, 255, .8), rgba(48, 43, 62, .86)), light-dark(rgba(255, 255, 255, .58), rgba(38, 34, 50, .8))) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(2); backdrop-filter: blur(32px) saturate(2);
+  box-shadow: inset 0 2px 1.5px -1px rgba(255, 255, 255, calc(.98 * var(--spec))), inset 0 0 0 1px rgba(255, 255, 255, calc(.6 * var(--spec) + .04)), inset 0 -14px 24px -20px light-dark(rgba(19, 19, 22, .12), rgba(0, 0, 0, .4)),
+    0 28px 56px -24px light-dark(rgba(40, 24, 90, .36), rgba(0, 0, 0, .6)), 0 2px 8px -4px light-dark(rgba(19, 19, 22, .12), rgba(0, 0, 0, .35)) !important;
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-float, .dlg, .ntf, .ns, .sf-panel, .private-call-panel { background: rgba(255, 255, 255, .97) !important; }
+  .glass-float, .dlg, .ntf, .ns, .sf-panel, .private-call-panel { background: light-dark(rgba(255, 255, 255, .97), rgba(42, 38, 52, .98)) !important; }
 }

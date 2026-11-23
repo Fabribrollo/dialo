@@ -4,17 +4,17 @@
 .chf { display: flex; flex-direction: column; gap: 18px; }
 .chf-head { display: flex; align-items: center; justify-content: space-between; }
 .chf-head h2 { margin: 0; font-size: 28px; line-height: 1; }
-.chf-close { width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: rgba(19, 19, 22, .05); color: rgba(19, 19, 22, .64); cursor: pointer; }
+.chf-close { width: 34px; height: 34px; border-radius: 50%; border: 0; padding: 0; display: flex; align-items: center; justify-content: center; background: light-dark(rgba(19, 19, 22, .05), rgba(242,241,245,0.057)); color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); cursor: pointer; }
 .chf-fields { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
 .chf-types { display: flex; gap: 10px; }
 .chf-hash { opacity: .45; }
 .chf .inp input { font-weight: 600; }
-.chf-type-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: rgba(19, 19, 22, .04); font-weight: 600; font-size: 14px; }
-.chf-priv { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 18px; background: rgba(19, 19, 22, .035); }
+.chf-type-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 16px; background: light-dark(rgba(19, 19, 22, .04), rgba(242,241,245,0.046)); font-weight: 600; font-size: 14px; }
+.chf-priv { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 18px; background: light-dark(rgba(19, 19, 22, .035), rgba(242,241,245,0.04)); }
 .chf-priv-row { display: flex; align-items: center; gap: 12px; }
 .chf-priv-label { flex: 1; font-weight: 600; font-size: 14.5px; }
 .chf-access { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; align-self: flex-start; }
 .chf-arrow { display: flex; transform: rotate(-90deg); }
 .chf-actions { display: flex; align-items: center; gap: 10px; }
 .chf-spacer { flex: 1; }
-.chf-delete { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 6px; border: 0; background: transparent; font: inherit; font-weight: 600; font-size: 14.5px; color: #D7263D; cursor: pointer; }
+.chf-delete { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 6px; border: 0; background: transparent; font: inherit; font-weight: 600; font-size: 14.5px; color: light-dark(#D7263D, #ff7f81); cursor: pointer; }

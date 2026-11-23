@@ -1,6 +1,6 @@
-.boot { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #ECEDF0; text-align: center; padding: 16px; box-sizing: border-box; }
-.boot-msg { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: rgba(19, 19, 22, .64); }
-.boot-icon { width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center; background: rgba(19, 19, 22, .06); color: rgba(19, 19, 22, .64); }
+.boot { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: light-dark(#ECEDF0, #24222b); text-align: center; padding: 16px; box-sizing: border-box; }
+.boot-msg { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
+.boot-icon { width: 56px; height: 56px; border-radius: 18px; display: flex; align-items: center; justify-content: center; background: light-dark(rgba(19, 19, 22, .06), rgba(242,241,245,0.069)); color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
 .boot-text { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .boot-text b { font-size: 16px; }
-.boot-text span { font-size: 13px; color: rgba(19, 19, 22, .64); line-height: 1.45; }
+.boot-text span { font-size: 13px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); line-height: 1.45; }

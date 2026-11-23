@@ -1,33 +1,33 @@
 .unified-toast-host{position:fixed;inset:auto 16px max(22px,env(safe-area-inset-bottom));z-index:200;width:min(460px,calc(100vw - 32px));max-width:none;max-height:calc(100dvh - 32px);margin:0 auto;padding:0;border:0;background:none;list-style:none;gap:9px;overflow:visible;pointer-events:none;transform:none;left:16px;right:16px;align-items:stretch;display:flex;flex-direction:column}
 .unified-toast-host:empty{display:none}
 .unified-toast-host:popover-open{display:flex}
-.unified-toast{position:relative;overflow:hidden;display:flex;align-items:flex-start;gap:12px;width:100%;box-sizing:border-box;padding:14px 14px 15px;border-radius:24px;color:#17151c;background:linear-gradient(160deg,rgba(255,255,255,.9),rgba(250,248,255,.78));border:1px solid rgba(255,255,255,.95);box-shadow:inset 0 1px 0 #fff,0 16px 44px -18px rgba(38,20,82,.42),0 2px 6px -2px rgba(38,20,82,.12);backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);pointer-events:auto;animation:toast-appear .22s cubic-bezier(.2,.9,.3,1.15)}
+.unified-toast{position:relative;overflow:hidden;display:flex;align-items:flex-start;gap:12px;width:100%;box-sizing:border-box;padding:14px 14px 15px;border-radius:24px;color:light-dark(#17151c, #efedf6);background:linear-gradient(160deg,light-dark(rgba(255,255,255,.9), rgba(42,41,49,0.9)),light-dark(rgba(250,248,255,.78), rgba(40,39,47,0.78)));border:1px solid light-dark(rgba(255,255,255,.95), rgba(62,59,70,0.95));box-shadow:inset 0 1px 0 light-dark(#fff, rgba(255,255,255,0.1)),0 16px 44px -18px light-dark(rgba(38,20,82,.42), rgba(0,0,0,0.712)),0 2px 6px -2px light-dark(rgba(38,20,82,.12), rgba(0,0,0,0.232));backdrop-filter:blur(24px) saturate(1.6);-webkit-backdrop-filter:blur(24px) saturate(1.6);pointer-events:auto;animation:toast-appear .22s cubic-bezier(.2,.9,.3,1.15)}
 .unified-toast-visual{position:relative;flex:none}
 .unified-toast-visual .av{--av:40px}
-.unified-toast-com{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:#131316;color:#fff;font-weight:700;font-size:14px;letter-spacing:.02em}
+.unified-toast-com{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:light-dark(#131316, #323235);color:#fff;font-weight:700;font-size:14px;letter-spacing:.02em}
 .unified-toast-icon{width:40px;height:40px;display:grid;place-items:center;border-radius:50%;background:var(--acc);color:#fff}
 .unified-error .unified-toast-icon{background:#d7263d}
-.unified-toast-origin{position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--acc);box-shadow:0 0 0 2.5px #fff}
+.unified-toast-origin{position:absolute;right:-4px;bottom:-4px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;color:#fff;background:var(--acc);box-shadow:0 0 0 2.5px light-dark(#fff, rgba(255,255,255,0.1))}
 .unified-llamada .unified-toast-origin{background:#1f9d55}
 .unified-toast-content{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;overflow-wrap:anywhere;font-size:13px;line-height:1.4;padding-top:1px}
 .unified-toast-head{display:flex;align-items:baseline;gap:8px;min-width:0}
 .unified-toast-head strong{font-size:14px;min-width:0;flex:1}
-.unified-toast-head time{flex:none;font-size:11.5px;color:rgba(19,19,22,.64);white-space:nowrap;font-variant-numeric:tabular-nums}
-.unified-toast-text{color:#595463;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.unified-toast-head time{flex:none;font-size:11.5px;color:light-dark(rgba(19,19,22,.64), rgba(239,237,246,0.64));white-space:nowrap;font-variant-numeric:tabular-nums}
+.unified-toast-text{color:light-dark(#595463, #d8d2e4);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .unified-toast-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:6px}
-.unified-toast-actions button{min-height:32px;border:0;padding:7px 13px;border-radius:18px;background:rgba(23,21,28,.06);color:#17151c;font:inherit;font-size:12.5px;font-weight:650;cursor:pointer;transition:background .15s,transform .15s}
-.unified-toast-actions button:hover{background:rgba(23,21,28,.1)}
+.unified-toast-actions button{min-height:32px;border:0;padding:7px 13px;border-radius:18px;background:light-dark(rgba(23,21,28,.06), rgba(242,240,249,0.069));color:light-dark(#17151c, #efedf6);font:inherit;font-size:12.5px;font-weight:650;cursor:pointer;transition:background .15s,transform .15s}
+.unified-toast-actions button:hover{background:light-dark(rgba(23,21,28,.1), rgba(242,240,249,0.115))}
 .unified-toast-actions button.is-main{background:var(--acc);color:#fff}
 .unified-toast-actions button.is-main:hover{filter:brightness(1.08)}
-.unified-toast-actions button.is-danger{background:#fde7ea;color:#b4142a}
+.unified-toast-actions button.is-danger{background:light-dark(#fde7ea, #2d1f21);color:light-dark(#b4142a, #ff7f7e)}
 .unified-toast-actions button:active{transform:scale(.97)}
 .unified-toast-actions button:disabled{opacity:.6;cursor:default}
-.unified-toast-close{width:30px;height:30px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:rgba(23,21,28,.05);color:#3d3946;flex:none;cursor:pointer}
-.unified-toast-close:hover{background:rgba(23,21,28,.1)}
+.unified-toast-close{width:30px;height:30px;padding:0;display:grid;place-items:center;border:0;border-radius:50%;background:light-dark(rgba(23,21,28,.05), rgba(242,240,249,0.057));color:light-dark(#3d3946, #f0ebfc);flex:none;cursor:pointer}
+.unified-toast-close:hover{background:light-dark(rgba(23,21,28,.1), rgba(242,240,249,0.115))}
 .unified-toast button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
 .unified-toast-bar{position:absolute;left:0;bottom:0;height:2.5px;width:100%;background:var(--acc);opacity:.7;transform-origin:left;animation:toast-bar linear forwards}
 .unified-toast.is-paused .unified-toast-bar{animation-play-state:paused}
-.unified-llamada{box-shadow:inset 0 1px 0 #fff,0 0 0 2px rgba(31,157,85,.35),0 18px 48px -18px rgba(20,80,50,.45)}
+.unified-llamada{box-shadow:inset 0 1px 0 light-dark(#fff, rgba(255,255,255,0.1)),0 0 0 2px rgba(31,157,85,.35),0 18px 48px -18px light-dark(rgba(20,80,50,.45), rgba(0,0,0,0.76))}
 @keyframes toast-appear{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
 @keyframes toast-bar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
 @media(prefers-reduced-motion:reduce){.unified-toast{animation:none}.unified-toast-bar{display:none}}

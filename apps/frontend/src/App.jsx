@@ -6,7 +6,6 @@ import GuestRoute from "./components/GuestRoute.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { SocketProvider } from "./context/SocketContext.jsx";
 import { useAuth } from "./hooks/useAuth.js";
-import { useGlassLight } from "./hooks/useGlassLight.js";
 const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage.jsx"));
 const LoginPage = lazy(() => import("./pages/LoginPage.jsx"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage.jsx"));
@@ -28,6 +27,7 @@ const InvitationPage = lazy(() => import("./pages/InvitationPage.jsx"));
 import CommunityChannelsPage from "./pages/CommunityChannelsPage.jsx";
 const CommunityModerationPage = lazy(() => import("./pages/CommunityModerationPage.jsx"));
 
+import './styles/cards.css';
 import './styles/pulido.css';
 
 // La landing (WebGL y animaciones) solo se descarga si alguien entra a /inicio.
@@ -36,7 +36,6 @@ const DevComponentsPage = import.meta.env.DEV ? lazy(() => import("./pages/DevCo
 
 export default function App() {
   const { estado, usuario } = useAuth();
-  useGlassLight();
 
   return (
     <SocketProvider

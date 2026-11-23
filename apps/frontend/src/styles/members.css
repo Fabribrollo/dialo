@@ -2,18 +2,24 @@
 
 .cm-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .cm-search { width: min(320px, 100%); height: 42px; }
-.cm-count { font-size: 14px; color: rgba(19, 19, 22, .64); }
-.cm-state { display: flex; align-items: center; gap: 8px; font-size: 13px; color: rgba(19, 19, 22, .64); }
+.cm-count { font-size: 14px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
+.cm-state { display: flex; align-items: center; gap: 8px; font-size: 13px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
 .cm-who { display: flex; flex-direction: column; gap: 1px; width: 150px; flex: none; min-width: 0; }
 .cm-who .li-title { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cm-roles { display: flex; gap: 6px; flex: 1; flex-wrap: wrap; }
-.li-quiet.cm-ban { color: #B4142C; }
+.li-quiet.cm-ban { color: light-dark(#B4142C, #ff7f80); }
 
 .cb { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin-top: 8px; }
 .cb > ul { align-self: stretch; }
 .mr-options { gap: 8px; }
 .cb-reason { display: block; }
 
-.cm-roles{display:flex;flex-wrap:wrap;gap:5px;align-items:center;max-width:230px}.member-role-chip{display:inline-flex;align-items:center;gap:5px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid #b9a4ff40;font-size:11px;padding:5px 9px}.member-role-dot{width:5px;height:5px;border-radius:50%;background:var(--acc);flex:none}.cm-who{min-width:100px}.channel-settings{display:flex;flex-direction:column;gap:18px;min-width:0}.channel-settings>header{display:flex;align-items:center;gap:12px;justify-content:space-between}.channel-settings h1{font-size:clamp(22px,3vw,30px);margin:0}.channel-settings>.segm{align-self:flex-start}.permission-groups{display:flex;flex-direction:column;gap:14px;border:0;margin:0;padding:0;min-width:0}.channel-admission{display:flex;flex-direction:column;gap:5px;padding:14px 0;border-bottom:1px solid #17171c0a}.role-permissions{display:block!important}.channel-settings .chf-head h2{font-size:22px}.channel-settings .chf-close{display:none}@media(max-width:650px){.cm-roles{max-width:none;flex-basis:100%;padding-left:48px}.cm-who{flex:1}.cm .li{flex-wrap:wrap;gap:8px}.cm .li>.btn,.cm .li>.cm-ban{margin-left:0}.channel-settings>header{flex-wrap:wrap}.channel-settings>.segm{width:100%;overflow:auto}}
+.cm-roles{display:flex;flex-wrap:wrap;gap:5px;align-items:center;max-width:230px}.member-role-chip{display:inline-flex;align-items:center;gap:5px;max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid light-dark(#b9a4ff40, rgba(185,164,255,0.251));font-size:11px;padding:5px 9px}.member-role-dot{width:5px;height:5px;border-radius:50%;background:var(--acc);flex:none}.cm-who{min-width:100px}.channel-settings{display:flex;flex-direction:column;gap:18px;min-width:0}.channel-settings>header{display:flex;align-items:center;gap:12px;justify-content:space-between}.channel-settings h1{font-size:clamp(22px,3vw,30px);margin:0}.channel-settings>.segm{align-self:flex-start}.permission-groups{display:flex;flex-direction:column;gap:14px;border:0;margin:0;padding:0;min-width:0}.channel-admission{display:flex;flex-direction:column;gap:5px;padding:14px 0;border-bottom:1px solid light-dark(#17171c0a, rgba(253,251,255,0.039))}.role-permissions{display:block!important}.channel-settings .chf-head h2{font-size:22px}.channel-settings .chf-close{display:none}@media(max-width:650px){.cm-roles{max-width:none;flex-basis:100%;padding-left:48px}.cm-who{flex:1}.cm .li{flex-wrap:wrap;gap:8px}.cm .li>.btn,.cm .li>.cm-ban{margin-left:0}.channel-settings>header{flex-wrap:wrap}.channel-settings>.segm{width:100%;overflow:auto}}
 
 .member-list>.li{display:grid;grid-template-columns:40px minmax(90px,1fr) minmax(80px,180px) auto;gap:12px;align-items:center}.member-list .cm-roles{max-width:180px}.member-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}.member-actions button{white-space:nowrap}.member-list .cm-who{min-width:0}@media(max-width:1100px){.member-list>.li{grid-template-columns:40px minmax(100px,1fr) auto}.member-list .cm-roles{grid-column:2/-1;grid-row:2;max-width:none;padding:0}.member-actions{grid-column:3;grid-row:1}}@media(max-width:600px){.member-list>.li{grid-template-columns:40px minmax(0,1fr)}.member-list .cm-roles{grid-column:2;grid-row:2}.member-actions{grid-column:2;grid-row:3;justify-content:flex-start}.member-actions .btn{padding-inline:12px}}
+/* Columnas fijas en escritorio: el rol y las acciones quedan alineados en todas las filas, tengan o no botones. */
+@media (min-width: 1101px) {
+  .member-list > .li { grid-template-columns: 40px minmax(0, 1fr) 190px 260px; }
+  .member-list .cm-roles { justify-self: start; max-width: 190px; }
+  .member-list .member-actions { justify-self: stretch; justify-content: flex-end; }
+}

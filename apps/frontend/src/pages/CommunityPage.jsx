@@ -1,3 +1,4 @@
+import Skeleton, { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import CommunityDashboard from '../components/communities/CommunityDashboard.jsx';
@@ -19,7 +20,7 @@ export function CommunityState({ valid, lost, loading, error, comunidad, reload 
   let content = null;
   if (!valid) content = <div className="cs-error"><h1 className="cs-title">Comunidad inválida</h1><Button size="sm" onClick={volver}>Volver a comunidades</Button></div>;
   else if (lost) content = <span className="cs-loading" role="status"><Spinner size={15} />Volviendo a comunidades…</span>;
-  else if (loading) content = <span className="cs-loading" role="status"><Spinner size={15} />Cargando comunidad…</span>;
+  else if (loading) content = <div className="cs-skel"><Skeleton height={140} radius={24} /><SkeletonRows rows={3} avatar={36} label="Cargando comunidad…" /></div>;
   else if (!comunidad) {
     const sinAcceso = [403, 404].includes(error?.status);
     content = (

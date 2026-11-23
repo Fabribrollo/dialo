@@ -22,7 +22,7 @@ function iniciales(nombre) {
 }
 
 function Tile({ nombre, url, size }) {
-  const fondo = url ? undefined : nombre.trim() ? '#131316' : '#E2E3E8';
+  const fondo = url ? undefined : nombre.trim() ? 'light-dark(#131316, #4a4458)' : 'light-dark(#E2E3E8, #34303f)';
   return (
     <span className={`cf-tile cf-tile-${size}`} style={{ background: fondo }}>
       {url ? <img src={url} alt="" /> : iniciales(nombre)}
