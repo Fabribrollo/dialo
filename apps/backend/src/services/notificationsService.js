@@ -5,6 +5,8 @@ import { channelSelect, effectiveChannelPermissions, memberRoleIds, memberSelect
 import { emitToUser } from '../sockets/emitter.js';
 
 const PAGE = 30;
+// Lecturas en una sola instantánea; el margen cubre bases remotas con latencia alta (el default de Prisma es 5 s).
+const SNAPSHOT = { isolationLevel: 'RepeatableRead', maxWait: 10000, timeout: 20000 };
 export const SECURITY_TYPES = ['roles', 'acceso', 'baneo', 'rehabilitado', 'solicitud_canal', 'acceso_aceptado', 'acceso_rechazado'];
 
 // Se guarda en la misma transacción que el cambio; ningún nombre privado persiste.
@@ -102,7 +104,7 @@ export async function notifyChannelMessage(idCanal, actor, messageId) {
     return members
       .filter((m) => effectiveChannelPermissions(canal, m.rol, m.idUsuario, memberRoleIds(m)).includes('VER'))
       .map((m) => m.idUsuario);
-  }, { isolationLevel: 'RepeatableRead' });
+  }, SNAPSHOT);
   const message=await prisma.mensaje.findUnique({where:{id:messageId},select:{contenido:true,respuesta:{select:{idAutor:true}},autor:{select:{id:true}}}});
   const tokens=[...(message?.contenido??'').matchAll(/(?:^|\s)@([\p{L}\p{N}_.]+)/gu)].map(m=>m[1].toLowerCase());
   const mentioned=tokens.length?await prisma.usuario.findMany({where:{id:{in:recipients},...(tokens.includes('everyone')?{}:{nombreUsuario:{in:tokens,mode:'insensitive'}})},select:{id:true}}):[];
@@ -220,7 +222,7 @@ export async function listNotifications(user, cursor) {
       noLeidas: unread,
       nextCursor: items.length > PAGE ? items[PAGE - 1].id : null,
     };
-  }, { isolationLevel: 'RepeatableRead' });
+  }, SNAPSHOT);
 }
 
 // {id}: una; {tipo, referencia}: todas las de un destino; nada: todas.

@@ -14,7 +14,7 @@ export function PrivateCallProvider({children}) {
   const socket=useSocket(),{usuario}=useAuth(),channelCall=useCall();
   const [chatVisible,setChatVisible]=useState(false);
   const [desde,setDesde]=useState(null),[audioBlocked,setAudioBlocked]=useState(false);
-  const [call,setCall]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[connected,setConnected]=useState(false),[people,setPeople]=useState([]),[mic,setMic]=useState(true),[camera,setCamera]=useState(false),[screen,setScreen]=useState(false);
+  const [call,setCall]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[connected,setConnected]=useState(false),[people,setPeople]=useState([]),[mic,setMic]=useState(true),[silencedCall,setSilencedCall]=useState(null),[camera,setCamera]=useState(false),[screen,setScreen]=useState(false);
   useEffect(()=>setChatVisible(false),[call?.id]);
   const room=useRef(null),audios=useRef(null),intent=useRef(null),callRef=useRef(null),generation=useRef(0),pending=useRef(false),syncPeople=useRef(()=>{}),alive=useRef(true),updates=useRef(0);
   callRef.current=call;
@@ -128,9 +128,12 @@ export function PrivateCallProvider({children}) {
   });}
   const active=call&&['LLAMANDO','ACEPTADA'].includes(call.estado),incoming=call?.idReceptor===usuario.id;
   const ringing=Boolean(incoming&&call?.estado==='LLAMANDO');
-  // Tono de llamada entrante; se calla al atender, rechazar o si silenciaste los avisos.
+  // Un solo booleano decide si suena y si aparece el aviso: así los cambios de otros chats no reinician el tono ni el aviso.
+  const convState=chatStates.loading?null:chatStates.get('conversacion',call?.idConversacion);
+  const alertable=Boolean(ringing&&convState&&!convState.archivado&&!convState.silenciado&&!usuario.preferencias?.silenciarNotificaciones&&silencedCall!==call?.id);
+  // Tono de llamada entrante; se calla al atender, rechazar, cerrar el aviso o si silenciaste los avisos.
   useEffect(()=>{
-    if(!ringing||chatStates.loading||chatStates.get('conversacion',call?.idConversacion).archivado||chatStates.get('conversacion',call?.idConversacion).silenciado||usuario.preferencias?.silenciarNotificaciones)return undefined;
+    if(!alertable)return undefined;
     let ctx;
     try{ctx=new (window.AudioContext||window.webkitAudioContext)();}catch{return undefined;}
     const tone=()=>{
@@ -144,7 +147,7 @@ export function PrivateCallProvider({children}) {
     ctx.resume?.().catch(()=>{});tone();
     const id=setInterval(tone,3000);
     return ()=>{clearInterval(id);ctx.close?.().catch(()=>{});};
-  },[ringing,usuario.preferencias?.silenciarNotificaciones,chatStates.items,chatStates.loading]);
+  },[alertable]);
   const canShare=typeof navigator!=='undefined'&&Boolean(navigator.mediaDevices?.getDisplayMedia);
   async function toggleScreen(){
     try{const r=room.current;if(!r||!connected)return;await r.localParticipant.setScreenShareEnabled(!r.localParticipant.isScreenShareEnabled);syncPeople.current();}
@@ -156,10 +159,12 @@ export function PrivateCallProvider({children}) {
     alternarCamara:async()=>{try{await room.current?.localParticipant.setCameraEnabled(!camera);setCamera(!camera);syncPeople.current();}catch(e){setError(e.message);}},alternarPantalla:toggleScreen};
   const actionRef=useRef({accept,end});actionRef.current={accept,end};
   useEffect(()=>{
-    if(!ringing||chatStates.loading||chatStates.get('conversacion',call?.idConversacion).archivado||chatStates.get('conversacion',call?.idConversacion).silenciado||usuario.preferencias?.silenciarNotificaciones)return;
-    avisar({id:'llamada-privada-entrante',tipo:'llamada',titulo:'Llamada entrante',texto:`${other?.nombreVisible??'Contacto'} · ${call.video?'Video':'Voz'}`,foto:other?.fotoUrl,nombre:other?.nombreVisible,duracion:0,acciones:[{label:'Rechazar',fn:()=>actionRef.current.end()},{label:'Aceptar llamada',fn:()=>actionRef.current.accept()}],onDismiss:()=>actionRef.current.end()});
+    if(!alertable)return;
+    const id=call.id;
+    // Cerrar con la X solo silencia: la llamada sigue disponible en la conversación para atender o rechazar.
+    avisar({id:'llamada-privada-entrante',tipo:'llamada',titulo:'Llamada entrante',texto:`${other?.nombreVisible??'Contacto'} · ${call.video?'Video':'Voz'}`,foto:other?.fotoUrl,nombre:other?.nombreVisible,duracion:0,cerrarLabel:'Silenciar llamada entrante',acciones:[{label:'Rechazar',peligro:true,fn:()=>actionRef.current.end()},{label:'Aceptar llamada',principal:true,fn:()=>actionRef.current.accept()}],onDismiss:()=>setSilencedCall(id)});
     return()=>cerrarAviso('llamada-privada-entrante');
-  },[ringing,call?.id,busy,chatStates.items,chatStates.loading,usuario.preferencias?.silenciarNotificaciones]);
+  },[alertable,call?.id]);
   useEffect(()=>{if(error)avisar({id:'llamada-privada-error',tipo:'error',titulo:'Llamada privada',texto:error});},[error]);
   useEffect(()=>{if(call&&!active)avisar({id:`llamada-privada-${call.id}`,titulo:states[call.estado],texto:other?.nombreVisible??''});},[call?.id,call?.estado]);
   return <PrivateCallContext.Provider value={{chatVisible,showChat:()=>setChatVisible(true),showCall:()=>setChatVisible(false),start,busy,active,call,other,acceptedElsewhere:call?.estado==='ACEPTADA'&&intent.current!==call.id,connected,people,adapter,canShare,end,accept,incoming,desde,elegirDispositivo:async(kind,id)=>{if(room.current)await room.current.switchActiveDevice(kind,id);}}}>

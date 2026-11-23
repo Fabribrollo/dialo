@@ -1,16 +1,8 @@
 import {avisar,cerrarAviso} from './systemToastsStore.js';
-import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import Avatar from '../ui/Avatar.jsx';
-import Icon from '../ui/Icon.jsx';
 import { formatListTime } from '../../utils/chat.js';
-import { avisosRoot } from './notificationsStore.js';
-import './notificationToasts.css';
-
-const DURACION = 7000;
-const VISIBLES = 3;
+import { useEffect, useRef } from 'react';
 // Iniciales de la comunidad sin contar «de», «la», «y»…: Taller de Redes → TR.
-const siglas = (nombre) => (nombre.split(/\s+/).filter((w) => w.length > 2).slice(0, 2).map((w) => w[0]).join('') || nombre.slice(0, 2)).toUpperCase();
+export const siglas = (nombre) => (nombre.split(/\s+/).filter((w) => w.length > 2).slice(0, 2).map((w) => w[0]).join('') || nombre.slice(0, 2)).toUpperCase();
 const ORIGEN = { conversacion: 'mensajes', canal: 'canalTexto', amistad: 'perfil', solicitud_canal:'privado', acceso_aceptado:'privado', acceso_rechazado:'privado', roles: 'ajustes', acceso: 'ajustes', baneo: 'ajustes', rehabilitado: 'ajustes' };
 
 export function haceCuanto(fecha, ahora = Date.now()) {
@@ -64,7 +56,7 @@ export default function NotificationToasts({avisos,onPrincipal,onSecundaria,onCe
   for(const [key] of current.current)if(!next.has(key))cerrarAviso(`actividad:${key}`);
   for(const a of avisos)if(current.current.get(a.key)!==next.get(a.key)){
    const content=contenidoDelAviso(a);
-   avisar({id:`actividad:${a.key}`,tipo:'info',titulo:content.titulo,texto:content.texto,foto:content.foto,nombre:content.nombre,duracion:7000,onDismiss:()=>callbacks.current.onCerrar(a.key),acciones:[{label:content.principal,fn:()=>callbacks.current.onPrincipal(a)},{label:content.secundaria,fn:()=>callbacks.current.onSecundaria(a)}]});
+   avisar({id:`actividad:${a.key}`,tipo:'info',titulo:content.titulo,texto:content.texto,foto:content.foto,nombre:content.nombre,siglas:content.canal?siglas(content.nombre??'#'):undefined,origen:ORIGEN[a.tipo],fecha:a.fecha,duracion:7000,onDismiss:()=>callbacks.current.onCerrar(a.key),acciones:[{label:content.principal,principal:true,fn:()=>callbacks.current.onPrincipal(a)},{label:content.secundaria,fn:()=>callbacks.current.onSecundaria(a)}]});
   }
   current.current=next;
  },[avisos]);
