@@ -23,7 +23,7 @@ test('quitar la foto actualiza el perfil con la respuesta del servidor',async()=
 });
 test('el nombre inválido no se envía y el color elegido se persiste con los datos válidos',async()=>{
   mock.patch.mockResolvedValue({usuario:{...mock.user,colorAvatar:'#156B64'}});render(<ProfileForm/>);fireEvent.change(screen.getByLabelText('Nombre visible'),{target:{value:'x'}});fireEvent.click(screen.getByText('Guardar cambios'));await screen.findByText('Tiene que tener entre 2 y 40 caracteres.');expect(mock.patch).not.toHaveBeenCalled();
-  fireEvent.change(screen.getByLabelText('Nombre visible'),{target:{value:'Ana'}});fireEvent.change(screen.getByLabelText('Color del avatar'),{target:{value:'#156B64'}});fireEvent.click(screen.getByText('Guardar cambios'));await waitFor(()=>expect(mock.patch).toHaveBeenCalledWith('/users/me',expect.objectContaining({colorAvatar:'#156B64',nombreVisible:'Ana'})));
+  fireEvent.change(screen.getByLabelText('Nombre visible'),{target:{value:'Ana'}});fireEvent.click(screen.getByRole('radio',{name:'Verde'}));fireEvent.click(screen.getByText('Guardar cambios'));await waitFor(()=>expect(mock.patch).toHaveBeenCalledWith('/users/me',expect.objectContaining({colorAvatar:'#156B64',nombreVisible:'Ana'})));
 });
 test('el acceso explica el cierre de sesión remoto',()=>{
   render(<MemoryRouter><LoginPage/></MemoryRouter>);expect(screen.getByRole('status')).toHaveTextContent('La sesión terminó');

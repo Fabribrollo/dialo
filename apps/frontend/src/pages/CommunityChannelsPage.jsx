@@ -1,3 +1,4 @@
+import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import {useGuardedAction} from '../context/UnsavedChangesContext.jsx';
 import {useDraftMap} from '../context/DraftsContext.jsx';
 import ChannelSettings from '../components/channels/ChannelSettings.jsx';
@@ -21,7 +22,7 @@ import VoiceSidePanel from '../components/calls/VoiceSidePanel.jsx';
 import ChatSearch from '../components/chat/ChatSearch.jsx';
 import Button from '../components/ui/Button.jsx';
 import Dialog from '../components/ui/Dialog.jsx';
-import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import Notice from '../components/ui/Notice.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { deleteChannel, orderChannels } from '../services/channelsService.js';
@@ -107,7 +108,7 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
           {canManage && <Button onClick={() => navigate(`${base}/nuevo`)}><Icon name="mas" size={15} stroke={2.2} />Crear canal</Button>}
         </span>
       </div>
-      {list.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando canales…</span> : <>
+      {list.loading ? <SkeletonRows rows={4} avatar={32} square label="Cargando canales…" /> : <>
         {!list.error && list.items.length === 0 && <EmptyState icon="canalTexto" title="No hay canales disponibles para tu cuenta." />}
         {list.items.length > 0 && <ChannelList items={list.items} base={base} canManage={canManage} disabled={busy || list.refreshing} onReorder={reorder}
           onEdit={(canal, el) => { editTrigger.current = el; setEditing(canal);setMode('settings'); }} />}

@@ -1,3 +1,4 @@
+import { SkeletonRows } from '../ui/Skeleton.jsx';
 import {useEffect,useRef,useState} from 'react';
 import {getChannelRequests,resolveChannelRequest,requestChannelAccess} from '../../services/channelsService.js';
 import {useSocket} from '../../hooks/useSocket.js';
@@ -18,7 +19,7 @@ export default function ChannelRequests({canal,onChanged,onCancel}) {
   async function resolve(q,aceptar){if(busy)return;setBusy(q.id);setError('');try{await resolveChannelRequest(canal.id,q.id,{aceptar,...(aceptar?{permisos:values[q.id]??['VER']}:{})});await load();onChanged();}catch(e){if(e.status===409)await load();setError(e.message);}finally{setBusy(null);}}
   return <div className="cpa"><h2 className="dsp">Solicitudes de acceso</h2><p className="li-sub">Elegí los permisos al aceptar. Solo el propietario y los administradores pueden resolver pedidos.</p>
     {error&&<Notice tone="error" title={error} actionLabel="Reintentar" onAction={load}/>}
-    {!items&&!error&&<p role="status">Cargando solicitudes…</p>}
+    {!items&&!error&&<SkeletonRows rows={2} avatar={36} action label="Cargando solicitudes…" />}
     {items?.length===0&&<EmptyState icon="privado" title="No hay solicitudes pendientes"/>}
     {items?.map(q=><Card key={q.id}><h3 className="page-h2">{q.membresia.usuario.nombreVisible}</h3><span className="li-sub">@{q.membresia.usuario.nombreUsuario}</span>
       <fieldset className="cpa-fields" disabled={busy!==null}><PermissionPills tipo={canal.tipo} label={`Permisos de ${q.membresia.usuario.nombreVisible}`} value={values[q.id]??['VER']} onChange={v=>setValues(old=>({...old,[q.id]:v}))}/>

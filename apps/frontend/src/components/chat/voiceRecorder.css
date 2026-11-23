@@ -1,0 +1,31 @@
+/* Barra de grabación: una píldora de vidrio con estado, tiempo y la onda real del micrófono. */
+.composer-bar .voice-recording{display:flex;align-items:center;gap:8px;width:100%;min-width:0;flex:1;animation:vr-in .22s cubic-bezier(.2,.9,.3,1.1)}
+.voice-recording .vr-track{position:relative;display:flex;align-items:center;gap:12px;flex:1;min-width:0;height:44px;padding:0 14px;border-radius:22px;background:linear-gradient(135deg,rgba(215,38,61,.07),rgba(106,60,245,.08));box-shadow:inset 0 0 0 1px rgba(215,38,61,.14),inset 0 1px 0 light-dark(rgba(255,255,255,.7), rgba(255,255,255,0.07));overflow:hidden}
+.voice-recording.vr-pausado .vr-track,.voice-recording.vr-listo .vr-track{background:light-dark(rgba(19,19,22,.045), rgba(242,241,245,0.052));box-shadow:inset 0 0 0 1px light-dark(rgba(19,19,22,.08), rgba(0,0,0,0.168))}
+.voice-recording.vr-enviando .vr-track{background:rgba(106,60,245,.08);box-shadow:inset 0 0 0 1px rgba(106,60,245,.18)}
+.voice-recording .vr-status{display:flex;align-items:center;gap:8px;flex:none}
+.voice-recording .record-dot{width:10px;height:10px;border-radius:50%;background:#d7263d;flex:none;box-shadow:0 0 0 0 rgba(215,38,61,.45)}
+.voice-recording .record-dot.active{animation:vr-pulse 1.4s ease-out infinite}
+.voice-recording.vr-pausado .record-dot,.voice-recording.vr-listo .record-dot{background:light-dark(#9a9ca5, #5d5f67)}
+.voice-recording .record-time{font-size:14px;font-weight:650;font-variant-numeric:tabular-nums;color:light-dark(#131316, #efedf6);min-width:34px}
+.voice-recording .vr-label{font-size:12px;color:light-dark(rgba(19,19,22,.64), rgba(239,237,246,0.64));white-space:nowrap}
+.voice-recording .record-wave{display:flex;align-items:center;justify-content:flex-end;gap:3px;flex:1;min-width:24px;max-width:none;height:28px;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent,#000 22%);mask-image:linear-gradient(90deg,transparent,#000 22%)}
+.voice-recording .record-wave i{display:block;flex:none;width:3px;height:100%;border-radius:3px;background:#d7263d;opacity:.75;transform:scaleY(.12);transform-origin:center;transition:transform .09s linear}
+.voice-recording .record-wave:not(.is-live) i{background:light-dark(#9a9ca5, #5d5f67);opacity:.6}
+.voice-recording.vr-enviando .record-wave i{background:var(--acc)}
+.voice-recording :is(.voice-discard,.voice-pause){width:40px;height:40px;border:0;border-radius:50%;display:grid;place-items:center;flex:none;padding:0;color:light-dark(#3d3946, #f0ebfc);background:light-dark(rgba(19,19,22,.05), rgba(242,241,245,0.057));cursor:pointer;transition:background-color .15s,color .15s}
+.voice-recording .voice-discard:hover{background:light-dark(#fde7ea, #2d1f21);color:light-dark(#b4142a, #ff7f7e)}
+.voice-recording .voice-pause:hover{background:light-dark(rgba(19,19,22,.09), rgba(242,241,245,0.103))}
+.voice-recording .voice-send{width:44px;height:44px;border:0;border-radius:50%;display:grid;place-items:center;flex:none;padding:0;color:#fff;background:var(--acc);box-shadow:0 6px 16px -6px rgba(106,60,245,.6);cursor:pointer;transition:transform .15s,filter .15s}
+.voice-recording .voice-send:hover:not(:disabled){filter:brightness(1.08);transform:scale(1.04)}
+.voice-recording .voice-send:disabled{opacity:.5;cursor:default;box-shadow:none}
+.voice-recording button:focus-visible{outline:2.5px solid var(--acc);outline-offset:2px}
+@keyframes vr-pulse{0%{box-shadow:0 0 0 0 rgba(215,38,61,.45)}70%{box-shadow:0 0 0 8px rgba(215,38,61,0)}100%{box-shadow:0 0 0 0 rgba(215,38,61,0)}}
+@keyframes vr-in{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:none}}
+@media(max-width:600px){
+ .composer-bar .voice-recording{gap:6px}
+ .voice-recording .vr-track{padding:0 12px;gap:8px}
+ .voice-recording .vr-label{display:none}
+ .voice-recording :is(.voice-discard,.voice-pause){width:36px;height:36px}
+}
+@media(prefers-reduced-motion:reduce){.composer-bar .voice-recording,.voice-recording .record-dot.active{animation:none}.voice-recording .record-wave i{transition:none}}

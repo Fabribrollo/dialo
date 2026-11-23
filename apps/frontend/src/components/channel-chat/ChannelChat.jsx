@@ -1,3 +1,4 @@
+import { SkeletonMessages } from '../ui/Skeleton.jsx';
 import {MessageInteractionContext,useMessageInteractions,PinnedMessages} from '../chat/MessageInteractions.jsx';
 import {groupAttachmentMessages} from '../../utils/attachmentAlbums.js';
 import AttachmentAlbum from '../../components/chat/AttachmentAlbum.jsx';
@@ -22,7 +23,6 @@ import { filterMessages } from '../chat/ChatSearch.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import Button from '../ui/Button.jsx';
 import EmptyState from '../ui/EmptyState.jsx';
-import { Spinner } from '../ui/Icon.jsx';
 import Notice from '../ui/Notice.jsx';
 import { distanciaAlFinal, fijarDistanciaAlFinal, formatDay } from '../../utils/chat.js';
 import '../../styles/dm.css';
@@ -129,7 +129,7 @@ export default function ChannelChat({ canal, draft, setDraft, buscar = '',setBus
         <SearchResults value={buscar} onChange={setBuscar} search={search} />
         <MediaGalleryProvider messages={history.messages} onDelete={borrar} canDelete={mayDelete} connected={history.connected}><ol className="dm-list" aria-label="Historial del canal">
           {history.cursor && <li className="dm-older" ref={olderRef}><Button size="sm" variant="secundario" loading={history.loadingOlder} disabled={history.loading} onClick={cargarAnteriores}>{history.loadingOlder ? 'Cargando…' : 'Cargar mensajes anteriores'}</Button></li>}
-          {history.loading && <li className="dm-opening" role="status"><Spinner size={17} />Cargando mensajes…</li>}
+          {history.loading && !history.messages.length && <li className="dm-skeleton"><SkeletonMessages /></li>}
           {history.ready && !history.messages.length && <li className="dm-empty"><EmptyState icon="canalTexto" title="Sin mensajes todavía">Este es el inicio del canal {canal.nombre}.</EmptyState></li>}
           {filas}
           {local.map((m) => <LocalMessage key={m.tempId} mensaje={m} onResend={(item, text) => deliver(text, item.tempId,item.idRespuesta)} onDiscard={(item) => setLocal((l) => l.filter((x) => x.tempId !== item.tempId))} />)}

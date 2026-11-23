@@ -1,3 +1,4 @@
+import Skeleton, { SkeletonMessages } from '../components/ui/Skeleton.jsx';
 import {DefaultProfile,openProfile} from '../components/shell/ProfileExplorer.jsx';
 import {MessageInteractionContext,useMessageInteractions,PinnedMessages} from '../components/chat/MessageInteractions.jsx';
 import {groupAttachmentMessages} from '../utils/attachmentAlbums.js';
@@ -25,7 +26,7 @@ import { distanciaAlFinal, fijarDistanciaAlFinal, formatDay } from '../utils/cha
 import { EVENTS } from '../constants/events.js';
 import Avatar from '../components/ui/Avatar.jsx';
 import Button from '../components/ui/Button.jsx';
-import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import Notice from '../components/ui/Notice.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { ConfirmDialog } from '../components/ui/Dialog.jsx';
@@ -170,7 +171,7 @@ function Chat({ id, draft, setDraft }) {
     );
   }
   if (!chat) {
-    return <div className="dm-center"><span className="dm-opening" role="status"><Spinner size={17} />Abriendo conversación…</span></div>;
+    return <div className="dm dm-loading"><div className="dm-head dm-head-skel" aria-hidden="true"><Skeleton width={56} height={56} radius="50%" /><span className="skel-lines"><Skeleton width="40%" height={22} /><Skeleton width="18%" height={11} /></span></div><SkeletonMessages count={7} label="Abriendo conversación…" /></div>;
   }
 
   const otro = chat.otroUsuario;
@@ -202,7 +203,7 @@ function Chat({ id, draft, setDraft }) {
                 <Button variant="secundario" size="sm" loading={history.loading} onClick={cargarAnteriores}>{history.loading ? 'Cargando…' : 'Cargar anteriores'}</Button>
               </li>
             )}
-            {history.loading && !history.messages.length && <li className="dm-opening" role="status"><Spinner size={17} />Cargando…</li>}
+            {history.loading && !history.messages.length && <li className="dm-skeleton"><SkeletonMessages /></li>}
             {!history.loading && !history.error && !history.messages.length && (
               <li className="dm-empty">
                 <EmptyState icon="mensajes" title="Sin mensajes">Todavía no hay mensajes con {nombre.split(' ')[0]}. Escribile algo.</EmptyState>

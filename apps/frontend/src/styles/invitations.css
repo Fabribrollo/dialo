@@ -4,12 +4,12 @@
 .ci-fields .fld { min-width: 180px; }
 .ci-fields .inp { height: 44px; }
 .ci-row { padding: 14px; }
-.ci-ic { width: 42px; height: 42px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center; background: rgba(19, 19, 22, .06); }
+.ci-ic { width: 42px; height: 42px; border-radius: 14px; flex: none; display: flex; align-items: center; justify-content: center; background: light-dark(rgba(19, 19, 22, .06), rgba(242,241,245,0.069)); }
 .ci-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
 .ci-code { font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; }
-.li-quiet.ci-revoke { color: #B4142C; }
+.li-quiet.ci-revoke { color: light-dark(#B4142C, #ff7f80); }
 .ci-manual { flex-basis: 100%; height: 40px; }
-.ci-msg { flex-basis: 100%; font-size: 12.5px; color: rgba(19, 19, 22, .64); padding-left: 54px; }
+.ci-msg { flex-basis: 100%; font-size: 12.5px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); padding-left: 54px; }
 .ci-msg:empty { display: none; }
 
 /* Si no entra al lado del enlace, los botones bajan a la línea de abajo en vez de apretar el texto. */

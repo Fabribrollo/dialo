@@ -1,14 +1,17 @@
 :root {
-  --acc: #6A3CF5;
-  --ink: #131316;
-  --ink-2: rgba(19, 19, 22, .56);
-  --ink-3: rgba(19, 19, 22, .5);
-  --bg: #ECEDF0;
-  --bg-board: #E0E1E6;
-  --chat-bg: #F9F9FB;
-  --av-bg: #D8D9DF;
+  color-scheme: light;
+  --acc: light-dark(#6A3CF5, #7a4dff);
+  /* El acento como texto necesita más luz sobre fondos oscuros. */
+  --acc-text: light-dark(#6A3CF5, #b69aff);
+  --ink: light-dark(#131316, #efedf6);
+  --ink-2: light-dark(rgba(19, 19, 22, .56), rgba(239,237,246,0.56));
+  --ink-3: light-dark(rgba(19, 19, 22, .5), rgba(239,237,246,0.5));
+  --bg: light-dark(#ECEDF0, #24222b);
+  --bg-board: light-dark(#E0E1E6, #201e26);
+  --chat-bg: light-dark(#F9F9FB, #28272f);
+  --av-bg: light-dark(#D8D9DF, #1d1b23);
   --danger: #D7263D;
-  --danger-text: #B4142C;
+  --danger-text: light-dark(#B4142C, #ff7f80);
   --online: #1FAE5B;
   --away: #F2B01E;
   --font-display: 'Schibsted Grotesk', system-ui, sans-serif;
@@ -19,5 +22,7 @@
   --r-input: 16px;
   --r-menu: 24px;
 }
+
+:root[data-theme=oscuro] { color-scheme: dark; }
 
 html, body { background: var(--bg); color: var(--ink); font-family: var(--font-ui); margin: 0; }

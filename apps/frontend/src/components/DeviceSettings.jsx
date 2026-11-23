@@ -20,9 +20,9 @@ export default function DeviceSettings() {
     if(busy)return;setBusy(true);const next={...prefs,silenciarNotificaciones:!prefs.silenciarNotificaciones};
     try{const {usuario:user}=await api.patch('/users/me/preferences',{silenciarNotificaciones:!!next.silenciarNotificaciones,audioInput:next.audioInput||'',audioOutput:next.audioOutput||'',videoInput:next.videoInput||''});setUsuario(user);setPrefs(next);avisar({texto:next.silenciarNotificaciones?'Notificaciones desactivadas.':'Notificaciones activadas.'});}catch(e){avisar({tipo:'error',texto:e.message});}finally{setBusy(false);}
   }
-  return <div className="settings-sections"><section className="device-settings notification-settings" aria-label="Notificaciones"><h2>Notificaciones</h2>
+  return <section className="set-card notification-settings" aria-labelledby="notif-titulo"><header className="set-head"><h2 id="notif-titulo">Notificaciones</h2><p>Avisos de mensajes, menciones y llamadas.</p></header>
     <button type="button" className="setting-toggle" role="switch" aria-checked={browser} disabled={permission==='denied'||permission==='unsupported'} onClick={toggleBrowser}><span><strong>Avisos del navegador o sistema</strong><small>{permission==='unsupported'?'No disponibles en este navegador. En móvil puede requerir instalar Dialo.':permission==='denied'?'Habilitalos desde los permisos del sitio.':'Avisos cuando Dialo está en segundo plano.'}</small></span><span className={`act-toggle ${browser?'on':''}`} aria-hidden="true"/></button>
     <button type="button" className="setting-toggle" role="switch" aria-checked={!!prefs.silenciarNotificaciones} disabled={busy} onClick={toggleSilence}><span><strong>Desactivar notificaciones</strong><small>Silencia avisos y tonos de llamadas.</small></span><span className={`act-toggle ${prefs.silenciarNotificaciones?'on':''}`} aria-hidden="true"/></button>
     {message&&<Notice title={message}/>}
-  </section></div>;
+  </section>;
 }

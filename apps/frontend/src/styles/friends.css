@@ -3,9 +3,9 @@
 .fr-tabs { width: min(458px, 100%); }
 .fr-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
 .fr-filter { width: min(320px, 100%); height: 42px; }
-.fr-count { font-size: 14px; color: rgba(19, 19, 22, .64); }
-.fr-note { display: flex; align-items: center; gap: 8px; margin: 0 0 10px 4px; font-size: 13px; color: rgba(19, 19, 22, .64); }
-.fr-none { margin: 0; font-size: 13px; color: rgba(19, 19, 22, .64); }
+.fr-count { font-size: 14px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
+.fr-note { display: flex; align-items: center; gap: 8px; margin: 0 0 10px 4px; font-size: 13px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
+.fr-none { margin: 0; font-size: 13px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
 .fr-search { display: flex; flex-direction: column; }
 .fr-search-inp { height: 52px; border-radius: 20px; font-size: 16px; margin-bottom: 16px; }
-.fr-search-inp:focus-within { box-shadow: inset 0 0 0 1.5px var(--acc), 0 0 0 4px color-mix(in srgb, var(--acc) 14%, transparent); background: #fff; }
+.fr-search-inp:focus-within { box-shadow: inset 0 0 0 1.5px var(--acc), 0 0 0 4px color-mix(in srgb, var(--acc) 14%, transparent); background: light-dark(#fff, #2a2931); }

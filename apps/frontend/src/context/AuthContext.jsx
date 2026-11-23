@@ -8,6 +8,8 @@ export function AuthProvider({ children }) {
   const [usuario, setUsuario] = useState(undefined);
   // Falla de red o del servidor al verificar la sesion.
   const [errorVerificacion, setErrorVerificacion] = useState(null);
+  // Quien cierra sesión a propósito vuelve a la página de inicio, no al formulario de login.
+  const [salio, setSalio] = useState(false);
 
   const estado =
     usuario === undefined ? (errorVerificacion ? 'error' : 'cargando') : usuario ? 'logueado' : 'noLogueado';
@@ -48,11 +50,13 @@ export function AuthProvider({ children }) {
   async function login(datos) {
     const data = await authService.login(datos);
     setAvisoSesion('');
+    setSalio(false);
     setUsuario(data.usuario);
   }
 
   async function register(datos) {
     const data = await authService.register(datos);
+    setSalio(false);
     setUsuario(data.usuario);
   }
 
@@ -60,6 +64,7 @@ export function AuthProvider({ children }) {
     try {
       await authService.logout();
     } finally {
+      setSalio(true);
       setUsuario(null);
     }
   }
@@ -68,6 +73,7 @@ export function AuthProvider({ children }) {
     usuario,
     avisoSesion,
     estado,
+    salio,
     errorVerificacion,
     login,
     register,

@@ -1,23 +1,23 @@
 .dlg {
   width: 520px; max-width: calc(100vw - 32px); border: 0; border-radius: 30px; padding: 26px; box-sizing: border-box;
   flex-direction: column; gap: 18px; color: var(--ink);
-  background: rgba(255, 255, 255, .96); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .8), 0 30px 70px -30px rgba(19, 19, 22, .4);
+  background: light-dark(rgba(255, 255, 255, .96), rgba(42,41,49,0.96)); box-shadow: inset 0 0 0 1px light-dark(rgba(255, 255, 255, .8), rgba(255,255,255,0.08)), 0 30px 70px -30px light-dark(rgba(19, 19, 22, .4), rgba(0,0,0,0.68));
 }
 .dlg[open] { display: flex; }
-.dlg::backdrop { background: rgba(236, 236, 240, .5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.dlg::backdrop { background: light-dark(rgba(236, 236, 240, .5), rgba(36,34,42,0.5)); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 
 .dlg-confirm {
-  width: 440px; border-radius: 28px; padding: 22px; gap: 14px; background: #fff;
-  box-shadow: 0 24px 60px -24px rgba(19, 19, 22, .45), inset 0 0 0 1px rgba(19, 19, 22, .05);
+  width: 440px; border-radius: 28px; padding: 22px; gap: 14px; background: light-dark(#fff, #2a2931);
+  box-shadow: 0 24px 60px -24px light-dark(rgba(19, 19, 22, .45), rgba(0,0,0,0.76)), inset 0 0 0 1px light-dark(rgba(19, 19, 22, .05), rgba(0,0,0,0.12));
 }
 .dlg-confirm h3 { margin: 0; font-family: var(--font-ui); font-size: 19px; font-weight: 700; letter-spacing: -.01em; line-height: 1.25; }
-.dlg-sub { font-size: 14px; color: rgba(19, 19, 22, .64); line-height: 1.45; }
+.dlg-sub { font-size: 14px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); line-height: 1.45; }
 .dlg-error { border-radius: 20px; background: rgba(215, 38, 61, .08); padding: 10px 12px; font-size: 13px; display: flex; gap: 10px; align-items: center; line-height: 1.4; }
-.dlg-error svg { color: #D7263D; flex: none; }
+.dlg-error svg { color: light-dark(#D7263D, #ff7f81); flex: none; }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
 .dlg-form { display: flex; flex-direction: column; gap: 14px; }
 .dlg-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
-.dlg-fieldset p { margin: 0; font-size: 14px; color: rgba(19, 19, 22, .64); line-height: 1.45; }
+.dlg-fieldset p { margin: 0; font-size: 14px; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); line-height: 1.45; }
 
-.dlg:has(.role-permissions){width:620px;max-height:calc(100dvh - 40px);overflow:auto;background:rgba(250,249,255,.97)}.dlg:has(.role-permissions) .dlg-actions{position:sticky;bottom:-22px;margin-bottom:-4px;padding:12px 0;background:rgba(250,249,255,.97)}
+.dlg:has(.role-permissions){width:620px;max-height:calc(100dvh - 40px);overflow:auto;background:light-dark(rgba(250,249,255,.97), rgba(41,39,47,0.97))}.dlg:has(.role-permissions) .dlg-actions{position:sticky;bottom:-22px;margin-bottom:-4px;padding:12px 0;background:light-dark(rgba(250,249,255,.97), rgba(41,39,47,0.97))}

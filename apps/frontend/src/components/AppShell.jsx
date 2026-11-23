@@ -1,3 +1,4 @@
+import { SkeletonRows } from './ui/Skeleton.jsx';
 import ProfileExplorer from './shell/ProfileExplorer.jsx';
 import '../styles/socialFeatures.css';
 import '../styles/refinamiento.css';
@@ -31,7 +32,7 @@ function Shell() {
     <a className="skip-link" href="#contenido">Saltar al contenido</a>
     <ThemeSync/><Sidebar />
     <RightPanelContext.Provider value={slot}>
-      <ProfileExplorer/><main id="contenido" className="win shell-main" tabIndex={-1}><ActiveCallBar /><Suspense fallback={<div className="route-loading" role="status">Cargando vista…</div>}><Outlet /></Suspense></main>
+      <ProfileExplorer/><main id="contenido" className="win shell-main" tabIndex={-1}><ActiveCallBar /><Suspense fallback={<div className="route-loading"><SkeletonRows rows={4} avatar={40} label="Cargando vista…" /></div>}><Outlet /></Suspense></main>
     </RightPanelContext.Provider>
     <div ref={setSlot} className="shell-right-slot" />
     {!chat && <MobileNav />}

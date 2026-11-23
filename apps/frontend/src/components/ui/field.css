@@ -3,11 +3,11 @@
 
 .inp {
   height: 46px; border-radius: 16px; padding: 0 14px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; font-size: 15px;
-  background: rgba(255, 255, 255, .82); box-shadow: inset 0 0 0 1px rgba(19, 19, 22, .1), inset 0 .5px 1px rgba(19, 19, 22, .025);
+  background: light-dark(rgba(255, 255, 255, .82), rgba(42,41,49,0.82)); box-shadow: inset 0 0 0 1px light-dark(rgba(19, 19, 22, .1), rgba(0,0,0,0.2)), inset 0 .5px 1px light-dark(rgba(19, 19, 22, .025), rgba(0,0,0,0.08));
 }
 .inp input, .inp textarea, .inp select {
   flex: 1; min-width: 0; width: auto; height: 100%; padding: 0; margin: 0; border: 0; border-radius: 0;
-  background: none; outline: none; font: inherit; color: #131316;
+  background: none; outline: none; font: inherit; color: light-dark(#131316, #efedf6);
 }
 .inp select { appearance: none; cursor: pointer; }
 .inp-select { position: relative; }
@@ -17,26 +17,59 @@
 .inp textarea { min-height: 86px; padding: 12px 0; line-height: 1.45; resize: none; }
 
 .inp:focus-within { box-shadow: inset 0 0 0 2px var(--acc), 0 0 0 5px color-mix(in srgb, var(--acc) 12%, transparent); }
-.inp-error, .inp-error:focus-within { box-shadow: inset 0 0 0 1.5px #D7263D; background: rgba(255, 255, 255, .9); }
-.inp-disabled { background: rgba(19, 19, 22, .04); color: rgba(19, 19, 22, .64); }
+.inp-error, .inp-error:focus-within { box-shadow: inset 0 0 0 1.5px #D7263D; background: light-dark(rgba(255, 255, 255, .9), rgba(42,41,49,0.9)); }
+.inp-disabled { background: light-dark(rgba(19, 19, 22, .04), rgba(242,241,245,0.046)); color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
 .inp-disabled input { color: inherit; }
 
-.srch { color: rgba(19, 19, 22, .64); }
+.srch { color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
 .srch svg { flex: none; }
 .fld-lg .inp { height: 50px; border-radius: 17px; }
-.fld-eye { display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; margin: -6px; border-radius: 50%; border: 0; padding: 0; background: none; cursor: pointer; color: rgba(19, 19, 22, .64); }
+.fld-eye { display: flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; margin: -6px; border-radius: 50%; border: 0; padding: 0; background: none; cursor: pointer; color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
 .fld-eye:focus-visible { outline: 2.5px solid var(--acc); outline-offset: 3px; border-radius: 4px; }
 
 .fld-error, .fld-note { font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
-.fld-error { color: #B4142C; font-weight: 500; }
-.fld-note { color: rgba(19, 19, 22, .64); }
+.fld-error { color: light-dark(#B4142C, #ff7f80); font-weight: 500; }
+.fld-note { color: light-dark(rgba(19, 19, 22, .64), rgba(239,237,246,0.64)); }
 
 .chkf { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; position: relative; }
 .chkf-input { position: absolute; opacity: 0; width: 22px; height: 22px; margin: 0; }
 .chk {
   width: 22px; height: 22px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; flex: none; margin-top: 1px;
-  box-shadow: inset 0 0 0 1.5px rgba(19, 19, 22, .25); color: #fff;
+  box-shadow: inset 0 0 0 1.5px light-dark(rgba(19, 19, 22, .25), rgba(0,0,0,0.44)); color: #fff;
 }
 .chkf-input:checked + .chk { background: var(--acc); box-shadow: none; }
 .chkf-input:focus-visible + .chk { outline: 2.5px solid var(--acc); outline-offset: 3px; }
 .chkf-label { font-size: 14.5px; font-weight: 600; }
+
+/* Lista desplegable con el estilo de la app. Los navegadores con select personalizable la dibujan con vidrio; el resto usa al menos los colores del tema. */
+.inp select option { background: light-dark(#fff, #2a2633); color: light-dark(#131316, #efedf6); }
+@supports (appearance: base-select) {
+  .inp select, .inp select::picker(select) { appearance: base-select; }
+  .inp select { width: 100%; }
+  .inp select::picker-icon { display: none; }
+  .inp select::picker(select) {
+    margin-top: 6px; padding: 6px; border: 0; border-radius: 18px; min-width: anchor-size(width);
+    background: light-dark(rgba(255, 255, 255, .92), rgba(46, 41, 60, .94));
+    -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(.9 * var(--spec, 1))), inset 0 0 0 1px light-dark(rgba(19, 19, 22, .06), rgba(255, 255, 255, .08)), 0 18px 40px -16px light-dark(rgba(40, 24, 90, .35), rgba(0, 0, 0, .6));
+    opacity: 1; transition: opacity .15s, translate .15s;
+  }
+  @starting-style { .inp select:open::picker(select) { opacity: 0; translate: 0 -4px; } }
+  .inp select option { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: transparent; font: inherit; font-size: 14px; cursor: pointer; }
+  .inp select option:hover, .inp select option:focus-visible { background: light-dark(rgba(19, 19, 22, .05), rgba(255, 255, 255, .07)); outline: none; }
+  .inp select option:checked { background: light-dark(rgba(106, 60, 245, .1), rgba(122, 77, 255, .22)); color: var(--acc-text); font-weight: 600; }
+  .inp select option::checkmark { order: 1; margin-left: auto; color: var(--acc-text); }
+  .inp select option:disabled { opacity: .45; cursor: default; }
+}
+
+/* Autocompletado del navegador: sin el bloque celeste recortado, el campo conserva su fondo y su borde redondeado. */
+.inp input:-webkit-autofill,
+.inp input:-webkit-autofill:hover,
+.inp input:-webkit-autofill:focus {
+  -webkit-text-fill-color: light-dark(#131316, #efedf6);
+  caret-color: light-dark(#131316, #efedf6);
+  -webkit-box-shadow: 0 0 0 1000px transparent inset;
+  box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 600000s 0s, color 600000s 0s;
+}
+.inp input:autofill { background-color: transparent; }

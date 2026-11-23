@@ -2,16 +2,16 @@
 .tli { width: 32px; height: 32px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; color: #fff; }
 .tl-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .tl-title { font-weight: 600; }
-.tl-text { color: rgba(19, 19, 22, .66); font-size: 13.5px; }
+.tl-text { color: light-dark(rgba(19, 19, 22, .66), rgba(239,237,246,0.66)); font-size: 13.5px; }
 .tl .tl-action { font-size: 13.5px; margin-top: 4px; align-self: flex-start; }
 
 .tl-error { background: rgba(215, 38, 61, .08); }
 .tl-error .tli { background: #D7263D; }
-.tl-error .tl-action { color: #B4142C; text-decoration-color: currentColor; }
+.tl-error .tl-action { color: light-dark(#B4142C, #ff7f80); text-decoration-color: currentColor; }
 
 .tl-exito { background: color-mix(in srgb, var(--acc) 9%, transparent); }
 .tl-exito .tli { background: var(--acc); }
 
-.tl-conflicto, .tl-espera { background: rgba(19, 19, 22, .05); }
-.tl-conflicto .tli, .tl-espera .tli { background: #131316; }
+.tl-conflicto, .tl-espera { background: light-dark(rgba(19, 19, 22, .05), rgba(242,241,245,0.057)); }
+.tl-conflicto .tli, .tl-espera .tli { background: light-dark(#131316, #323235); }
 .tl-conflicto .tl-action { text-decoration-color: currentColor; }

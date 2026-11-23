@@ -3,8 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import Icon from '../components/ui/Icon.jsx';
 import { createGlassStage, WORDS } from '../components/landing/glassStage.js';
-import { suckMap } from '../components/landing/suckMap.js';
-import { useVoiceLevels, VOCES } from '../components/landing/useVoiceLevels.js';
 import SignupBurst from '../components/landing/SignupBurst.jsx';
 import '../styles/landing.css';
 
@@ -19,6 +17,12 @@ const PROGRESO = [[0, 0.13], [0.13, 0.16], [0.29, 0.16], [0.45, 0.16], [0.61, 0.
 const CARACTERES = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnñopqrstuvwxyz0123456789#%&*+=?';
 const FIN_INICIO = 0.105;
 const EMPEZA = WORDS[WORDS.length - 1];
+const HERO = ['Donde se junta', 'tu gente'];
+const VOCES = [
+  { nombre: 'Cande', inicial: 'C', color: '#A0522D' },
+  { nombre: 'Tomi', inicial: 'T', color: '#131316' },
+  { nombre: 'Lu', inicial: 'L', color: '#3D5FC4' },
+];
 
 function reducido() {
   return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -27,14 +31,8 @@ function reducido() {
 export default function LandingPage() {
   const navigate = useNavigate();
   const raiz = useRef(null);
-  const capa = useRef(null);
-  const filtro = useRef(null);
-  const mapa = useRef(null);
-  const desplazamiento = useRef(null);
   const lienzo = useRef(null);
   const cta = useRef(null);
-  const ultimoY = useRef(0);
-  const deformacion = useRef(0);
   const escena = useRef({
     accent: ACENTO,
     view: lienzo,
@@ -43,14 +41,26 @@ export default function LandingPage() {
     mx: 0,
     my: 0,
     drop: -0.64,
-    hero: { lines: [], left: false, x: 0, y: 0 },
+    // En pantallas angostas el título va arriba y el vidrio flota debajo; en anchas, uno al lado del otro.
+    get hero() {
+      const angosta = typeof window !== 'undefined' && window.innerWidth / Math.max(1, window.innerHeight) < 0.85;
+      return angosta
+        ? { lines: HERO, left: true, tx: 0.07, ty: 250, wf: 0.86, max: 250, x: 0.1, y: -0.12 }
+        : { lines: HERO, left: true, tx: 0.06, ty: 410, wf: 0.6, max: 250, x: 0.7, y: 0.06 };
+    },
     empText: null,
   });
   const [sinGL, setSinGL] = useState(false);
   const [inicioOculto, setInicioOculto] = useState(false);
   const [palabraFinal, setPalabraFinal] = useState(EMPEZA);
   const [explosion, setExplosion] = useState(null);
-  const { letras, habla, micActivo, micError, alternarMic, empujar } = useVoiceLevels(5);
+  const [habla, setHabla] = useState(2);
+  // Quién habla en la llamada de ejemplo va rotando, como en un canal de voz real.
+  useEffect(() => {
+    if (reducido()) return undefined;
+    const id = setInterval(() => setHabla((h) => (h + 1) % VOCES.length), 3400);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     escena.current.noGL = () => setSinGL(true);
@@ -102,57 +112,15 @@ export default function LandingPage() {
     clearInterval(mezclar.current.ciclo);
   }, []);
 
-  const aplicarDeformacion = useCallback((p) => {
-    const el = capa.current;
-    const disp = desplazamiento.current;
-    if (!el || !disp) return;
-    const hp = Math.min(1, Math.max(0, p / 0.085));
-    const fuerza = hp * hp;
-    if (fuerza < 0.002 || !deformacion.current) {
-      el.style.filter = 'none';
-      disp.setAttribute('scale', '0');
-      return;
-    }
-    disp.setAttribute('scale', (2 * deformacion.current * fuerza * 1.15).toFixed(1));
-    el.style.filter = 'url(#landing-succion)';
-  }, []);
-
-  useEffect(() => {
-    const el = capa.current;
-    if (!el) return undefined;
-    function armar() {
-      const w = el.clientWidth;
-      const h = el.clientHeight;
-      if (!w || !h || !filtro.current || !mapa.current) return;
-      const m = suckMap(w, h);
-      if (!m) return;
-      deformacion.current = m.dmax;
-      for (const nodo of [filtro.current, mapa.current]) {
-        nodo.setAttribute('width', String(w));
-        nodo.setAttribute('height', String(h));
-      }
-      mapa.current.setAttribute('href', m.url);
-      aplicarDeformacion(escena.current.p);
-    }
-    armar();
-    if (typeof ResizeObserver !== 'function') return undefined;
-    const ro = new ResizeObserver(armar);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [aplicarDeformacion]);
-
   function alScrollear(e) {
     const el = e.currentTarget;
     const max = el.scrollHeight - el.clientHeight;
     const p = max > 0 ? el.scrollTop / max : 0;
-    empujar(el.scrollTop - ultimoY.current);
-    ultimoY.current = el.scrollTop;
     escena.current.p = p;
     raiz.current?.style.setProperty('--p', p.toFixed(4));
     const oculto = p > FIN_INICIO;
     if (oculto !== inicioOculto) setInicioOculto(oculto);
     cicloFinal(p > 0.765);
-    aplicarDeformacion(p);
   }
 
   function alMoverPuntero(e) {
@@ -177,11 +145,17 @@ export default function LandingPage() {
     });
   }
 
-  const irAlRegistro = useCallback(() => navigate('/register'), [navigate]);
+  // Baja hasta la primera escena del recorrido con el desplazamiento suave del navegador.
+  function verRecorrido() {
+    const el = raiz.current?.querySelector('.landing-scroll');
+    if (!el) return;
+    el.scrollTo({ top: (el.scrollHeight - el.clientHeight) * 0.2, behavior: reducido() ? 'auto' : 'smooth' });
+  }
 
-  const personas = micActivo
-    ? [{ nombre: 'Vos', inicial: 'V', color: ACENTO, estado: 'Hablando', activo: true }, ...VOCES.slice(0, 2).map((v) => ({ ...v, estado: 'Escuchando', activo: false }))]
-    : VOCES.map((v, i) => ({ ...v, estado: i === habla ? 'Hablando' : 'Escuchando', activo: i === habla }));
+  // El registro arranca con los íconos ya ubicados y el fondo igual al del final de la animación.
+  const irAlRegistro = useCallback(() => navigate('/register', { state: { desdeInicio: true } }), [navigate]);
+
+  const personas = VOCES.map((v, i) => ({ ...v, estado: i === habla ? 'Hablando' : 'Escuchando', activo: i === habla }));
 
   return (
     <div className={`landing${explosion ? ' bloqueada' : ''}`} ref={raiz} style={{ '--acc': ACENTO }}>
@@ -238,46 +212,17 @@ export default function LandingPage() {
             </div>
 
             <section className="landing-inicio" style={{ visibility: inicioOculto ? 'hidden' : 'visible' }} aria-label="Inicio">
-              <div className="landing-sumidero" aria-hidden="true" />
-              <svg width="0" height="0" aria-hidden="true" className="landing-defs">
-                <filter id="landing-tinta" x="-5%" y="-5%" width="110%" height="110%">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="7" result="n" />
-                  <feDisplacementMap in="SourceGraphic" in2="n" scale="4" xChannelSelector="R" yChannelSelector="G" />
-                </filter>
-                <filter id="landing-succion" ref={filtro} filterUnits="userSpaceOnUse" primitiveUnits="userSpaceOnUse" x="0" y="0" width="1440" height="900" colorInterpolationFilters="sRGB">
-                  <feImage ref={mapa} x="0" y="0" width="1440" height="900" preserveAspectRatio="none" result="m" />
-                  <feDisplacementMap ref={desplazamiento} in="SourceGraphic" in2="m" scale="0" xChannelSelector="R" yChannelSelector="G" />
-                </filter>
-              </svg>
-
-              <div className="landing-capa" ref={capa}>
-                <div className="landing-poster" aria-hidden="true">
-                  <div className="landing-linea">
-                    {['D', 'I', 'A'].map((l, i) => (
-                      <span key={l} className={`landing-letra l${i}`} ref={(n) => { letras.current[i] = n; }}>{l}</span>
-                    ))}
-                  </div>
-                  <div className="landing-linea segunda">
-                    {['L', 'O'].map((l, i) => (
-                      <span key={l} className={`landing-letra l${i + 3}`} ref={(n) => { letras.current[i + 3] = n; }}>{l}</span>
-                    ))}
-                  </div>
-                  <span className="landing-en-vivo"><span className="landing-punto" />estudio, en vivo</span>
-                </div>
-
+              {sinGL && <p className="landing-hero-plano" aria-hidden="true">{HERO.map((l) => <span key={l}>{l}</span>)}</p>}
+              <div className="landing-capa">
                 <div className="landing-texto">
                   <p>Entrá a un canal de voz cuando quieras, hablá con tu gente y salí con un toque. Sin llamar a nadie.</p>
                   <div className="landing-acciones">
                     <button type="button" className="landing-boton pr" onClick={crearCuenta}>Crear cuenta</button>
-                    <button type="button" className="landing-boton claro pr" onClick={alternarMic} aria-pressed={micActivo}>
-                      <Icon name="microfono" size={16} stroke={2.2} />
-                      {micActivo ? 'Dejar de escucharme' : 'Probar con tu voz'}
-                    </button>
+                    <button type="button" className="landing-boton claro pr" onClick={verRecorrido}>Ver cómo es</button>
                   </div>
-                  {micError && <p role="alert" className="landing-error">No pudimos usar el micrófono. Revisá el permiso del navegador y volvé a probar.</p>}
                 </div>
 
-                <div className="landing-personas" aria-live="polite">
+                <div className="landing-personas">
                   {personas.map((p) => (
                     <span key={p.nombre} className={`landing-persona${p.activo ? ' activa' : ''}`}>
                       <span className="landing-avatar" style={{ background: p.color }}>{p.inicial}</span>

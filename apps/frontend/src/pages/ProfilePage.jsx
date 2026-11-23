@@ -37,7 +37,8 @@ export default function ProfilePage() {
       </header>
       <div className="page-body page-body-profile">
         {error && <Notice tone="error" title="No se pudo cerrar la sesión" actionLabel="Reintentar" onAction={salir}>Revisá tu conexión y probá de nuevo.</Notice>}
-        <ProfileForm /><DeviceSettings /><AppearanceSettings/><BlockedUsers/>
+        <ProfileForm aside={<AppearanceSettings/>} />
+        <div className="pf-more"><DeviceSettings /><BlockedUsers/></div>
       </div>
     </div>
   );

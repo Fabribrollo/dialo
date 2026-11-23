@@ -1,3 +1,4 @@
+import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import { hasCommunityPermission } from '../utils/permissionCatalog.js';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
 import { useEffect, useRef, useState } from 'react';
@@ -5,7 +6,7 @@ import { useParams } from 'react-router';
 import Button from '../components/ui/Button.jsx';
 import Card, { ListRow } from '../components/ui/Card.jsx';
 import Field from '../components/ui/Field.jsx';
-import Icon, { Spinner } from '../components/ui/Icon.jsx';
+import Icon from '../components/ui/Icon.jsx';
 import Notice from '../components/ui/Notice.jsx';
 import '../styles/members.css';
 import '../styles/invitations.css';
@@ -96,7 +97,7 @@ export default function CommunityInvitationsPage() {
         </Card>
         <h2 className="page-h2 page-h2-gap">Activas</h2>
         {list.error && <Notice tone="error" title={list.error.message} actionLabel="Reintentar" onAction={list.reload} />}
-        {list.loading ? <span className="cm-state" role="status"><Spinner size={15} />Cargando invitaciones…</span> :
+        {list.loading ? <SkeletonRows rows={3} avatar={0} action label="Cargando invitaciones…" /> :
           list.items.length > 0 && <Card as="ul">{list.items.map((inv) => <InvitationRow key={inv.id} invitacion={inv} idComunidad={id}
             onRevoked={(revoked) => {
               list.mutate((old) => old.map((item) => item.id === revoked ? { ...item, estado: 'REVOCADA' } : item));
