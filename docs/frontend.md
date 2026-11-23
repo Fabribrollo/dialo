@@ -306,3 +306,7 @@ Ver [acciones, permisos y validación](menu-mensajes.md). Los tres puntos reúne
 ## Burbujas y fijados compactos
 
 Ver [estructura, navegación y validación](burbujas-fijados.md). Cada mensaje reúne sus elementos en una burbuja; el acceso al último mensaje tiene una fila propia y los fijados aparecen bajo la cabecera, con vista previa y navegación al original.
+
+## Creación de comunidades con IA (T-44 y T-45)
+
+`CommunityForm` conserva el modo manual y ofrece `CommunityDraftBuilder` para generar, editar y confirmar la estructura inicial. Se guardan por separado los nombres/privacidad de ambos modos. El formulario permite editar y ordenar canales, ajustar roles y permisos, descartar y volver a generar. Las respuestas tardías no reemplazan el modo manual. Una confirmación de resultado incierto conserva el mismo UUID y payload para reintentar sin duplicar. Ver [flujo y recorrido manual](comunidades-ia.md).

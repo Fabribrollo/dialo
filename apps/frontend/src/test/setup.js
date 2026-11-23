@@ -7,6 +7,18 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 afterEach(cleanup);
+
+// Las pruebas usan el almacenamiento del navegador simulado. Node puede
+// exponer su propio localStorage sin inicializar (por ejemplo, en Node 26).
+beforeEach(() => {
+  const storage = globalThis.jsdom.window.localStorage;
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    writable: true,
+    value: storage,
+  });
+  storage.clear();
+});
 HTMLDialogElement.prototype.showModal = function () {
   this.setAttribute("open", "");
 };

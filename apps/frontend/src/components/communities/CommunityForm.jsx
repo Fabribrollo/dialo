@@ -11,8 +11,17 @@ import Icon, { Spinner } from '../ui/Icon.jsx';
 import Notice from '../ui/Notice.jsx';
 import { COMMUNITY_ROLES } from '../../pages/CommunitiesPage.jsx';
 import './communityForm.css';
+import CommunityDraftBuilder from './CommunityDraftBuilder.jsx';
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
+function draftFieldLabel(path = '') {
+  const item = /^borrador\.(canales|roles)\.(\d+)/.exec(path);
+  if (item) return `${item[1] === 'canales' ? 'Canal' : 'Rol'} ${Number(item[2]) + 1}`;
+  if (path.includes('canales')) return 'Canales';
+  if (path.includes('roles')) return 'Roles';
+  return 'Comunidad';
+}
 
 function iniciales(nombre) {
   const t = nombre.trim();
@@ -42,7 +51,22 @@ export default function CommunityForm({ comunidad }) {
   const [touched, setTouched] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [busy, setBusy] = useState(false);
-  const {guard,markSaved}=useUnsavedChanges(nombre!==(comunidad?.nombre??'')||tipo!==(comunidad?.tipo??'PRIVADA')||Boolean(imagen),'Comunidad',JSON.stringify([nombre,tipo,imagen?.name]));
+  const [ai, setAi] = useState(false), [draft, setDraft] = useState(null), [purpose, setPurpose] = useState('');
+  const [generating, setGenerating] = useState(false), [uncertain, setUncertain] = useState(false);
+  const confirmation = useRef(null);
+  const manualDraft = useRef(null), aiIdentity = useRef(null);
+  function chooseMode(next) {
+    if (next === ai) return;
+    if (next) {
+      manualDraft.current = { nombre, tipo };
+      if (aiIdentity.current) { setNombre(aiIdentity.current.nombre); setTipo(aiIdentity.current.tipo); }
+    } else {
+      aiIdentity.current = { nombre, tipo };
+      if (manualDraft.current) { setNombre(manualDraft.current.nombre); setTipo(manualDraft.current.tipo); }
+    }
+    setError(null); setAi(next);
+  }
+  const {guard,markSaved}=useUnsavedChanges(nombre!==(comunidad?.nombre??'')||tipo!==(comunidad?.tipo??'PRIVADA')||Boolean(imagen)||Boolean(draft)||Boolean(purpose),'Comunidad',JSON.stringify([nombre,tipo,imagen?.name,draft,purpose]));
   const [created, setCreated] = useState(null);
   const inFlight = useRef(false);
   const saved = useRef(comunidad ?? null);
@@ -87,16 +111,24 @@ export default function CommunityForm({ comunidad }) {
 
   async function submit(event) {
     event?.preventDefault();
-    if (inFlight.current || !canManage) return;
+    if (inFlight.current || !canManage || generating) return;
     setTouched(true);
     if (!nombreOk) return;
+    if (ai && !saved.current && !draft) { setError({ message: 'Generá una propuesta o elegí Crear a mano.' }); return; }
     inFlight.current = true;
     setBusy(true);
     setError(null);
     let metadataSaved = false;
     try {
       const datos = { nombre: clean, tipo };
-      const response = saved.current ? await service.updateCommunity(saved.current.id, datos) : await service.createCommunity(datos);
+      let response;
+      if (saved.current) response = await service.updateCommunity(saved.current.id, datos);
+      else if (ai) {
+        // Se conserva exactamente el mismo envío si se pierde la respuesta del servidor.
+        confirmation.current ??= { clave: crypto.randomUUID(), borrador: { ...datos, canales: draft.canales, roles: draft.roles } };
+        response = await service.confirmCommunityDraft(confirmation.current);
+        setUncertain(false);
+      } else response = await service.createCommunity(datos);
       saved.current = response.comunidad;
       metadataSaved = true;
       remember(response.comunidad);
@@ -109,6 +141,10 @@ export default function CommunityForm({ comunidad }) {
       done(saved.current);
     } catch (e) {
       if (!alive.current) return;
+      if (ai && !metadataSaved) {
+        if (e.status >= 400 && e.status < 500 && !['CREATION_KEY_CONFLICT', 'CREATION_UNAVAILABLE'].includes(e.code)) confirmation.current = null;
+        else setUncertain(true);
+      }
       if (metadataSaved && e.code === 'IMAGE_BLOCKED') {
         clearImage();
         setBlocked(true);
@@ -160,7 +196,16 @@ export default function CommunityForm({ comunidad }) {
           </Card>
         ) : (
           <Card as="form" className="cf-form cf-in" onSubmit={submit} aria-busy={busy} noValidate>
-            {error && <div className="cf-notice"><Notice tone="error" title={error.message} /></div>}
+            {error && <div className="cf-notice"><Notice tone="error" title={error.message} />{error.details?.length > 0 && <ul>{error.details.map((d, i) => <li key={i}>{draftFieldLabel(d.campo)}: {d.message}</li>)}</ul>}</div>}
+            {uncertain && <div className="cf-notice"><Notice title="No pudimos confirmar el resultado. Reintentá el mismo envío para recuperar la comunidad sin duplicarla." /></div>}
+            {!editing && !created && <>
+              <div className="cd-mode" role="group" aria-label="Cómo crear la comunidad">
+                <Button variant={ai ? 'secundario' : 'primario'} aria-pressed={!ai} disabled={busy || uncertain} onClick={() => chooseMode(false)}>Crear a mano</Button>
+                <Button variant={ai ? 'primario' : 'secundario'} aria-pressed={ai} disabled={busy || uncertain} onClick={() => chooseMode(true)}>Ayudarme con IA</Button>
+              </div>
+              {ai && <CommunityDraftBuilder value={draft} onChange={setDraft} purpose={purpose} onPurpose={setPurpose} onBusy={setGenerating} disabled={busy || uncertain} onGenerated={proposal => { setDraft(proposal); setNombre(proposal.nombre); setTipo(proposal.tipo); setError(null); }} />}
+            </>}
+            <fieldset className="cd-main-fields" disabled={busy || generating || uncertain}>
             <div className="cf-sec">
               <span className="cf-hd"><span className="cf-n">1</span><span className="cf-t">Nombre</span></span>
               <div className="cf-body">
@@ -199,9 +244,10 @@ export default function CommunityForm({ comunidad }) {
               </div>
               {imageError && <span className="fld-error cf-body" role="alert"><Icon name="error" size={15} stroke={2} />{imageError}</span>}
             </div>
+            </fieldset>
             <div className="cf-foot">
               {!busy && <Button variant="secundario" onClick={() => guard(()=>navigate(cancelPath))}>Cancelar</Button>}
-              <Button type="submit" className="cf-submit" loading={busy} disabled={Boolean(imageError) || !nombreOk && touched}>{subLabel}</Button>
+              <Button type="submit" className="cf-submit" loading={busy} disabled={busy || generating || Boolean(imageError) || !nombreOk && touched}>{ai && !created ? uncertain ? 'Reintentar creación' : 'Confirmar y crear comunidad' : subLabel}</Button>
             </div>
           </Card>
         )}

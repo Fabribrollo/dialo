@@ -17,6 +17,8 @@ Las llamadas privadas y de canales usan LiveKit. La llamada privada ocupa el ár
 
 La revisión de chats, perfiles con portada, bloqueos, búsqueda por fecha y funciones pospuestas se describe en [Refinamiento de experiencia](docs/refinamiento-experiencia.md).
 
+La creación con IA permite generar, editar y confirmar una comunidad con sus canales y roles iniciales. Ver [T-44 y T-45](docs/comunidades-ia.md), configuración, migración y pruebas. El flujo manual sigue disponible sin proveedor IA.
+
 ## Estructura
 
 | Ruta | Contenido |

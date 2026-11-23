@@ -1,0 +1,12 @@
+.community-draft { display:grid; gap:16px; padding:24px; border-bottom:1px solid light-dark(rgba(19,19,22,.12),rgba(239,237,246,.16)); min-width:0; }
+.community-draft p { color:var(--ink-2); line-height:1.5; margin:0; }
+.cd-main-fields { border:0; margin:0; padding:0; min-width:0; }
+.cd-actions { display:flex; gap:8px; flex-wrap:wrap; }
+.cd-editor { display:grid; gap:16px; border:0; padding:0; min-width:0; }
+.cd-editor > legend { font-weight:700; margin-bottom:12px; }
+.cd-item { border:1px solid light-dark(rgba(19,19,22,.12),rgba(239,237,246,.16)); border-radius:16px; padding:16px; display:grid; gap:12px; min-width:0; }
+.cd-item > legend { font-weight:600; padding:0 6px; }
+.cd-fields { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:12px; }
+.cd-private { display:flex; align-items:center; gap:8px; }
+.cd-mode { display:flex; gap:8px; padding:20px 24px; flex-wrap:wrap; border-bottom:1px solid light-dark(rgba(19,19,22,.12),rgba(239,237,246,.16)); }
+@media(max-width:600px) { .community-draft {padding:16px;} .cd-fields { grid-template-columns:minmax(0,1fr); } .cd-mode{padding:16px;} }
