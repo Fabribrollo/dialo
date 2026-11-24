@@ -58,6 +58,7 @@ export default function LandingPage() {
   });
   const [sinGL, setSinGL] = useState(false);
   const [inicioOculto, setInicioOculto] = useState(false);
+  const [finalVisible, setFinalVisible] = useState(false);
   const [palabraFinal, setPalabraFinal] = useState(EMPEZA);
   const [explosion, setExplosion] = useState(null);
   const [habla, setHabla] = useState(2);
@@ -118,6 +119,14 @@ export default function LandingPage() {
     clearInterval(mezclar.current.ciclo);
   }, []);
 
+  // Si el scroll oculta el control enfocado, el teclado continúa en el recorrido.
+  useEffect(() => {
+    const active = document.activeElement;
+    if (raiz.current?.contains(active) && active.closest('[inert]')) {
+      raiz.current.querySelector('.landing-scroll')?.focus({ preventScroll: true });
+    }
+  }, [inicioOculto, finalVisible, explosion]);
+
   function alScrollear(e) {
     const el = e.currentTarget;
     const max = el.scrollHeight - el.clientHeight;
@@ -126,6 +135,7 @@ export default function LandingPage() {
     raiz.current?.style.setProperty('--p', p.toFixed(4));
     const oculto = p > FIN_INICIO;
     if (oculto !== inicioOculto) setInicioOculto(oculto);
+    setFinalVisible(p >= 0.82);
     cicloFinal(p > 0.765);
   }
 
@@ -156,6 +166,7 @@ export default function LandingPage() {
     const el = raiz.current?.querySelector('.landing-scroll');
     if (!el) return;
     el.scrollTo({ top: (el.scrollHeight - el.clientHeight) * 0.2, behavior: reducido() ? 'auto' : 'smooth' });
+    el.focus({ preventScroll: true });
   }
 
   // El registro arranca con los íconos ya ubicados y el fondo igual al del final de la animación.
@@ -164,11 +175,16 @@ export default function LandingPage() {
   const personas = VOCES.map((v, i) => ({ ...v, estado: i === habla ? 'Hablando' : 'Escuchando', activo: i === habla }));
 
   return (
-    <div className={`landing${explosion ? ' bloqueada' : ''}`} ref={raiz} style={{ '--acc': ACENTO }}>
-      <div className="landing-scroll" onScroll={alScrollear} onPointerMove={alMoverPuntero}>
+    <main className={`landing${explosion ? ' bloqueada' : ''}`} ref={raiz} style={{ '--acc': ACENTO }}>
+      <div className="landing-scroll" tabIndex={0} role="region" aria-label="Recorrido de Dialo" aria-describedby="landing-scroll-ayuda" onScroll={alScrollear} onPointerMove={alMoverPuntero}>
         <div className="landing-pista">
           <div className="landing-escena">
             <h1 className="sr-only">Dialo: mensajes, voz, video y comunidades con tu gente</h1>
+            <p id="landing-scroll-ayuda" className="sr-only">Desplazate para conocer las funciones. Con el recorrido enfocado, usá las flechas, Avanzar página o Fin. También podés entrar o crear una cuenta desde la navegación.</p>
+            <section className="sr-only" aria-label="Qué podés hacer en Dialo">
+              <h2>Mensajes, llamadas y comunidades</h2>
+              <ul>{FASES.map(f => <li key={f.palabra}>{f.texto}</li>)}</ul>
+            </section>
 
             {sinGL ? (
               <div className="landing-palabras" aria-hidden="true">
@@ -181,12 +197,11 @@ export default function LandingPage() {
               <canvas
                 ref={lienzo}
                 className="landing-lienzo"
-                role="img"
-                aria-label="Una pieza de vidrio que flota sobre la palabra y se transforma en mensaje, llamada, pantalla, comunidad y botón"
+                aria-hidden="true"
               />
             )}
 
-            <nav className="landing-nav" aria-label="Principal">
+            <nav className="landing-nav" aria-label="Principal" inert={finalVisible || Boolean(explosion)} aria-hidden={finalVisible || Boolean(explosion)}>
               <Link to="/inicio" className="landing-marca">
                 <svg width="40" height="25" viewBox="0 0 220 140" aria-hidden="true"><circle cx="80" cy="70" r="60" fill="#131316" /><circle cx="140" cy="70" r="60" style={{ fill: 'var(--acc)' }} /><path d="M110 18.04A60 60 0 0 1 110 121.96A60 60 0 0 1 110 18.04Z" fill="#fff" /></svg>
                 <span>dialo</span>
@@ -201,7 +216,7 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <div className="landing-final">
+            <div className="landing-final" inert={!finalVisible || Boolean(explosion)} aria-hidden={!finalVisible || Boolean(explosion)}>
               <div className="landing-cta" ref={cta}>
                 <button type="button" className="landing-cta-boton" onClick={crearCuenta}>
                   Crear cuenta
@@ -217,7 +232,7 @@ export default function LandingPage() {
               ))}
             </div>
 
-            <section className="landing-inicio" style={{ visibility: inicioOculto ? 'hidden' : 'visible' }} aria-label="Inicio">
+            <section className="landing-inicio" style={{ visibility: inicioOculto ? 'hidden' : 'visible' }} aria-label="Inicio" inert={inicioOculto || Boolean(explosion)} aria-hidden={inicioOculto || Boolean(explosion)}>
               {sinGL && <p className="landing-hero-plano" aria-hidden="true">{HERO.map((l) => <span key={l}>{l}</span>)}</p>}
               <div className="landing-capa">
                 <div className="landing-texto">
@@ -245,6 +260,6 @@ export default function LandingPage() {
       </div>
 
       {explosion && <SignupBurst origen={explosion} onTerminar={irAlRegistro} />}
-    </div>
+    </main>
   );
 }

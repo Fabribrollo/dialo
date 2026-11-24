@@ -15,6 +15,8 @@
 
 .landing-scroll { position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
 .landing-scroll::-webkit-scrollbar { width: 0; }
+.landing-scroll:focus-visible { outline: 3px solid var(--acc); outline-offset: -4px; }
+.landing [inert] { pointer-events: none; }
 .landing.bloqueada .landing-scroll { overflow-y: hidden; }
 .landing-pista { position: relative; height: 700vh; }
 .landing-escena { position: sticky; top: 0; height: 100vh; height: 100dvh; overflow: hidden; }
