@@ -1,0 +1,16 @@
+# Nada local entra en las imágenes: ni dependencias instaladas ni credenciales.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.env
+docker.env
+.git
+.github
+.vscode
+.idea
+**/*.log
+**/coverage
+apps/backend/uploads
+docs

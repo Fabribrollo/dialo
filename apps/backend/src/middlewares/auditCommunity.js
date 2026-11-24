@@ -3,6 +3,8 @@ import {trackEffect} from '../utils/backgroundEffects.js';
 // Audita cambios confirmados; nunca conserva cuerpos, mensajes ni credenciales.
 export const auditCommunity=kind=>async(req,res,next)=>{
  if(/\/(calls?|messages|suggestion)(\/|$)/.test(req.path))return next();
+ // Las medidas de moderación (F-14) registran su propio detalle: actor, destinatario y medida.
+ if(/\/(members\/\d+\/(silence|kick)|bans(\/\d+)?|moderation\/proposals(\/.*)?)$/.test(req.path))return next();
  const match=/^\/(\d+)(?:\/|$)/.exec(req.path);if(!match||!['POST','PUT','PATCH','DELETE'].includes(req.method))return next();
  const target=Number(match[1]);if(!Number.isSafeInteger(target)||target<1||target>2147483647)return next();
  const community=kind==='canal'?(await prisma.canal.findUnique({where:{id:target},select:{idComunidad:true}}))?.idComunidad:target;

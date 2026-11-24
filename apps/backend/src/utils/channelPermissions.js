@@ -17,8 +17,17 @@ export function effectiveChannelPermissions(canal,rol,idUsuario,roles=[]){
  const values=[...(canal.privado?[]:expandPermissions(canal.permisosGlobales??(canal.tipo==='TEXTO'?['ESCRIBIR']:['HABLAR']))),...expandPermissions(individual?.permisos),...roles.filter(r=>typeof r!=='number').flatMap(r=>expandPermissions(r.permisos))];
  const result=new Set(['VER',...values.filter(p=>allowed.includes(p)&&p!=='BANEAR')]);
  if((canal.silencios??[]).some(m=>m.idUsuario===idUsuario))result.delete('HABLAR');
+ for(const p of mutedPermissions(canal.comunidad?.silencios,idUsuario))result.delete(p);
  if(result.has('CAMARA')&&result.has('PANTALLA'))result.add('TRANSMITIR');
  return allowed.filter(p=>result.has(p));
+}
+// Silencio de comunidad (F-14): TEXTO quita escribir; VOZ quita micrófono, cámara y pantalla.
+const MUTED = { TEXTO: ['ESCRIBIR'], VOZ: ['HABLAR', 'CAMARA', 'PANTALLA', 'TRANSMITIR'] };
+export const activeSilence = (silencio, now = Date.now()) => !!silencio && (!silencio.fechaVencimiento || new Date(silencio.fechaVencimiento).getTime() > now);
+export function mutedPermissions(silencios, idUsuario, now = Date.now()) {
+ const silencio = (silencios ?? []).find(s => s.idUsuario === idUsuario);
+ if (!activeSilence(silencio, now)) return [];
+ return silencio.alcance === 'AMBOS' ? [...MUTED.TEXTO, ...MUTED.VOZ] : MUTED[silencio.alcance] ?? [];
 }
 export const canModerateChannel = (rol, permisos) => permisos.includes('VER') &&
   (['PROPIETARIO','ADMIN'].includes(rol) || permisos.includes('ELIMINAR_MENSAJES'));
@@ -28,7 +37,7 @@ export const channelSelect = {
   silencios:{select:{idUsuario:true}},
   permisosGlobales: true,
   id: true, idComunidad: true, nombre: true, tipo: true, privado: true, posicion: true, fechaCreacion: true,
-  comunidad: { select: { moderacionActiva: true } },
+  comunidad: { select: { moderacionActiva: true, silencios: { select: { idUsuario: true, alcance: true, fechaVencimiento: true } } } },
   habilitacionesRol: { select: { rol: true, permisos: true } },
   habilitacionesUsuario: { select: { idUsuario: true, permisos: true } },
   habilitacionesRolPersonalizado: { select: { idRol: true, permisos: true } },

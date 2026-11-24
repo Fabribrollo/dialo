@@ -33,7 +33,9 @@ import {
   createCommunitySchema,
   updateCommunitySchema,
 } from '../validations/communitiesValidation.js';
-import { updateModerationSchema } from '../validations/communityModerationValidation.js';
+import { updateModerationSchema, silenceMemberSchema, kickMemberSchema, proposalRequestSchema, proposalParamsSchema } from '../validations/communityModerationValidation.js';
+import { silenceMember, liftSilence, listSilences } from '../services/moderationMeasuresService.js';
+import { prepareProposal, confirmProposal, cancelProposal } from '../services/moderationProposalService.js';
 import { createInvitationSchema, invitationIdParamsSchema } from '../validations/invitationsValidation.js';
 import { listChannels, createChannel, reorderChannels } from '../controllers/channelsController.js';
 import { createChannelSchema, orderChannelsSchema } from '../validations/channelsValidation.js';
@@ -67,7 +69,26 @@ router.post('/:id/imagen', validate({ params: communityIdParamsSchema }), limitI
 router.delete('/:id', validate({ params: communityIdParamsSchema }), deleteCommunity);
 router.get('/:id/members', validate({ params: communityIdParamsSchema }), listMembers);
 router.patch('/:id/members/:idUsuario', validate({ params: communityMemberParamsSchema, body: updateMemberRolesSchema }), updateMemberRoles);
-router.post('/:id/members/:idUsuario/kick',validate({params:communityMemberParamsSchema,body:z.strictObject({})}),async(req,res)=>{await kickMember(req.validated.params.id,req.user.id,req.validated.params.idUsuario);res.status(204).end();});
+router.post('/:id/members/:idUsuario/kick',validate({params:communityMemberParamsSchema,body:kickMemberSchema}),async(req,res)=>{await kickMember(req.validated.params.id,req.user.id,req.validated.params.idUsuario,undefined,{motivo:req.validated.body.motivo});res.status(204).end();});
+// F-14 / T-50: silenciamiento de comunidad (texto, voz o ambos, con vencimiento).
+router.get('/:id/silences', validate({ params: communityIdParamsSchema }), async (req, res) => res.json({ items: await listSilences(req.validated.params.id, req.user.id) }));
+router.put('/:id/members/:idUsuario/silence', validate({ params: communityMemberParamsSchema, body: silenceMemberSchema }), async (req, res) => {
+  res.json(await silenceMember(req.validated.params.id, req.user.id, req.validated.params.idUsuario, req.validated.body));
+});
+router.delete('/:id/members/:idUsuario/silence', validate({ params: communityMemberParamsSchema }), async (req, res) => {
+  await liftSilence(req.validated.params.id, req.user.id, req.validated.params.idUsuario);
+  res.status(204).end();
+});
+// F-14 / T-51 y T-52: propuestas de moderación preparadas por IA.
+router.post('/:id/moderation/proposals', validate({ params: communityIdParamsSchema, body: proposalRequestSchema }), async (req, res) => {
+  res.json(await prepareProposal(req.validated.params.id, req.user.id, req.validated.body));
+});
+router.post('/:id/moderation/proposals/:idPropuesta/confirm', validate({ params: proposalParamsSchema, body: z.strictObject({}) }), async (req, res) => {
+  res.json(await confirmProposal(req.validated.params.id, req.validated.params.idPropuesta, req.user.id));
+});
+router.post('/:id/moderation/proposals/:idPropuesta/cancel', validate({ params: proposalParamsSchema, body: z.strictObject({}) }), async (req, res) => {
+  res.json(await cancelProposal(req.validated.params.id, req.validated.params.idPropuesta, req.user.id));
+});
 router.get('/:id/bans', validate({ params: communityIdParamsSchema }), listBans);
 router.put('/:id/bans/:idUsuario', validate({ params: communityMemberParamsSchema, body: banMemberSchema }), banMember);
 router.delete('/:id/bans/:idUsuario', validate({ params: communityMemberParamsSchema }), removeBan);

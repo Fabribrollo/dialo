@@ -5,8 +5,8 @@ export const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const sessionCookieOptions = {
   httpOnly: true,
-  secure: env.isProduction,
-  sameSite: env.isProduction ? 'none' : 'lax',
+  secure: env.cookieSecure ?? env.isProduction,
+  sameSite: env.cookieSameSite ?? (env.isProduction ? 'none' : 'lax'),
   maxAge: SESSION_DURATION_MS,
   path: '/',
 };

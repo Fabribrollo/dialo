@@ -8,6 +8,7 @@ import { AppError } from '../utils/AppError.js';
 import { usuarioPublicoSelect, toUsuarioPublico } from '../utils/selects.js';
 import { emitToCommunity, emitToUser, leaveCommunity } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
+import { protectModerationTarget, auditModeration, etiquetaDuracion } from './moderationMeasuresService.js';
 
 const banKey = (idComunidad, idUsuario) => ({ idComunidad_idUsuario: { idComunidad, idUsuario } });
 const lowerRoles = rol => rol === 'PROPIETARIO' ? ['ADMIN','INTEGRANTE','MODERADOR'] : ['INTEGRANTE','MODERADOR'];
@@ -40,8 +41,9 @@ export async function listBans(idComunidad, actor) {
   });
 }
 
-export async function banMember(idComunidad, actor, target, { motivo,duracion='PERMANENTE' }, idCanal) {
-  await withCommunityAccessChange(idComunidad, async (tx) => {
+// `options.inTx` corre en la misma transacción antes de banear (confirmación de propuestas, T-52).
+export async function banMember(idComunidad, actor, target, { motivo,duracion='PERMANENTE' }, idCanal, options = {}) {
+  return withCommunityAccessChange(idComunidad, async (tx) => {
     const context=await requireRole(idComunidad,actor,'ADMIN',tx);
     if(idCanal&&(await tx.canal.findUnique({where:{id:idCanal},select:{idComunidad:true}}))?.idComunidad!==idComunidad)throw new AppError(404,'CHANNEL_NOT_FOUND','El canal no existe');
     if(idCanal)await requireChannelPermission(idCanal,target,'VER',tx);
@@ -53,8 +55,12 @@ export async function banMember(idComunidad, actor, target, { motivo,duracion='P
     const member = await getMembership(idComunidad, target, tx);
     if (!member) throw new AppError(404, 'MEMBER_NOT_FOUND', 'El usuario no es integrante de esta comunidad');
     requireTarget(actor, target, rol, member.rol);
+    protectModerationTarget(actor, target, rol, member.rol);
+    await options.inTx?.(tx);
     await tx.comunidadBaneo.create({ data: { idComunidad, idUsuario: target, idAutor: actor, rolAnterior: member.rol, motivo,fechaVencimiento:duracion==='PERMANENTE'?null:new Date(Date.now()+(duracion==='30_MIN'?30*60:5*60*60)*1000) } });
     await tx.membresia.delete({ where: banKey(idComunidad, target) });
+    const handle = (await tx.usuario.findUnique({ where: { id: target }, select: { nombreUsuario: true } }))?.nombreUsuario;
+    await auditModeration(tx, idComunidad, options.auditActor ?? actor, `${options.auditPrefix ?? ''}Baneó a @${handle} (${etiquetaDuracion(duracion)})${motivo ? `. Motivo: ${motivo}` : ''}`);
     const canales = await tx.canal.findMany({ where: { idComunidad }, select: { id: true } });
     return { notices: await securityNotice(tx, [target], 'baneo', idComunidad), channels: canales.map(({ id }) => id), staff: await staffIds(tx, idComunidad, member.rol) };
   }, undefined, (result) => {
@@ -74,6 +80,8 @@ export async function removeBan(idComunidad, actor, target) {
     requireTarget(actor, target, rol, existing?.rolAnterior);
     if (!existing) return null;
     await tx.comunidadBaneo.delete({ where: banKey(idComunidad, target) });
+    const handle = (await tx.usuario.findUnique({ where: { id: target }, select: { nombreUsuario: true } }))?.nombreUsuario;
+    await auditModeration(tx, idComunidad, actor, `Levantó el baneo de @${handle}`);
     return { staff: await staffIds(tx, idComunidad, existing.rolAnterior), notices: await securityNotice(tx, [target], 'rehabilitado', idComunidad) };
   }, undefined, (result) => { if (result) { publishNotices(result.notices); notifyStaff(idComunidad, result.staff); } });
 }

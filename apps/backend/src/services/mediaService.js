@@ -40,9 +40,10 @@ const noDisponible = () => new AppError(503, 'MEDIA_UNAVAILABLE', 'Las llamadas 
 const esNoEncontrado = (error) => error?.code === 'not_found' || error?.status === 404;
 
 // Unico lugar que habla con LiveKit. El resto del backend usa estas funciones.
-export function crearAdaptadorMedia({ url, apiKey, apiSecret, roomService } = {}) {
+// `apiUrl` es opcional: en Docker el backend llega a LiveKit por la red interna y el navegador por `url`.
+export function crearAdaptadorMedia({ url, apiUrl, apiKey, apiSecret, roomService } = {}) {
   const configurado = Boolean(url && apiKey && apiSecret);
-  const rooms = roomService ?? (configurado ? new RoomServiceClient(url.replace(/^ws/, 'http'), apiKey, apiSecret) : null);
+  const rooms = roomService ?? (configurado ? new RoomServiceClient((apiUrl || url).replace(/^ws/, 'http'), apiKey, apiSecret) : null);
   const receptor = configurado ? new WebhookReceiver(apiKey, apiSecret) : null;
 
   const exigir = () => { if (!configurado) throw noDisponible(); };
@@ -176,7 +177,7 @@ export function crearAdaptadorMedia({ url, apiKey, apiSecret, roomService } = {}
   };
 }
 
-export const media = crearAdaptadorMedia({ url: env.livekitUrl, apiKey: env.livekitApiKey, apiSecret: env.livekitApiSecret });
+export const media = crearAdaptadorMedia({ url: env.livekitUrl, apiUrl: env.livekitApiUrl, apiKey: env.livekitApiKey, apiSecret: env.livekitApiSecret });
 
 const oyentes = new Set();
 // T-35 se registra aca para mantener los participantes reales y revisar cada ingreso.

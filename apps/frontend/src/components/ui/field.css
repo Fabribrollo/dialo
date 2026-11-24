@@ -45,7 +45,7 @@
 .inp select option { background: light-dark(#fff, #2a2633); color: light-dark(#131316, #efedf6); }
 @supports (appearance: base-select) {
   .inp select, .inp select::picker(select) { appearance: base-select; }
-  .inp select { width: 100%; }
+  .inp select { width: 100%; display: flex; align-items: center; }
   .inp select::picker-icon { display: none; }
   .inp select::picker(select) {
     margin-top: 6px; padding: 6px; border: 0; border-radius: 18px; min-width: anchor-size(width);

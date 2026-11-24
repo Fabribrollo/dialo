@@ -10,7 +10,7 @@ import Notice from '../components/ui/Notice.jsx';
 import '../styles/page.css';
 import '../styles/communitiesList.css';
 
-export const COMMUNITY_ROLES = { PROPIETARIO: 'Propietario', ADMIN: 'Admin', INTEGRANTE: 'Integrante' };
+export const COMMUNITY_ROLES = { PROPIETARIO: 'Propietario', ADMIN: 'Admin', MODERADOR: 'Moderador', INTEGRANTE: 'Integrante' };
 
 export default function CommunitiesPage() {
   const { items, loading, error, reload } = useCommunities();

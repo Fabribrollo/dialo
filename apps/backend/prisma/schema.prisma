@@ -108,6 +108,11 @@ model Usuario {
   membresias           Membresia[]
   baneosRecibidos      ComunidadBaneo[] @relation("UsuarioBaneado")
   baneosAplicados      ComunidadBaneo[] @relation("AutorBaneo")
+  silenciosRecibidos   SilencioComunidad[] @relation("UsuarioSilenciado")
+  silenciosAplicados   SilencioComunidad[] @relation("AutorSilencio")
+  propuestasSolicitadas PropuestaModeracion[] @relation("PropuestaSolicitante")
+  propuestasRecibidas   PropuestaModeracion[] @relation("PropuestaDestinatario")
+  propuestasConfirmadas PropuestaModeracion[] @relation("PropuestaConfirmador")
   invitacionesCreadas  Invitacion[]          @relation("InvitacionCreador")
   participacionLlamada ParticipanteLlamada?
   bloqueosMensaje BloqueoMensaje[]
@@ -265,6 +270,8 @@ model Comunidad {
   canales      Canal[]
   rolesPersonalizados RolPersonalizado[]
   baneos ComunidadBaneo[]
+  silencios SilencioComunidad[]
+  propuestasModeracion PropuestaModeracion[]
   reglasModeracion ReglaModeracion[]
   bloqueosMensaje BloqueoMensaje[]
 
@@ -301,6 +308,74 @@ model ComunidadBaneo {
   @@index([idUsuario])
   @@index([idAutor])
   @@map("comunidad_baneo")
+}
+
+enum AlcanceSilencio {
+  TEXTO
+  VOZ
+  AMBOS
+
+  @@map("alcance_silencio")
+}
+
+enum MedidaModeracion {
+  SILENCIAR
+  EXPULSAR
+  BANEAR
+
+  @@map("medida_moderacion")
+}
+
+enum EstadoPropuesta {
+  PENDIENTE
+  CONFIRMADA
+  CANCELADA
+
+  @@map("estado_propuesta")
+}
+
+// Silencio de comunidad (F-14): limita escribir y/o hablar en todos sus canales mientras esté vigente.
+model SilencioComunidad {
+  idComunidad      Int             @map("id_comunidad")
+  idUsuario        Int             @map("id_usuario")
+  idAutor          Int?            @map("id_autor")
+  alcance          AlcanceSilencio
+  motivo           String?         @db.VarChar(300)
+  fechaVencimiento DateTime?       @map("fecha_vencimiento")
+  fechaCreacion    DateTime        @default(now()) @map("fecha_creacion")
+
+  comunidad Comunidad @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+  usuario   Usuario   @relation("UsuarioSilenciado", fields: [idUsuario], references: [id], onDelete: Cascade)
+  autor     Usuario?  @relation("AutorSilencio", fields: [idAutor], references: [id], onDelete: SetNull)
+
+  @@id([idComunidad, idUsuario])
+  @@index([idUsuario])
+  @@map("silencio_comunidad")
+}
+
+// Medida preparada con IA: se confirma o cancela tal como se revisó.
+model PropuestaModeracion {
+  id               Int              @id @default(autoincrement()) @map("id_propuesta")
+  idComunidad      Int              @map("id_comunidad")
+  idSolicitante    Int              @map("id_solicitante")
+  idDestinatario   Int              @map("id_destinatario")
+  idConfirmador    Int?             @map("id_confirmador")
+  medida           MedidaModeracion
+  alcance          AlcanceSilencio?
+  duracion         String           @db.VarChar(16)
+  motivo           String?          @db.VarChar(300)
+  estado           EstadoPropuesta  @default(PENDIENTE)
+  fechaCreacion    DateTime         @default(now()) @map("fecha_creacion")
+  fechaVencimiento DateTime         @map("fecha_vencimiento")
+  fechaResolucion  DateTime?        @map("fecha_resolucion")
+
+  comunidad    Comunidad @relation(fields: [idComunidad], references: [id], onDelete: Cascade)
+  solicitante  Usuario   @relation("PropuestaSolicitante", fields: [idSolicitante], references: [id], onDelete: Cascade)
+  destinatario Usuario   @relation("PropuestaDestinatario", fields: [idDestinatario], references: [id], onDelete: Cascade)
+  confirmador  Usuario?  @relation("PropuestaConfirmador", fields: [idConfirmador], references: [id], onDelete: SetNull)
+
+  @@index([idComunidad, id])
+  @@map("propuesta_moderacion")
 }
 
 model Membresia {
