@@ -30,6 +30,12 @@ function reducido() {
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  // Título propio de la página pública; al salir vuelve el de la app.
+  useEffect(() => {
+    const previo = document.title;
+    document.title = 'Dialo: mensajes, voz y comunidades';
+    return () => { document.title = previo; };
+  }, []);
   const raiz = useRef(null);
   const lienzo = useRef(null);
   const cta = useRef(null);

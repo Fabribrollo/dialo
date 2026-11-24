@@ -28,6 +28,7 @@ export const EVENTS = {
   COMMUNITY_UPDATED: 'community:updated',
   COMMUNITY_DELETED: 'community:deleted',
   COMMUNITY_BANS_CHANGED: 'community:bans-changed',
+  COMMUNITY_MODERATION_CHANGED: 'community:moderation-members-changed',
   COMMUNITY_LEFT: 'community:left',
   COMMUNITY_MEMBER_JOINED: 'community:member-joined',
   COMMUNITY_MEMBER_LEFT: 'community:member-left',

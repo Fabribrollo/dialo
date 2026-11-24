@@ -1,5 +1,6 @@
 import { SkeletonRows } from '../components/ui/Skeleton.jsx';
-import { api } from '../services/api.js';
+import { kickCommunityMember, getCommunitySilences } from '../services/communityModerationService.js';
+import { ModerationAssistant, SilenceMemberDialog, LiftSilenceDialog, canSilence, canSilenceMember, canUseAssistant, silenceLabel } from '../components/communities/MemberModeration.jsx';
 import CommunityActionDialog from '../components/communities/CommunityActionDialog.jsx';
 import OwnershipTransfer from '../components/communities/OwnershipTransfer.jsx';
 import { CommunityShell } from '../components/communities/CommunityNav.jsx';
@@ -35,7 +36,9 @@ export default function CommunityMembersPage() {
   const [kicking,setKicking]=useState(null);
   const catalog = useCommunityCollection(id, getCommunityRoles, (['ADMIN','PROPIETARIO'].includes(actor)||permissions.includes('GESTIONAR_ROLES')));
   const [editing, setEditing] = useState(null), [notice, setNotice] = useState(null);
-  const [banning, setBanning] = useState(null);
+  const [banning, setBanning] = useState(null), [silencing, setSilencing] = useState(null);
+  const silences = useCommunityCollection(id, getCommunitySilences, canSilence(actor, permissions));
+  const silenceOf = new Map(silences.items.map((s) => [s.usuario.id, s]));
   const trigger = useRef(null), heading = useRef(null);
   const active = editing?.id === id ? editing.member : null;
   const banTarget = banning?.id === id ? banning.member : null;
@@ -43,9 +46,11 @@ export default function CommunityMembersPage() {
   useEffect(() => {
     if (!socket) return;
     const update = () => list.reload();
+    const moderation = ({ idComunidad }) => { if (idComunidad === id) silences.reload(); };
     socket.on(EVENTS.USER_UPDATED, update);
-    return () => socket.off(EVENTS.USER_UPDATED, update);
-  }, [socket, list.reload]);
+    socket.on(EVENTS.COMMUNITY_MODERATION_CHANGED, moderation);
+    return () => { socket.off(EVENTS.USER_UPDATED, update); socket.off(EVENTS.COMMUNITY_MODERATION_CHANGED, moderation); };
+  }, [socket, id, list.reload, silences.reload]);
   const [busqueda, setBusqueda] = useState('');
   const visibles = list.items.filter((m) => `${m.usuario.nombreVisible} ${m.usuario.nombreUsuario}`.toLowerCase().includes(busqueda.trim().toLowerCase()));
   if (!detail.comunidad) return <div className="page"><div className="page-body"><CommunityState {...detail} /></div></div>;
@@ -54,6 +59,7 @@ export default function CommunityMembersPage() {
       {detail.error && <Notice tone="error" title="No se pudo actualizar la comunidad." actionLabel="Reintentar" onAction={detail.reload} />}
       {notice?.id === id && <Notice tone="exito" title={notice.message} />}
       {list.error && <Notice tone="error" title={list.error.message} actionLabel="Reintentar" onAction={list.reload} />}
+      {canUseAssistant(actor, permissions) && <ModerationAssistant id={id} onApplied={() => { list.reload(); silences.reload(); }} />}
       {list.loading ? <SkeletonRows rows={5} avatar={40} action label="Cargando integrantes…" /> : <>
         <div className="cm-bar">
           <SearchInput className="cm-search" label="Buscar integrante" placeholder="Buscar integrante" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
@@ -65,6 +71,7 @@ export default function CommunityMembersPage() {
           <span className="cm-roles">
             <span className="bdg bdg-base">{['PROPIETARIO', 'ADMIN'].includes(member.rol) && <Icon name="corona" size={12} stroke={2} />}{COMMUNITY_ROLES[member.rol]}</span>
             {member.rolesPersonalizados?.map((role) => <span key={role.id} className="bdg bdg-acento member-role-chip" title={role.nombre}><span className="member-role-dot"/>{role.nombre}</span>)}
+            {silenceOf.has(member.usuario.id) && <span className="bdg bdg-silencio" title={silenceLabel(silenceOf.get(member.usuario.id))}><Icon name="silenciado" size={12} stroke={2} />Silenciado</span>}
           </span>
           <span className="member-actions">
           {!list.error && canManageMember(actor, usuario.id, member,permissions) && <Button size="sm" variant="secundario"
@@ -79,6 +86,12 @@ export default function CommunityMembersPage() {
               setNotice(null);
               setBanning({ id, member });
             }}>Banear</button>}
+          {!list.error && canSilenceMember(actor, usuario.id, member, permissions) && <button type="button" className="li-quiet pr"
+            aria-label={`${silenceOf.has(member.usuario.id) ? 'Quitar el silencio de' : 'Silenciar a'} ${member.usuario.nombreVisible}`} onClick={(e) => {
+              trigger.current = e.currentTarget;
+              setNotice(null);
+              setSilencing({ id, member, silencio: silenceOf.get(member.usuario.id) ?? null });
+            }}>{silenceOf.has(member.usuario.id) ? 'Quitar silencio' : 'Silenciar'}</button>}
           {member.usuario.id!==usuario.id&&member.rol!=='PROPIETARIO'&&(member.rol!=='ADMIN'||actor==='PROPIETARIO')&&['ADMIN','PROPIETARIO'].includes(actor)&&<button type="button" className="li-quiet cm-ban pr" onClick={e=>{trigger.current=e.currentTarget;setKicking(member);}}>Echar</button>}
           </span>
         </ListRow>)}</Card>}
@@ -90,7 +103,13 @@ export default function CommunityMembersPage() {
         original={banTarget} member={list.items.find((member) => member.usuario.id === banTarget.usuario.id)}
         list={list} returnFocusRef={trigger} fallbackFocusRef={heading}
         onClose={(message) => { setBanning(null); if (message) setNotice({ id, message }); }} />}
-      {kicking&&<CommunityActionDialog title={`¿Echar a ${kicking.usuario.nombreVisible}?`} description="Perderá su membresía, roles y permisos. Podrá volver con una invitación válida." confirmLabel="Echar integrante" returnFocusRef={trigger} onClose={()=>setKicking(null)} onConfirm={async()=>{await api.post(`/communities/${id}/members/${kicking.usuario.id}/kick`,{});setKicking(null);list.reload();}}/>}
+      {kicking&&<CommunityActionDialog title={`¿Echar a ${kicking.usuario.nombreVisible}?`} description="Perderá su membresía, roles y permisos. Podrá volver con una invitación válida." confirmLabel="Echar integrante" returnFocusRef={trigger} onClose={()=>setKicking(null)} onConfirm={async()=>{await kickCommunityMember(id,kicking.usuario.id);setKicking(null);list.reload();}}/>}
+      {silencing?.id === id && (silencing.silencio
+        ? <LiftSilenceDialog id={id} member={silencing.member} silencio={silencing.silencio} returnFocusRef={trigger} fallbackFocusRef={heading}
+            onDone={silences.reload} onClose={(message) => { setSilencing(null); if (message) setNotice({ id, message }); }} />
+        : <SilenceMemberDialog id={id} member={silencing.member} returnFocusRef={trigger} fallbackFocusRef={heading}
+            blocked={list.error || !canSilenceMember(actor, usuario.id, list.items.find((m) => m.usuario.id === silencing.member.usuario.id), permissions) ? 'Ya no podés silenciar a este integrante.' : ''}
+            onDone={silences.reload} onClose={(message) => { setSilencing(null); if (message) setNotice({ id, message }); }} />)}
       {active && <MemberRolesDialog key={`${id}:${active.usuario.id}`} id={id} actor={actor} permissions={permissions} userId={usuario.id}
         original={active} member={list.items.find((member) => member.usuario.id === active.usuario.id)}
         catalog={catalog} list={list} detail={detail} returnFocusRef={trigger} fallbackFocusRef={heading}

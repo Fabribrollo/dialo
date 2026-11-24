@@ -1,3 +1,4 @@
+import { activeSilence } from '../utils/channelPermissions.js';
 import { communityPermissions, requireCommunityPermission } from './communityPermissionsService.js';
 import { prisma } from '../prisma/client.js';
 import { closeCommunity, emitToCommunity, emitToUser, joinCommunity, leaveCommunity } from '../sockets/emitter.js';
@@ -132,7 +133,8 @@ export async function getCommunity(idComunidad, idUsuario, db = prisma) {
   const { rol } = await requireRole(idComunidad, idUsuario, 'INTEGRANTE', db);
   const comunidad = await db.comunidad.findUnique({ where: { id: idComunidad }, select: comunidadSelect });
   if (!comunidad) throw new AppError(404, 'COMMUNITY_NOT_FOUND', 'La comunidad no existe');
-  return {...toComunidad(comunidad, rol),misPermisos:(await communityPermissions(idComunidad,idUsuario,db)).permisos};
+  const silencio = await db.silencioComunidad.findUnique({ where: { idComunidad_idUsuario: { idComunidad, idUsuario } }, select: { alcance: true, fechaVencimiento: true } });
+  return {...toComunidad(comunidad, rol),misPermisos:(await communityPermissions(idComunidad,idUsuario,db)).permisos,miSilencio:activeSilence(silencio)?silencio:null};
 }
 
 async function saveChanges(idComunidad, rol, data) {

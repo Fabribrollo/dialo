@@ -1,0 +1,16 @@
+# LiveKit local para desarrollo y demo. Clave y secreto de ejemplo: no usar en producción.
+port: 7880
+log_level: info
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  # El navegador corre en la misma máquina que Docker.
+  node_ip: 127.0.0.1
+  use_external_ip: false
+keys:
+  dialo-local: dialo-local-secreto-de-desarrollo-123456
+webhook:
+  api_key: dialo-local
+  urls:
+    - http://backend:3000/api/media/webhook

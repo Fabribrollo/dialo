@@ -39,7 +39,9 @@
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
-    "test:community-proposals": "node --test test/community-proposals.test.js"
+    "test:community-proposals": "node --test test/community-proposals.test.js",
+    "test:moderation-rules": "node --test test/moderation-rules.test.js",
+    "test:moderation": "node --test test/moderation-rules.test.js test/moderation.integration.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

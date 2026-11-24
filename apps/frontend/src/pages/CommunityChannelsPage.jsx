@@ -26,12 +26,26 @@ import Icon from '../components/ui/Icon.jsx';
 import Notice from '../components/ui/Notice.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
 import { deleteChannel, orderChannels } from '../services/channelsService.js';
+import { useSocket } from '../hooks/useSocket.js';
+import { EVENTS } from '../constants/events.js';
+
+const silenceUntil = (silencio) => silencio?.fechaVencimiento
+  ? `Vence el ${new Date(silencio.fechaVencimiento).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })}.`
+  : 'No tiene vencimiento.';
 import '../styles/members.css';
 import '../components/channels/channelList.css';
 
 function ChannelsWorkspace({ comunidad, refreshCommunity }) {
   const { canalId: param } = useParams();
   const list = useChannels(comunidad.id, true);
+  const socket = useSocket();
+  // Un silencio nuevo, levantado o vencido cambia lo que esta cuenta puede hacer (F-14).
+  useEffect(() => {
+    if (!socket) return;
+    const changed = ({ idComunidad }) => { if (idComunidad === comunidad.id) refreshCommunity?.(); };
+    socket.on(EVENTS.COMMUNITY_MODERATION_CHANGED, changed);
+    return () => socket.off(EVENTS.COMMUNITY_MODERATION_CHANGED, changed);
+  }, [socket, comunidad.id, refreshCommunity]);
   const base = `/comunidades/${comunidad.id}/canales`;
   const [search] = useSearchParams();
   const creating = param === 'nuevo';
@@ -143,7 +157,9 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
 
       {locked && <LockedChannel key={selected.id} canal={selected} onChanged={list.reload}/>}
       <ChannelRail items={list.items} base={base} selectedId={selected.id} />
-      {selected.tipo === 'TEXTO' && !locked && !selected.misPermisos.includes('ESCRIBIR') && <Notice tone="conflicto" title="Este canal es de solo lectura para tu cuenta">Podés leer, pero no escribir.</Notice>}
+      {selected.tipo === 'TEXTO' && !locked && !selected.misPermisos.includes('ESCRIBIR') && (['TEXTO', 'AMBOS'].includes(comunidad.miSilencio?.alcance)
+        ? <Notice tone="conflicto" title="Te silenciaron en esta comunidad">{silenceUntil(comunidad.miSilencio)} Podés leer, pero no escribir.</Notice>
+        : <Notice tone="conflicto" title="Este canal es de solo lectura para tu cuenta">Podés leer, pero no escribir.</Notice>)}
       {selected.tipo !== 'TEXTO' && !locked && !mode && <CallPanel key={selected.id} canal={selected} />}
       {selected.tipo === 'TEXTO' && !locked && <VoiceSidePanel canales={list.items.filter((c) => c.tipo !== 'TEXTO' && c.misPermisos.includes('VER'))} base={base} />}
       {selected.tipo === 'TEXTO' && !locked && !mode && <ChannelChat key={selected.id} canal={selected} buscar={buscar} setBuscar={setBuscar} draft={drafts[selected.id] ?? ''}

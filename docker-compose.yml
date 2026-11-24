@@ -1,0 +1,90 @@
+# Dialo completo con Docker Compose: PostgreSQL local, migraciones, backend y frontend.
+# Guía: docs/docker.md. Las credenciales opcionales van en un archivo .env (ver docker.env.example).
+name: dialo
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: dialo
+      POSTGRES_PASSWORD: dialo
+      POSTGRES_DB: dialo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dialo -d dialo"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks: [dialo]
+
+  # Paso explícito: aplica todas las migraciones pendientes y termina.
+  migrate:
+    build: { context: ., dockerfile: apps/backend/Dockerfile }
+    image: dialo-backend
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment: &backend-db
+      DATABASE_URL: postgresql://dialo:dialo@db:5432/dialo
+      DIRECT_URL: postgresql://dialo:dialo@db:5432/dialo
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [dialo]
+
+  backend:
+    build: { context: ., dockerfile: apps/backend/Dockerfile }
+    image: dialo-backend
+    environment:
+      <<: *backend-db
+      NODE_ENV: production
+      PORT: 3000
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+      # Mismo origen detrás de nginx: la cookie funciona sobre http://localhost.
+      COOKIE_SECURE: "false"
+      COOKIE_SAMESITE: lax
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-Dialo <onboarding@resend.dev>}
+      CLOUDINARY_URL: ${CLOUDINARY_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_GENERATION_MODEL: ${OPENAI_GENERATION_MODEL:-}
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
+      LIVEKIT_API_URL: ${LIVEKIT_API_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [dialo]
+
+  frontend:
+    build: { context: ., dockerfile: apps/frontend/Dockerfile }
+    image: dialo-frontend
+    ports:
+      - "${APP_PORT:-8080}:80"
+    depends_on:
+      backend: { condition: service_healthy }
+    networks: [dialo]
+
+  # Opcional: llamadas en local. Se levanta con `docker compose --profile llamadas up`.
+  livekit:
+    profiles: [llamadas]
+    image: livekit/livekit-server:v1.8.0
+    command: ["--config", "/etc/livekit.yaml"]
+    volumes:
+      - ./docker/livekit.yaml:/etc/livekit.yaml:ro
+    ports:
+      - "7880:7880"
+      - "7881:7881"
+      - "50000-50100:50000-50100/udp"
+    networks: [dialo]
+
+volumes:
+  db-data:
+
+networks:
+  dialo:

@@ -6,19 +6,26 @@ import { requireChannelPermission, withCommunityAccessChange, withChannelPermiss
 import { AppError } from '../utils/AppError.js';
 import { leaveCommunity,emitToCommunity,emitToUser } from '../sockets/emitter.js';
 import { EVENTS } from '../sockets/events.js';
+import { protectModerationTarget, auditModeration } from './moderationMeasuresService.js';
 
 async function targetMember(tx,community,actor,target,actorRole){
  const member=await tx.membresia.findUnique({where:{idComunidad_idUsuario:{idComunidad:community,idUsuario:target}},select:{rol:true}});
  if(!member)throw new AppError(404,'MEMBER_NOT_FOUND','El usuario ya no es integrante');
  protectMember(actor,target,actorRole,member.rol);return member;
 }
-export async function kickMember(community,actor,target,channel){
+// Expulsar retira la membresía actual sin bloquear el reingreso: volver requiere una invitación válida.
+// `options.inTx` permite que una propuesta confirmada se reclame en la misma transacción (T-52).
+export async function kickMember(community,actor,target,channel,options={}){
  await withCommunityAccessChange(community,async tx=>{
   const context=channel?await requireChannelPermission(channel,actor,'EXPULSAR',tx):await requireCommunityPermission(community,actor,'EXPULSAR',tx);
   if(channel&&context.canal.idComunidad!==community)throw new AppError(404,'CHANNEL_NOT_FOUND','El canal no existe');
   if(channel)await requireChannelPermission(channel,target,'VER',tx);
-  await targetMember(tx,community,actor,target,context.rol);
+  const member=await targetMember(tx,community,actor,target,context.rol);
+  protectModerationTarget(actor,target,context.rol,member.rol);
+  await options.inTx?.(tx);
   await tx.membresia.delete({where:{idComunidad_idUsuario:{idComunidad:community,idUsuario:target}}});
+  const handle=(await tx.usuario.findUnique({where:{id:target},select:{nombreUsuario:true}}))?.nombreUsuario;
+  await auditModeration(tx,community,options.auditActor??actor,`${options.auditPrefix??''}Expulsó a @${handle}${options.motivo?`. Motivo: ${options.motivo}`:''}`);
   return tx.canal.findMany({where:{idComunidad:community},select:{id:true}});
  },undefined,channels=>{leaveCommunity(community,target,channels.map(c=>c.id));emitToUser(target,EVENTS.COMMUNITY_LEFT,{idComunidad:community});emitToCommunity(community,EVENTS.COMMUNITY_MEMBER_LEFT,{idComunidad:community,idUsuario:target});});
 }

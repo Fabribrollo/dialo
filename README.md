@@ -19,6 +19,10 @@ La revisión de chats, perfiles con portada, bloqueos, búsqueda por fecha y fun
 
 La creación con IA permite generar, editar y confirmar una comunidad con sus canales y roles iniciales. Ver [T-44 y T-45](docs/comunidades-ia.md), configuración, migración y pruebas. El flujo manual sigue disponible sin proveedor IA.
 
+La moderación de integrantes permite silenciar (texto, voz o ambos, con vencimiento), expulsar y banear, con jerarquía y auditoría, y preparar la medida con IA para revisarla antes de confirmarla. Ver [F-14](docs/moderacion.md).
+
+Para levantar todo con Docker Compose (PostgreSQL local incluido) ver [Docker](docs/docker.md).
+
 ## Estructura
 
 | Ruta | Contenido |
