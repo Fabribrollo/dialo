@@ -199,3 +199,7 @@ Los recibos de envío se comprueban en harmony.test.js: concurrencia con UUID re
 ## Comunidades con IA (T-44/T-45)
 
 `npm run test:community-proposals -w apps/backend` usa `TEST_DATABASE_URL` exclusiva y un schema temporal. Proveedor IA simulado; API, sesiones y persistencia reales. Cubre borradores sin escrituras, límites, permisos, confirmación atómica, concurrencia, rollback y recibos por autor. Ver [comunidades con IA](../../../docs/comunidades-ia.md).
+
+## Planes y revisión humana (T-46 a T-49)
+
+`npm run test:plans-review -w apps/backend` usa `TEST_DATABASE_URL` exclusiva, esquemas temporales y proveedor IA simulado. Incluye planes sin ejecución previa, concurrencia, stale/expiry, rollback, privacidad, detección no punitiva y medidas F-14 atómicas con el caso. También verifica el separador SQL de migraciones. Ver [alcance](../../../docs/planes-canales-revision.md).

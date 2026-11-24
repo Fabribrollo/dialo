@@ -1,3 +1,4 @@
+import { reviewPublishedMessage } from './contentReviewService.js';
 import {requireReply} from './messageInteractionsService.js';
 import {withSendReceipt,sendFingerprint} from '../utils/sendReceipt.js';
 import { trackEffect } from '../utils/backgroundEffects.js';
@@ -38,6 +39,7 @@ export async function sendChannelMessage(idUsuario, { idCanal, contenido, idEnvi
     return {mensaje:toChannelMessage(rows[0]),replayed:Boolean(rows.replayed)};
   }, result => {if(!result.replayed)return emitToChannel(idCanal, EVENTS.CHANNEL_MESSAGE_NEW, { mensaje:result.mensaje });});
   if(!saved.replayed&&idHilo){const root=await prisma.mensaje.findUnique({where:{id:idHilo},select:channelMessageSelect});if(root)await emitToChannel(idCanal,EVENTS.CHANNEL_MESSAGE_UPDATED,{mensaje:toChannelMessage(root)});}
+  if(!saved.replayed)trackEffect(reviewPublishedMessage(saved.mensaje.id));
   if(!saved.replayed)trackEffect(notifyChannelMessage(idCanal, idUsuario, saved.mensaje.id, contenido));
   return { mensaje: saved.mensaje };
 }
@@ -78,6 +80,7 @@ export async function editChannelMessage(idUsuario, { idMensaje, contenido }, au
     if (!saved) throw messageNotFound();
     return toChannelMessage(saved);
   }, (mensaje) => emitToChannel(mensaje.idCanal, EVENTS.CHANNEL_MESSAGE_UPDATED, { mensaje }));
+  trackEffect(reviewPublishedMessage(mensaje.id));
   return { mensaje };
 }
 

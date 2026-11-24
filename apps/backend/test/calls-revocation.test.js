@@ -37,7 +37,10 @@ async function request(path, { method = 'GET', body, as } = {}) {
     method, headers: { ...(as ? { Cookie: as.cookie } : {}), ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  return { status: response.status, body: response.status === 204 ? null : await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] };
+  const result = { status: response.status, body: response.status === 204 ? null : await response.json(), cookie: response.headers.get('set-cookie')?.split(';')[0] };
+  // La respuesta HTTP puede llegar antes de que finalicen los efectos poscommit.
+  await drainEffects();
+  return result;
 }
 async function register(nombreUsuario) {
   const r = await request('/auth/register', { method: 'POST', body: { nombreUsuario, nombreVisible: nombreUsuario, correo: `${nombreUsuario}@example.test`, contrasena: CLAVE } });
@@ -49,7 +52,6 @@ async function login(user) {
   assert.equal(r.status, 200);
   return { ...user, cookie: r.cookie };
 }
-const pausa = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const de = (tipo) => ops.filter((op) => op[0] === tipo).map((op) => op.slice(1));
 
 async function comunidad() {
@@ -113,13 +115,11 @@ test('perder TRANSMITIR corta solo camara y pantalla en vivo; perder VER saca de
   await acceso(ch, [{ idUsuario: dani.id, permisos: ['HABLAR', 'TRANSMITIR'] }]);
   await conectar(ch);
   await acceso(ch, [{ idUsuario: dani.id, permisos: ['HABLAR'] }]);
-  await pausa(50);
   assert.deepEqual(de('permisos'), [[ch.id, dani.id, ['microfono']]]);
   assert.equal(de('sacar').length, 0);
   assert.notEqual(await registro(), null);
 
   await acceso(ch, []);
-  await pausa(50);
   assert.deepEqual(de('sacar'), [[ch.id, dani.id]]);
   assert.equal(await registro(), null);
 });
@@ -132,7 +132,6 @@ test('quitar la habilitación individual privada saca al participante', async ()
   await conectar(ch);
   const { withCommunityAccessChange } = await import('../src/services/channelsService.js');
   await acceso(ch, []);
-  await pausa(50);
   assert.deepEqual(de('sacar'), [[ch.id, dani.id]]);
   assert.equal(await registro(), null);
 });
@@ -141,7 +140,6 @@ test('banear saca de la llamada e impide volver con el token anterior; desbanear
   const c = await comunidad(), ch = await canal(c);
   const ingreso = await conectar(ch);
   assert.equal((await request(`/communities/${c.id}/bans/${dani.id}`, { method: 'PUT', as: ana, body: {} })).status, 204);
-  await pausa(50);
   assert.deepEqual(de('sacar'), [[ch.id, dani.id]]);
   assert.equal(await registro(), null);
   await calls.procesarEventoMedia({ tipo: 'participant_joined', sala: `canal-${ch.id}`, idUsuario: dani.id, ingreso });
@@ -163,7 +161,6 @@ test('borrar el canal o borrar la comunidad cierra la sala', async () => {
   const a = await canal(c, { nombre: 'a' });
   await conectar(a);
   assert.equal((await request(`/channels/${a.id}`, { method: 'DELETE', as: ana })).status, 204);
-  await pausa(50);
   assert.deepEqual(de('cerrar'), [[a.id]]);
   assert.equal(await registro(), null);
 
@@ -180,12 +177,10 @@ test('logout corta solo la llamada de esa sesion; cambiar la contrasena corta to
   await conectar(ch);
   const otra = await login(dani);
   assert.equal((await request('/auth/logout', { method: 'POST', as: otra })).status, 204);
-  await pausa(50);
   assert.equal(de('sacar').length, 0);
   assert.notEqual(await registro(), null);
 
   assert.equal((await request('/auth/logout', { method: 'POST', as: dani })).status, 204);
-  await pausa(50);
   assert.deepEqual(de('sacar'), [[ch.id, dani.id]]);
   assert.equal(await registro(), null);
 
@@ -196,7 +191,6 @@ test('logout corta solo la llamada de esa sesion; cambiar la contrasena corta to
   await prisma.recuperacionCuenta.create({ data: { idUsuario: dani.id, hashToken: tokens.hashToken(token), fechaExpiracion: new Date(Date.now() + 60_000) } });
   dani.contrasena = 'OtraClaveDePrueba456';
   assert.equal((await request('/auth/reset-password', { method: 'POST', body: { token, contrasena: dani.contrasena } })).status, 204);
-  await pausa(50);
   assert.deepEqual(de('sacar'), [[ch.id, dani.id]]);
 });
 
@@ -218,7 +212,6 @@ test('si LiveKit falla al revocar, el acceso igual se retira y la reconciliacion
   const ingreso = await conectar(ch);
   caido = true;
   await acceso(ch, []);
-  await pausa(50);
   assert.equal(await registro(), null);
   assert.equal((await request(`/channels/${ch.id}/call/join`, { method: 'POST', as: dani })).status, 404);
   caido = false;

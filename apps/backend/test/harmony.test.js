@@ -183,7 +183,7 @@ test('la migración conserva admisiones privadas por rol y denegaciones pública
  try{
   await admin.$executeRawUnsafe(`CREATE SCHEMA "${legacy}"`);await applyMigrations(admin,legacy,{hasta:'20261121011000_moderacion_privada_previa'});
   const u=await db.usuario.create({select:{id:true},data:{nombreUsuario:'legacy',nombreVisible:'Legacy',correo:'legacy@test.test',hashContrasena:'test'}});
-  const c=await db.comunidad.create({data:{nombre:'Anterior'}});await db.membresia.create({data:{idComunidad:c.id,idUsuario:u.id,rol:'INTEGRANTE'}});
+  const [c]=await admin.$queryRawUnsafe(`INSERT INTO "${legacy}".comunidad(nombre) VALUES ('Anterior') RETURNING id_comunidad AS id`);await db.membresia.create({data:{idComunidad:c.id,idUsuario:u.id,rol:'INTEGRANTE'}});
   const role=await db.rolPersonalizado.create({data:{idComunidad:c.id,nombre:'Equipo',permisos:['ESCRIBIR','BANEAR']}});await db.membresiaRol.create({data:{idComunidad:c.id,idUsuario:u.id,idRol:role.id}});
   const privateCh=await db.canal.create({data:{idComunidad:c.id,nombre:'Privado',privado:true}});await db.canalRolPersonalizado.create({data:{idCanal:privateCh.id,idComunidad:c.id,idRol:role.id,permisos:['VER','ESCRIBIR']}});
   const publicCh=await db.canal.create({data:{idComunidad:c.id,nombre:'Público',privado:false}});await db.canalUsuario.create({data:{idCanal:publicCh.id,idComunidad:c.id,idUsuario:u.id,permisos:[]}});

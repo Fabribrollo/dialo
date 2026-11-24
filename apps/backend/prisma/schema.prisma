@@ -96,6 +96,7 @@ model Usuario {
   conversacionesComoB  ConversacionPrivada[] @relation("ConversacionUsuarioB")
   enviosConfirmados EnvioConfirmado[]
   creacionesComunidad CreacionComunidad[]
+  propuestasCanales PropuestaCanales[]
   llamadasEmitidas LlamadaPrivada[] @relation("LlamadaEmisor")
   llamadasRecibidas LlamadaPrivada[] @relation("LlamadaReceptor")
   reacciones ReaccionMensaje[]
@@ -218,6 +219,7 @@ model CreacionComunidad {
 }
 
 model Mensaje {
+  casosRevision CasoRevision[]
   id                   Int       @id @default(autoincrement()) @map("id_mensaje")
   idAutor              Int       @map("id_autor")
   idConversacion       Int?      @map("id_conversacion")
@@ -274,6 +276,9 @@ model Comunidad {
   propuestasModeracion PropuestaModeracion[]
   reglasModeracion ReglaModeracion[]
   bloqueosMensaje BloqueoMensaje[]
+  propuestasCanales PropuestaCanales[]
+  casosRevision CasoRevision[]
+  revisionActiva Boolean @default(false) @map("revision_activa")
 
   @@index([tipo])
   @@map("comunidad")
@@ -683,7 +688,45 @@ model ReporteUsuario {
  @@index([idComunidad,id])
  @@map("reporte_usuario")
 }
+model PropuestaCanales {
+ id String @id @db.Uuid
+ idComunidad Int @map("id_comunidad")
+ idActor Int @map("id_actor")
+ huella String @db.VarChar(64)
+ antes Json
+ plan Json
+ estado String @default("PENDIENTE") @db.VarChar(20)
+ resultado Json?
+ vence DateTime
+ fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+ fechaDecision DateTime? @map("fecha_decision")
+ comunidad Comunidad @relation(fields:[idComunidad],references:[id],onDelete:Cascade)
+ actor Usuario @relation(fields:[idActor],references:[id],onDelete:Cascade)
+ @@index([idComunidad,idActor])
+ @@map("propuesta_canales")
+}
+
+model CasoRevision {
+ id Int @id @default(autoincrement())
+ idComunidad Int @map("id_comunidad")
+ idCanal Int @map("id_canal")
+ idAutor Int @map("id_autor")
+ idMensaje Int? @unique @map("id_mensaje")
+ motivos String[]
+ estado String @default("PENDIENTE") @db.VarChar(24)
+ idResolutor Int? @map("id_resolutor")
+ motivoResolucion String? @db.VarChar(500) @map("motivo_resolucion")
+ medida Json?
+ fechaCreacion DateTime @default(now()) @map("fecha_creacion")
+ fechaResolucion DateTime? @map("fecha_resolucion")
+ comunidad Comunidad @relation(fields:[idComunidad],references:[id],onDelete:Cascade)
+ mensaje Mensaje? @relation(fields:[idMensaje],references:[id],onDelete:SetNull)
+ @@index([idComunidad,estado,id])
+ @@map("caso_revision")
+}
+
 model Auditoria {
+ detalle Json?
  id Int @id @default(autoincrement())
  idComunidad Int @map("id_comunidad")
  idActor Int @map("id_actor")

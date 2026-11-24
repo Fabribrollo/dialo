@@ -1,3 +1,4 @@
+import { splitStatements } from './sqlStatements.js';
 import { readdir, readFile } from "node:fs/promises";
 
 const MIGRATIONS = new URL("../prisma/migrations/", import.meta.url);
@@ -21,7 +22,7 @@ export async function applyMigrations(admin, schema, { desde, hasta } = {}) {
   for (const migration of sql) await admin.$transaction(
     async (tx) => {
       await tx.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
-      for (const statement of migration.split(";").map(s=>s.trim()).filter(Boolean)) {
+      for (const statement of splitStatements(migration)) {
         await tx.$executeRawUnsafe(statement);
       }
     },

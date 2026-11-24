@@ -139,3 +139,7 @@ La suite frontend usa mocks y no necesita una base. Las suites backend requieren
 Ver [cambios, configuración y migraciones](docs/kanban-integracion.md). Incluye llamadas privadas, búsqueda completa, adjuntos, notificaciones internas y mejoras de perfil/permisos.
 
 Ver [armonía de interfaz y estado de chat](docs/armonia-interfaz.md): llamadas, adjuntos, avisos, permisos heredados, archivo y baneos temporales. Requiere la migración `20261121190000_armonia_chat`.
+
+## Organización y revisión asistida
+
+T-46 a T-49 agregan planes de canales con confirmación del propietario y una bandeja de revisión humana de contenido, integrada con las medidas F-14. Ver [contratos, migración y recorridos](docs/planes-canales-revision.md).

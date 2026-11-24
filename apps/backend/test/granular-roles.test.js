@@ -23,6 +23,8 @@ process.env.DIRECT_URL = isolated.href;
 process.env.NODE_ENV = 'production';
 process.env.RESEND_API_KEY = '';
 process.env.CLOUDINARY_URL = '';
+// Esta suite comprueba IA sin proveedor; no heredar credenciales del entorno real.
+process.env.OPENAI_API_KEY = '';
 
 const admin = new PrismaClient({ datasourceUrl: databaseUrl });
 let prisma, io, server, baseUrl, ana, dani, eli;
@@ -170,7 +172,7 @@ test('migración retira Moderador conservando membresías y responsabilidades en
  try{
   await admin.$executeRawUnsafe(`CREATE SCHEMA "${legacy}"`);await applyMigrations(admin,legacy,{hasta:'20261120230000_solicitudes_canales'});
   const users=await Promise.all(['uno','dos'].map(nombreUsuario=>db.usuario.create({select:{id:true},data:{nombreUsuario,nombreVisible:nombreUsuario,correo:nombreUsuario+'@test.test',hashContrasena:'test'}})));
-  const c=await db.comunidad.create({data:{nombre:'Anterior'}});await db.membresia.createMany({data:users.map(u=>({idComunidad:c.id,idUsuario:u.id,rol:'MODERADOR'}))});
+  const [c]=await admin.$queryRawUnsafe(`INSERT INTO "${legacy}".comunidad(nombre) VALUES ('Anterior') RETURNING id_comunidad AS id`);await db.membresia.createMany({data:users.map(u=>({idComunidad:c.id,idUsuario:u.id,rol:'MODERADOR'}))});
   const channel=await db.canal.create({data:{idComunidad:c.id,nombre:'Privado previo',privado:true},select:{id:true}});
   await db.canalUsuario.create({data:{idCanal:channel.id,idComunidad:c.id,idUsuario:users[0].id,permisos:['VER']}});
   await applyMigrations(admin,legacy,{desde:'20261120230000_solicitudes_canales'});

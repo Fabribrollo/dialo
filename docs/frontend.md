@@ -310,3 +310,7 @@ Ver [estructura, navegación y validación](burbujas-fijados.md). Cada mensaje r
 ## Creación de comunidades con IA (T-44 y T-45)
 
 `CommunityForm` conserva el modo manual y ofrece `CommunityDraftBuilder` para generar, editar y confirmar la estructura inicial. Se guardan por separado los nombres/privacidad de ambos modos. El formulario permite editar y ordenar canales, ajustar roles y permisos, descartar y volver a generar. Las respuestas tardías no reemplazan el modo manual. Una confirmación de resultado incierto conserva el mismo UUID y payload para reintentar sin duplicar. Ver [flujo y recorrido manual](comunidades-ia.md).
+
+## Planes y bandeja de revisión
+
+`ChannelPlanPanel` se integra en Canales solo para el propietario; conserva la vista previa y exige reconocer eliminaciones antes de confirmar. `ContentReviewInbox` se integra en Moderación para cuentas autorizadas, con pendientes/resueltos, detalle, decisiones y medidas de F-14. Retira contenido al perder autorización y recupera el estado después de un conflicto. `PlanAuditDetails` muestra el antes/después del registro. Ver [recorrido](planes-canales-revision.md).

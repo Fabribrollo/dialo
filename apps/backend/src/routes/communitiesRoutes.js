@@ -1,3 +1,7 @@
+import { prepareChannelPlan, decideChannelPlan } from '../services/channelPlanService.js';
+import { planInput, planParams, emptyBody } from '../validations/channelPlanValidation.js';
+import { reviewSettings, listReviewCases, getReviewCase, resolveReviewCase } from '../services/contentReviewService.js';
+import { caseParams, caseQuery, reviewSettingBody, resolveCaseBody } from '../validations/contentReviewValidation.js';
 import {auditCommunity} from '../middlewares/auditCommunity.js';
 import { suggestCommunity, confirmCommunity } from '../services/communityProposalService.js';
 import { communityPurposeSchema, confirmCommunitySchema } from '../validations/communityProposalValidation.js';
@@ -96,6 +100,14 @@ router.post('/:id/leave', validate({ params: communityIdParamsSchema }), leaveCo
 router.post('/:id/invitations', validate({ params: communityIdParamsSchema, body: createInvitationSchema }), createInvitation);
 router.get('/:id/invitations', validate({ params: communityIdParamsSchema }), listInvitations);
 router.delete('/:id/invitations/:idInvitacion', validate({ params: invitationIdParamsSchema }), revokeInvitation);
+router.post('/:id/channel-plans',validate({params:communityIdParamsSchema,body:planInput}),async(req,res)=>res.json(await prepareChannelPlan(req.validated.params.id,req.user.id,req.validated.body)));
+router.post('/:id/channel-plans/:propuesta/confirm',validate({params:planParams,body:emptyBody}),async(req,res)=>res.json(await decideChannelPlan(req.validated.params.id,req.user.id,req.validated.params.propuesta,true)));
+router.post('/:id/channel-plans/:propuesta/cancel',validate({params:planParams,body:emptyBody}),async(req,res)=>res.json(await decideChannelPlan(req.validated.params.id,req.user.id,req.validated.params.propuesta,false)));
+router.get('/:id/review/settings',validate({params:communityIdParamsSchema}),async(req,res)=>res.json(await reviewSettings(req.validated.params.id,req.user.id)));
+router.patch('/:id/review/settings',validate({params:communityIdParamsSchema,body:reviewSettingBody}),async(req,res)=>res.json(await reviewSettings(req.validated.params.id,req.user.id,req.validated.body.activa)));
+router.get('/:id/review/cases',validate({params:communityIdParamsSchema,query:caseQuery}),async(req,res)=>res.json(await listReviewCases(req.validated.params.id,req.user.id,req.validated.query)));
+router.get('/:id/review/cases/:caso',validate({params:caseParams}),async(req,res)=>res.json(await getReviewCase(req.validated.params.id,req.user.id,req.validated.params.caso)));
+router.post('/:id/review/cases/:caso/resolve',validate({params:caseParams,body:resolveCaseBody}),async(req,res)=>res.json(await resolveReviewCase(req.validated.params.id,req.user.id,req.validated.params.caso,req.validated.body)));
 router.get('/:id/channels', validate({ params: communityIdParamsSchema }), listChannels);
 router.post('/:id/channels/suggestion', validate({ params: communityIdParamsSchema, body: suggestionInput }), async (req, res) => {
   res.json({ propuesta: await suggestChannel(req.validated.params.id, req.user.id, req.validated.body) });

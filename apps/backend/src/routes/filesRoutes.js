@@ -1,3 +1,4 @@
+import { reviewPublishedMessage } from '../services/contentReviewService.js';
 import {requireReply} from '../services/messageInteractionsService.js';
 import {randomUUID} from 'node:crypto';
 import {withSendReceipt,sendFingerprint} from '../utils/sendReceipt.js';
@@ -77,6 +78,7 @@ async function publishFiles(req,res,files,batch=false) {
     if(tipo==='canal')await emitToChannel(id,'channel-message:new',{mensaje});
     else emitToConversation(id,'message:new',{mensaje});
   }
+  if(tipo==='canal')for(const message of rows)trackEffect(reviewPublishedMessage(message.id));
   if(tipo==='canal')trackEffect(notifyChannelMessage(id,req.user.id,rows[0].id,caption.data));
   else {const c=await requireConversationParticipant(id,req.user.id);trackEffect(notify(c.idUsuarioA===req.user.id?c.idUsuarioB:c.idUsuarioA,'conversacion',id,`mensaje:${rows[0].id}`));}
   }

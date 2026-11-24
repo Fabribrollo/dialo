@@ -192,7 +192,7 @@ test('migración conserva habilitaciones privadas vigentes por persona y unifica
     await admin.$executeRawUnsafe(`CREATE SCHEMA "${legacy}"`);
     await applyMigrations(admin,legacy,{hasta:'20261120220000_permisos_base_publicos'});
     const users=await Promise.all(['uno','dos','futuro'].map(nombreUsuario=>client.usuario.create({select:{id:true},data:{nombreUsuario,nombreVisible:nombreUsuario,correo:nombreUsuario+'@test.test',hashContrasena:'test'}})));
-    const c=await client.comunidad.create({data:{nombre:'Anterior'}});
+    const [c]=await admin.$queryRawUnsafe(`INSERT INTO "${legacy}".comunidad(nombre) VALUES ('Anterior') RETURNING id_comunidad AS id`);
     for(const u of users.slice(0,2))await client.membresia.create({data:{idComunidad:c.id,idUsuario:u.id,rol:'INTEGRANTE'}});
     const [privateCh]=await admin.$queryRawUnsafe(`INSERT INTO "${legacy}".canal(id_comunidad,nombre,tipo,privado) VALUES ($1,'Privado','VOZ',true) RETURNING id_canal AS id`,c.id);
     const [publicCh]=await admin.$queryRawUnsafe(`INSERT INTO "${legacy}".canal(id_comunidad,nombre,tipo) VALUES ($1,'Público','TEXTO') RETURNING id_canal AS id`,c.id);

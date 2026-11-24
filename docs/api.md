@@ -661,3 +661,7 @@ Los envíos de texto y archivos admiten `idRespuesta` del mismo destino. El DTO 
 ## Comunidades con estructura inicial (T-44 y T-45)
 
 `POST /api/communities/suggestion` genera un borrador autenticado sin guardar datos. `POST /api/communities/from-draft` confirma la estructura revisada con UUID por envío, validación estricta y creación atómica e idempotente. Contrato, errores, límites, configuración y migración en [Comunidades con IA](comunidades-ia.md).
+
+## Planes de canales y revisión humana
+
+Endpoints `/api/communities/:id/channel-plans` y `/api/communities/:id/review/*`: ver [T-46 a T-49](planes-canales-revision.md) para cuerpos, límites, confirmación, permisos y estados.

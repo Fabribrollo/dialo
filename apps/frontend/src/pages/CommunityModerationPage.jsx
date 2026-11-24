@@ -1,3 +1,4 @@
+import ContentReviewInbox from '../components/communities/ContentReviewInbox.jsx';
 import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import AdministrationLog from '../components/communities/AdministrationLog.jsx';
 import {useUnsavedChanges} from '../context/UnsavedChangesContext.jsx';
@@ -122,6 +123,7 @@ export default function CommunityModerationPage() {
   return <CommunityShell comunidad={detail.comunidad}>
     <div className="mod-stack">
       <ModerationSettings key={`settings-${id}`} detail={detail} />
+      {hasCommunityPermission(detail.comunidad,'GESTIONAR_MODERACION')&&<ContentReviewInbox key={`review-${id}`} id={id}/>}
       {hasCommunityPermission(detail.comunidad,'GESTIONAR_MODERACION') && <BlockedMessages key={`blocked-${id}`} id={id} />}
       {['ADMIN','PROPIETARIO'].includes(detail.comunidad.miRol)&&<AdministrationLog id={id}/>}
     </div>
