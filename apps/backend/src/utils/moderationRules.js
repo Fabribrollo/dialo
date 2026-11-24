@@ -20,7 +20,9 @@ export function protectModerationTarget(actor, target, actorRole, targetRole) {
 }
 
 
-export const MEDIDAS = ['SILENCIAR', 'EXPULSAR', 'BANEAR'];
+export const MEDIDAS = ['SILENCIAR', 'EXPULSAR', 'BANEAR', 'QUITAR_SILENCIO', 'DESBANEAR'];
+// Medidas que revierten una sanción: la persona se busca entre silenciados o baneados.
+export const REVERSIONES = ['QUITAR_SILENCIO', 'DESBANEAR'];
 export const SIN_DURACION = 'NO_APLICA';
 
 // Un proveedor que ignore el esquema tampoco puede colar valores fuera de catálogo.
@@ -51,7 +53,12 @@ export function resolveTarget(nombre, members) {
 
 export function describeEffects({ medida, alcance, duracion }) {
   const efectos = [];
-  if (medida === 'SILENCIAR') {
+  if (medida === 'QUITAR_SILENCIO') {
+    efectos.push('Vuelve a poder escribir y hablar en todos los canales donde tenía permiso.');
+  } else if (medida === 'DESBANEAR') {
+    efectos.push('Puede volver a entrar con una invitación válida.');
+    efectos.push('No recupera sus roles ni permisos anteriores.');
+  } else if (medida === 'SILENCIAR') {
     if (alcance !== 'VOZ') efectos.push('No podrá escribir, reaccionar ni votar en los canales de texto.');
     if (alcance !== 'TEXTO') efectos.push('No podrá usar micrófono, cámara ni pantalla en los canales de voz; si está en una llamada, se le corta al confirmar.');
     efectos.push('Sigue siendo integrante y puede leer los canales.');
@@ -65,5 +72,5 @@ export function describeEffects({ medida, alcance, duracion }) {
   return efectos;
 }
 
-export const tituloMedida = ({ medida, alcance }) => medida === 'SILENCIAR' ? `Silenciar (${etiquetaAlcance(alcance)})` : medida === 'EXPULSAR' ? 'Expulsar' : 'Banear';
-
+const TITULOS = { EXPULSAR: 'Expulsar', BANEAR: 'Banear', QUITAR_SILENCIO: 'Quitar el silencio', DESBANEAR: 'Levantar el baneo' };
+export const tituloMedida = ({ medida, alcance }) => medida === 'SILENCIAR' ? `Silenciar (${etiquetaAlcance(alcance)})` : TITULOS[medida] ?? medida;

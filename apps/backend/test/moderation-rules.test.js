@@ -29,6 +29,9 @@ test('interpretación: completa valores por defecto y descarta lo que no está e
   assert.equal(normalizeInterpretation({ destinatario: 'ana', medida: 'EXPULSAR', duracion: '7_DIAS' }).duracion, 'NO_APLICA');
   assert.equal(normalizeInterpretation({ destinatario: 'ana', medida: 'BORRAR_TODO' }).medida, null);
   assert.equal(normalizeInterpretation(null).medida, null);
+  assert.deepEqual(normalizeInterpretation({ destinatario: 'beto', medida: 'QUITAR_SILENCIO', alcance: 'VOZ', duracion: '1_HORA', motivo: '' }),
+    { medida: 'QUITAR_SILENCIO', destinatario: 'beto', motivo: null, alcance: null, duracion: 'NO_APLICA' });
+  assert.equal(normalizeInterpretation({ destinatario: 'beto', medida: 'DESBANEAR' }).medida, 'DESBANEAR');
 });
 
 const members = [
@@ -55,6 +58,8 @@ test('efectos: describen alcance, vencimiento y que solo afecta a la comunidad',
   const ban = describeEffects({ medida: 'BANEAR', duracion: 'PERMANENTE' });
   assert.ok(ban.some((e) => e.includes('hasta que se levante')));
   assert.equal(ban.at(-1), 'Solo afecta a esta comunidad.');
+  assert.ok(describeEffects({ medida: 'QUITAR_SILENCIO', duracion: 'NO_APLICA' })[0].includes('escribir y hablar'));
+  assert.ok(describeEffects({ medida: 'DESBANEAR', duracion: 'NO_APLICA' }).some((e) => e.includes('no recupera') || e.includes('No recupera')));
 });
 
 const canal = (tipo, silencios) => ({ tipo, privado: false, permisosGlobales: tipo === 'TEXTO' ? ['ESCRIBIR'] : ['HABLAR', 'TRANSMITIR'], comunidad: { silencios } });
