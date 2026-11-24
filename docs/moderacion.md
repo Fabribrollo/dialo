@@ -30,6 +30,8 @@ Cada medida escribe en `auditoria` el actor real y una descripción sin contenid
 
 En **Integrantes**, quien puede silenciar ve *Moderar con IA*. Escribe un pedido como "silenciá a @beto en el chat por una hora, está haciendo spam" y obtiene una vista previa con la persona, la medida, la comunidad, el motivo y sus efectos.
 
+También revierte sanciones: "sacale el silencio a beto" (busca entre las personas silenciadas) o "levantale el baneo a caro" (busca entre las baneadas, que ya no son integrantes). Las reversiones usan los mismos permisos que la acción manual: quitar un silencio requiere *Silenciar*; levantar un baneo, administración.
+
 1. **Preparar** (`POST /api/communities/:id/moderation/proposals`, body `{ pedido, idDestinatario? }`). La IA solo interpreta el texto con Structured Outputs; Dialo busca a la persona entre los integrantes actuales y verifica permisos y jerarquía. No cambia membresías, permisos ni llamadas.
    - `LISTA`: propuesta guardada, confirmable, vence a los 10 minutos.
    - `AMBIGUO`: varias coincidencias; la interfaz pide elegir y vuelve a preparar con `idDestinatario`.

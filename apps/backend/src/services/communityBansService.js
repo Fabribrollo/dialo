@@ -73,15 +73,16 @@ export async function banMember(idComunidad, actor, target, { motivo,duracion='P
   });
 }
 
-export async function removeBan(idComunidad, actor, target) {
+export async function removeBan(idComunidad, actor, target, options = {}) {
   await withCommunityChannelsLock(idComunidad, async (tx) => {
     const { rol } = await requireRole(idComunidad,actor,'ADMIN',tx);
     const existing = await tx.comunidadBaneo.findUnique({ where: banKey(idComunidad, target) });
     requireTarget(actor, target, rol, existing?.rolAnterior);
     if (!existing) return null;
+    await options.inTx?.(tx);
     await tx.comunidadBaneo.delete({ where: banKey(idComunidad, target) });
     const handle = (await tx.usuario.findUnique({ where: { id: target }, select: { nombreUsuario: true } }))?.nombreUsuario;
-    await auditModeration(tx, idComunidad, actor, `Levantó el baneo de @${handle}`);
+    await auditModeration(tx, idComunidad, options.auditActor ?? actor, `${options.auditPrefix ?? ''}Levantó el baneo de @${handle}`);
     return { staff: await staffIds(tx, idComunidad, existing.rolAnterior), notices: await securityNotice(tx, [target], 'rehabilitado', idComunidad) };
   }, undefined, (result) => { if (result) { publishNotices(result.notices); notifyStaff(idComunidad, result.staff); } });
 }

@@ -327,6 +327,8 @@ enum MedidaModeracion {
   SILENCIAR
   EXPULSAR
   BANEAR
+  QUITAR_SILENCIO
+  DESBANEAR
 
   @@map("medida_moderacion")
 }

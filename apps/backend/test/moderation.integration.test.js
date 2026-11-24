@@ -224,3 +224,24 @@ test('T-52: confirmar un baneo corta el acceso de la persona', async () => {
   assert.ok(ban.fechaVencimiento > new Date()); assert.equal(ban.motivo, 'amenazas'); assert.equal(ban.idAutor, ana.id);
   assert.equal((await request(`/channels/${(await textChannel(c)).id}`, { as: beto })).status, 404);
 });
+
+test('IA: quitar el silencio y levantar el baneo buscan entre las personas sancionadas', async () => {
+  const c = await community(); await member(c, beto); await member(c, caro);
+  ai({ destinatario: 'beto', medida: 'QUITAR_SILENCIO' });
+  assert.equal((await propose(c, { pedido: 'Sacale el silencio a beto' })).status, 422); // no está silenciado
+  assert.equal((await silence(c, beto)).status, 200);
+  let r = await propose(c, { pedido: 'Sacale el silencio a beto' });
+  assert.equal(r.body.estado, 'LISTA'); assert.equal(r.body.propuesta.titulo, 'Quitar el silencio');
+  assert.equal((await confirm(c, r.body.propuesta.id)).status, 200);
+  assert.ok((await myChannel(await textChannel(c), beto)).misPermisos.includes('ESCRIBIR'));
+
+  assert.equal((await request(`/communities/${c.id}/bans/${caro.id}`, { method: 'PUT', as: ana, body: {} })).status, 204);
+  ai({ destinatario: 'caro', medida: 'DESBANEAR' });
+  r = await propose(c, { pedido: 'Levantale el baneo a caro' });
+  assert.equal(r.body.estado, 'LISTA'); assert.equal(r.body.propuesta.destinatario.id, caro.id);
+  assert.equal((await confirm(c, r.body.propuesta.id)).status, 200);
+  assert.equal(await prisma.comunidadBaneo.count({ where: { idComunidad: c.id, idUsuario: caro.id } }), 0);
+  const log = (await audit(c)).map((a) => a.accion);
+  assert.ok(log.includes('Con IA: Levantó el silencio de @beto'));
+  assert.ok(log.includes('Con IA: Levantó el baneo de @caro'));
+});

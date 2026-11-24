@@ -33,10 +33,21 @@ export async function checkMeasure(tx, idComunidad, actor, target, medida) {
   if (medida === 'SILENCIAR' && !actorPerms.permisos.includes('SILENCIAR')) throw new AppError(403, 'INSUFFICIENT_ROLE', 'Tu rol no permite silenciar integrantes');
   if (medida === 'EXPULSAR' && !admin) throw new AppError(403, 'INSUFFICIENT_ROLE', 'Solo la administración puede expulsar integrantes');
   if (medida === 'BANEAR' && !admin) throw new AppError(403, 'INSUFFICIENT_ROLE', 'Solo la administración puede banear integrantes');
+  if (medida === 'QUITAR_SILENCIO' && !actorPerms.permisos.includes('SILENCIAR')) throw new AppError(403, 'INSUFFICIENT_ROLE', 'Tu rol no permite quitar silencios');
+  if (medida === 'DESBANEAR') {
+    if (!admin) throw new AppError(403, 'INSUFFICIENT_ROLE', 'Solo la administración puede levantar baneos');
+    const ban = await tx.comunidadBaneo.findUnique({ where: key(idComunidad, target), select: { rolAnterior: true, fechaVencimiento: true } });
+    if (!ban || (ban.fechaVencimiento && ban.fechaVencimiento <= new Date())) throw new AppError(404, 'BAN_NOT_FOUND', 'La persona no tiene un baneo vigente en esta comunidad');
+    protectModerationTarget(actor, target, actorPerms.rol, ban.rolAnterior);
+    return { actorRole: actorPerms.rol, targetRole: ban.rolAnterior };
+  }
   const member = await tx.membresia.findUnique({ where: key(idComunidad, target), select: { rol: true } });
   if (!member) throw new AppError(404, 'MEMBER_NOT_FOUND', 'La persona ya no es integrante de esta comunidad');
   protectModerationTarget(actor, target, actorPerms.rol, member.rol);
   if (medida === 'SILENCIAR' && member.rol === 'ADMIN') throw new AppError(403, 'INSUFFICIENT_ROLE', 'Los administradores no se pueden silenciar');
+  if (medida === 'QUITAR_SILENCIO' && !activeSilence(await tx.silencioComunidad.findUnique({ where: key(idComunidad, target), select: { fechaVencimiento: true } }))) {
+    throw new AppError(404, 'SILENCE_NOT_FOUND', 'La persona no está silenciada en esta comunidad');
+  }
   return { actorRole: actorPerms.rol, targetRole: member.rol };
 }
 
@@ -98,7 +109,8 @@ export async function silenceMember(idComunidad, actor, target, { alcance, durac
   return { alcance, duracion, fechaVencimiento: saved.fechaVencimiento };
 }
 
-export async function liftSilence(idComunidad, actor, target) {
+// `options.inTx` reclama la propuesta en la misma transacción (T-52), como en las demás medidas.
+export async function liftSilence(idComunidad, actor, target, options = {}) {
   const removed = await withCommunityAccessChange(idComunidad, async tx => {
     const existing = await tx.silencioComunidad.findUnique({ where: key(idComunidad, target) });
     if (!existing) return false;
@@ -108,8 +120,9 @@ export async function liftSilence(idComunidad, actor, target) {
       const { rol } = await communityPermissions(idComunidad, actor, tx);
       protectModerationTarget(actor, target, rol, member.rol);
     }
+    await options.inTx?.(tx);
     await tx.silencioComunidad.delete({ where: key(idComunidad, target) });
-    await auditModeration(tx, idComunidad, actor, `Levantó el silencio de ${await handleOf(tx, target)}`);
+    await auditModeration(tx, idComunidad, options.auditActor ?? actor, `${options.auditPrefix ?? ''}Levantó el silencio de ${await handleOf(tx, target)}`);
     return true;
   }, undefined, done => {
     if (!done) return;
