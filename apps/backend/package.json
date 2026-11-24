@@ -41,7 +41,8 @@
     "db:seed": "prisma db seed",
     "test:community-proposals": "node --test test/community-proposals.test.js",
     "test:moderation-rules": "node --test test/moderation-rules.test.js",
-    "test:moderation": "node --test test/moderation-rules.test.js test/moderation.integration.test.js"
+    "test:moderation": "node --test test/moderation-rules.test.js test/moderation.integration.test.js",
+    "test:plans-review": "node --test test/channel-plans-review.test.js test/migration-statements.test.js"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

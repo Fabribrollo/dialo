@@ -1,3 +1,4 @@
+import ChannelPlanPanel from '../components/channels/ChannelPlanPanel.jsx';
 import { SkeletonRows } from '../components/ui/Skeleton.jsx';
 import {useGuardedAction} from '../context/UnsavedChangesContext.jsx';
 import {useDraftMap} from '../context/DraftsContext.jsx';
@@ -114,11 +115,13 @@ function ChannelsWorkspace({ comunidad, refreshCommunity }) {
     {error && <Notice tone="error" title={error} />}
     {list.error && <Notice tone="error" title={list.error.message} actionLabel="Reintentar canales" onAction={refresh} />}
 
-    {!selected && mode !== 'access' && !mode?.startsWith('settings') && <>
+    {comunidad.miRol==='PROPIETARIO'&&mode==='plan'&&<ChannelPlanPanel id={comunidad.id} onCancel={()=>setMode(null)} onDone={()=>{setMode(null);setNotice('Plan aplicado.');list.reload();}}/>}
+    {!selected && mode !== 'plan' && mode !== 'access' && !mode?.startsWith('settings') && <>
       <div className="chl-bar">
         <span className="chl-count">{list.items.length} {list.items.length === 1 ? 'canal' : 'canales'} · {texto} de texto y {voz} de voz</span>
         <span className="chl-actions">
           <button type="button" className="lg pr ib chl-refresh" aria-label="Actualizar canales" disabled={list.refreshing || busy} onClick={refresh}><Icon name="reintentar" size={17} stroke={2} /></button>
+          {comunidad.miRol==='PROPIETARIO'&&<Button variant="secundario" onClick={()=>setMode('plan')}>Organizar con IA</Button>}
           {canManage && <Button onClick={() => navigate(`${base}/nuevo`)}><Icon name="mas" size={15} stroke={2.2} />Crear canal</Button>}
         </span>
       </div>

@@ -23,6 +23,8 @@ process.env.DIRECT_URL = isolated.href;
 process.env.NODE_ENV = 'production';
 process.env.RESEND_API_KEY = '';
 process.env.CLOUDINARY_URL = '';
+// Esta suite comprueba IA sin proveedor; no heredar credenciales del entorno real.
+process.env.OPENAI_API_KEY = '';
 
 const admin = new PrismaClient({ datasourceUrl: databaseUrl });
 let prisma, io, server, baseUrl, ana, dani, eli;

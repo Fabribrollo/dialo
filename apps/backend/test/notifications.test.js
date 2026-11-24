@@ -185,7 +185,7 @@ test('migración de permisos públicos conserva acceso previo y no abre los priv
   try {
     await admin.$executeRawUnsafe(`CREATE SCHEMA "${legacy}"`);
     await applyMigrations(admin, legacy, {hasta:'20261119094000_llamadas_privadas'});
-    const c = await client.comunidad.create({data:{nombre:'Anterior'}});
+    const [c]=await admin.$queryRawUnsafe(`INSERT INTO "${legacy}".comunidad(nombre) VALUES ('Anterior') RETURNING id_comunidad AS id`);
     const [publicChannel] = await admin.$queryRawUnsafe(`INSERT INTO "${legacy}".canal(id_comunidad,nombre,tipo,posicion) VALUES ($1,'Público','TEXTO',0) RETURNING id_canal AS id`,c.id);
     const [privateChannel] = await admin.$queryRawUnsafe(`INSERT INTO "${legacy}".canal(id_comunidad,nombre,tipo,privado,posicion) VALUES ($1,'Privado','TEXTO',true,1) RETURNING id_canal AS id`,c.id);
     await client.canalRol.createMany({data:[publicChannel,privateChannel].map(ch=>({idCanal:ch.id,rol:'INTEGRANTE',permisos:['VER']}))});

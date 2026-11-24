@@ -187,6 +187,10 @@ export function channelPermissions(tipo, values) {
   return allowed.filter(p=>result.has(p));
 }
 
+export const createChannelRecord = (tx, idComunidad, datos) => tx.canal.create({ data: { idComunidad, ...datos }, select: channelSelect });
+export const updateChannelRecord = (tx, id, datos) => tx.canal.update({ where: { id }, data: datos, select: channelSelect });
+export const deleteChannelRecord = (tx, id) => tx.canal.delete({ where: { id } });
+
 export async function createChannel(idComunidad, idUsuario, datos) {
   const saved = await withCommunityChannelsLock(idComunidad, async (tx) => {
     const actor=await requireCommunityPermission(idComunidad,idUsuario,'GESTIONAR_CANALES',tx);
@@ -195,7 +199,7 @@ export async function createChannel(idComunidad, idUsuario, datos) {
     const defaults = datos.tipo === 'TEXTO' ? ['VER','ESCRIBIR'] : ['VER','HABLAR'];
     const permisosGlobales = channelPermissions(datos.tipo, datos.privado ? [] : datos.permisosGlobales ?? defaults);
     if(!canAdminister(rol)&&permisosGlobales.some(p=>!['VER','ESCRIBIR','HABLAR'].includes(p)&&!actor.permisos.includes(p)))throw new AppError(403,'ROLE_PRIVILEGE_ESCALATION','No podés otorgar permisos que no tenés');
-    const canal = await tx.canal.create({ data: { idComunidad, ...datos, permisosGlobales, posicion: (last._max.posicion ?? -1) + 1 }, select: channelSelect });
+    const canal = await createChannelRecord(tx, idComunidad, { ...datos, permisosGlobales, posicion: (last._max.posicion ?? -1) + 1 });
     return { canal, rol, after: audience(canal, await getChannelMembers(tx, idComunidad)) };
   }, undefined, (saved) => publishChannelChange(saved.canal, new Map(), saved.after, EVENTS.CHANNEL_CREATED));
   return toChannel(saved.canal, saved.after.get(idUsuario) ?? []);
@@ -216,7 +220,7 @@ export async function mutateChannel(idCanal, idUsuario, operation, afterCommit) 
 export async function updateChannel(idCanal, idUsuario, cambios) {
   const saved = await mutateChannel(idCanal, idUsuario, async (tx, { canal: previous, rol }, miembros) => {
     if ('privado' in cambios || 'tipo' in cambios) throw new AppError(400,'CHANNEL_TYPE_IMMUTABLE','El tipo y la privacidad del canal se definen al crearlo');
-    const canal = await tx.canal.update({ where: { id: idCanal }, data: cambios, select: channelSelect });
+    const canal = await updateChannelRecord(tx, idCanal, cambios);
     return { canal, rol, before: audience(previous, miembros), after: audience(canal, miembros) };
   }, (saved) => publishChannelChange(saved.canal, saved.before, saved.after));
   return toChannel(saved.canal, saved.after.get(idUsuario) ?? []);
@@ -225,16 +229,18 @@ export async function updateChannel(idCanal, idUsuario, cambios) {
 export async function deleteChannel(idCanal, idUsuario) {
   await mutateChannel(idCanal, idUsuario, async (tx, { canal }, miembros) => {
     const before = audience(canal, miembros);
-    await tx.canal.delete({ where: { id: idCanal } });
+    await deleteChannelRecord(tx, idCanal);
     return { canal, before };
-  }, (saved) => {
-    closeChannel(idCanal);
-    emitToCommunity(saved.canal.idComunidad, 'channels:catalog-changed', {idComunidad:saved.canal.idComunidad});
-    notifyAccessChanges(channelChanges(saved.canal, saved.before, new Map()));
-    for (const [id, permisos] of saved.before) if (permisos.includes('VER')) {
-      emitToUser(id, EVENTS.CHANNEL_DELETED, { idComunidad: saved.canal.idComunidad, idCanal });
-    }
-  });
+  }, (saved) => publishDeletedChannel(saved.canal, saved.before));
+}
+
+export function publishDeletedChannel(canal, before) {
+  closeChannel(canal.id);
+  emitToCommunity(canal.idComunidad, 'channels:catalog-changed', {idComunidad:canal.idComunidad});
+  notifyAccessChanges(channelChanges(canal, before, new Map()));
+  for (const [id, permisos] of before) if (permisos.includes('VER')) {
+    emitToUser(id, EVENTS.CHANNEL_DELETED, {idComunidad:canal.idComunidad,idCanal:canal.id});
+  }
 }
 
 export async function reorderChannels(idComunidad, idUsuario, orden) {
